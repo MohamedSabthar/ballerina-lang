@@ -32,6 +32,18 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ github.sha }}
           restore-keys: ${{ runner.os }}-gradle
 
-      - name: Build with Gradle
+      - name: Build repo with Gradle and publish maven local
         run: |
-          ./gradlew build -x test --max-workers=2 --scan --no-daemon
+          ./gradlew build publishToMavenLocal -x test --max-workers=2 --scan --no-daemon
+      
+      - name: Checkout distribution
+        uses: actions/checkout@v2
+        with:
+          repository: ballerina-platform/ballerina-lang
+          
+      - name: Build dist with Gradle
+        run: |
+          ./gradlew build  -x test
+          
+      
+       
