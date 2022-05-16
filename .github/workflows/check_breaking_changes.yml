@@ -82,15 +82,15 @@ jobs:
       - name: Test path
         run: ls
           
-#       - name: Unzip distribution zip
-#         run: |
-#           cd ./ballerina/build/distributions/
-#           unzip *SNAPSHOT-swan-lake-linux.zip -d .
+      - name: Unzip distribution zip
+        run: |
+          unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
           
-#       - name: Check bal command
-#         run: |
-#           cd ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux/bin
-#           chmod +x bal
-#           ./bal -v
+      - name: Check bal command
+        run: |
+          cd ./distribution/bin
+          chmod +x bal
+          ./bal -v
+          cd ..
       
        
