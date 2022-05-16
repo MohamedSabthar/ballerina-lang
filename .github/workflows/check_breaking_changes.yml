@@ -87,16 +87,10 @@ jobs:
           
       - name: Check bal command
         run: |
-          cd ./distribution/*linux/bin
-          chmod +x bal
-          echo $PATH
-          export PATH=$PATH:$(pwd)
-          echo $PATH
-          cd ..
-          cd ..
-          cd ..
+          chmod +x ./distribution/*linux/bin/bal
+          ./distribution/*linux/bin/bal-v
         
       - name: build connector
-        run: bal build ./twitter
+        run: ./distribution/*linux/bin/bal build ./twitter
       
        
