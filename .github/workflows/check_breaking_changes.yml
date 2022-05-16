@@ -49,16 +49,36 @@ jobs:
         run: |
           pwd
           ./gradlew build  -x test
+      
+      - name: Upload distribution
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-distriubtion
+          path: ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux.zip
           
-      - name: Unzip distribution zip
-        run: |
-          cd ./ballerina/build/distributions/
-          unzip *SNAPSHOT-swan-lake-linux.zip -d .
+  check_connectors:
+    name: Check for breaking changes in ballerinax connectors
+    runs-on: ubuntu-lates
+    needs: ubuntu_build
+    steps:
+      
+      - name: Dowload archived distribution
+        uses: actions/download-artifact@v3
+        with:
+          name: test-distriubtion
           
-      - name: Check bal command
-        run: |
-          cd ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux/bin
-          chmod +x bal
-          ./bal -v
+      - name: Test path
+        run: ls
+          
+#       - name: Unzip distribution zip
+#         run: |
+#           cd ./ballerina/build/distributions/
+#           unzip *SNAPSHOT-swan-lake-linux.zip -d .
+          
+#       - name: Check bal command
+#         run: |
+#           cd ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux/bin
+#           chmod +x bal
+#           ./bal -v
       
        
