@@ -39,7 +39,7 @@ jobs:
       - name: Checkout distribution
         uses: actions/checkout@v2
         with:
-          repository: ballerina-platform/ballerina-lang
+          repository: ballerina-platform/ballerina-dist
           
       - name: Build dist with Gradle
         run: |
