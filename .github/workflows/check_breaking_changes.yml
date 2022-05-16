@@ -85,10 +85,11 @@ jobs:
       - name: Unzip distribution zip
         run: |
           unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
+          ls ./distribution
           
       - name: Check bal command
         run: |
-          cd ./distribution/bin
+          cd ./distribution/*linux/bin
           chmod +x bal
           ./bal -v
           cd ..
