@@ -57,7 +57,7 @@ jobs:
           
       - name: Check bal command
         run: |
-          ls ./ballerina/build/distributions/SNAPSHOT-swan-lake-linux
+          ls ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux
           
       
        
