@@ -82,6 +82,7 @@ jobs:
           ./bal -v
           echo $PATH
           export PATH=$PATH:$(pwd)
+          echo $PATH
           cd ..
 
       - name: checkout connector
@@ -98,6 +99,6 @@ jobs:
         run: chmod +x gradlew
         
       - name: build connector
-        run: bal build ./twitter
+        run: ../distribution/*linux/bin/bal build ./twitter
       
        
