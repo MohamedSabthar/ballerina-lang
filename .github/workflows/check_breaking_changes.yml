@@ -50,6 +50,10 @@ jobs:
           pwd
           ./gradlew build  -x test
           
+      - name: Unzip distribution zip
+        run: |
+          unzip *SNAPSHOT-swan-lake-linux.zip.zip -d .
+          
       - name: Check bal command
         run: |
           ls ./ballerina/build/distributions/
