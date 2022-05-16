@@ -57,7 +57,7 @@ jobs:
           
       - name: Check bal command
         run: |
-          ls
+          ls ./ballerina/build/distributions/
           
       
        
