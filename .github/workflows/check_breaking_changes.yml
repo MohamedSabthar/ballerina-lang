@@ -88,7 +88,7 @@ jobs:
       - name: Check bal command
         run: |
           chmod +x ./distribution/*linux/bin/bal
-          ./distribution/*linux/bin/bal-v
+          ./distribution/*linux/bin/bal -v
         
       - name: build connector
         run: ./distribution/*linux/bin/bal build ./twitter
