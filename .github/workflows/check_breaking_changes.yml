@@ -58,7 +58,6 @@ jobs:
       - name: Check bal command
         run: |
           cd ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux/bin
-          export $PATH=$PATH:$(echo $(pwd))
-          bal -v
+          ./bal -v
       
        
