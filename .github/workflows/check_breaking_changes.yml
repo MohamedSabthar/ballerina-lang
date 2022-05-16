@@ -61,29 +61,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: ubuntu_build
     steps:
-        
-      - name: Dowload archived distribution
-        uses: actions/download-artifact@v3
-        with:
-          name: test-distriubtion
-          
-      - name: Test path
-        run: ls
-          
-      - name: Unzip distribution zip
-        run: |
-          unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
-          ls ./distribution
-          
-      - name: Check bal command
-        run: |
-          cd ./distribution/*linux/bin
-          chmod +x bal
-          ./bal -v
-          echo $PATH
-          export PATH=$PATH:$(pwd)
-          echo $PATH
-          cd ..
 
       - name: checkout connector
         uses: actions/checkout@v2
@@ -98,7 +75,28 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
         
+      - name: Dowload archived distribution
+        uses: actions/download-artifact@v3
+        with:
+          name: test-distriubtion
+          
+      - name: Unzip distribution zip
+        run: |
+          unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
+          ls ./distribution
+          
+      - name: Check bal command
+        run: |
+          cd ./distribution/*linux/bin
+          chmod +x bal
+          echo $PATH
+          export PATH=$PATH:$(pwd)
+          echo $PATH
+          cd ..
+          cd ..
+          cd ..
+        
       - name: build connector
-        run: ../distribution/*linux/bin/bal build ./twitter
+        run: bal build ./twitter
       
        
