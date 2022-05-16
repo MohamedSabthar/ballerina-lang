@@ -43,6 +43,7 @@ jobs:
           
       - name: Build dist with Gradle
         run: |
+          pwd
           ./gradlew build  -x test
           
       
