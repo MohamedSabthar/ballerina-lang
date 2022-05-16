@@ -52,7 +52,7 @@ jobs:
           
       - name: Unzip distribution zip
         run: |
-          unzip *SNAPSHOT-swan-lake-linux.zip.zip -d .
+          unzip *SNAPSHOT-swan-lake-linux.zip -d .
           
       - name: Check bal command
         run: |
