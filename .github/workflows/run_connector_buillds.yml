@@ -167,6 +167,9 @@ jobs:
               pack: aad
             - modules: aws.peoplehr 
               pack: peoplehr
+            - modules: snowflake.driver
+            - modules: cdata.connect.driver
+            - modules: aws.dynamodb
 
       runs-on: ubuntu-latest
       name: Check ${{matrix.modules}} pack (4)
