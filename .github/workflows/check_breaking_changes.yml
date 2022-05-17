@@ -58,7 +58,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: test-distriubtion
-          path: ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux.zip
+          path: installers/linux-deb/target/ballerina-*-linux-x64.deb
           
 #   check_connectors:
 #     name: Check for breaking changes in ballerinax connectors
@@ -124,10 +124,19 @@ jobs:
         with:
           name: test-distriubtion
 
-      - name: Unzip distribution zip
-        run: |
-          unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
-          ls ./distribution
+      - name: Install Ballerina DEB
+        run: sudo dpkg -i installers/linux-deb/target/ballerina-*-linux-x64.deb
+        
+      - name: Run Installer Tests
+        working-directory: ./ballerina-test-automation/installer-test
+        run: ./../gradlew build --stacktrace -scan --console=plain --no-daemon -DballerinaInstalled=true
+        env:
+          TEST_MODE_ACTIVE: true
+          
+#       - name: Unzip distribution zip
+#         run: |
+#           unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
+#           ls ./distribution
 
       - name: Check bal command
         run: |
