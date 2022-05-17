@@ -4,6 +4,7 @@ on: workflow_dispatch
 jobs:
 #   build_ballerina_extended_library_modules_with_gradle:
 #     strategy:
+#       fail-fast: false
 #       matrix:
 #         modules: [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb, postgresql, prometheus, rabbitmq, stan]
 #     runs-on: ubuntu-latest
@@ -36,6 +37,7 @@ jobs:
         
 #   build_ballerinax_connector_modules_with_gradle:
 #       strategy:
+#         fail-fast: false
 #         matrix:
 #           modules: [azure.functions, cdata.connect, datamapper, jaeger, prometheus, snowflake]
 #       runs-on: ubuntu-latest
@@ -68,6 +70,7 @@ jobs:
           
   pack_ballerinax_connector_modules_with_bal:
       strategy:
+        fail-fast: false
         matrix:
           include: 
             - modules: aws.s3 
