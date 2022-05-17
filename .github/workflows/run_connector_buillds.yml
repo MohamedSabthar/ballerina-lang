@@ -68,62 +68,108 @@ jobs:
 #             packagePAT: ${{ secrets.GITHUB_TOKEN }}
 #           run: ./gradlew clean build
           
-  pack_ballerinax_connector_modules_with_bal:
+#   build_ballerinax_connector_modules_with_gradle_and_bal:
+#       strategy:
+#         fail-fast: false
+#         matrix:
+#           include: 
+#             - modules: aws.s3 
+#               pack: s3
+#             - modules: aws.sqs 
+#               pack: sqs
+#             - modules: aws.ses 
+#               pack: ses
+#             - modules: azure-cosmosdb 
+#               pack: cosmosdb
+#             - modules: azure-storage-service 
+#               pack: storageservice
+#             - modules: azure-service-bus 
+#               pack: asb-ballerina
+#             - modules: azure.eventhub 
+#               pack: eventhub
+#             - modules: googleapis.drive 
+#               pack: drive
+#             - modules: googleapis.people 
+#               pack: gpeople
+#             - modules: googleapis.sheets 
+#               pack: gsheet
+#             - modules: googleapis.calendar 
+#               pack: calendar
+#             - modules: googleapis.gmail 
+#               pack: gmail
+#             - modules: microsoft.outlook.mail 
+#               pack: outlookmail
+#             - modules: microsoft.onenote 
+#               pack: onenote
+#             - modules: microsoft.excel 
+#               pack: excel
+#             - modules: microsoft.outlook.calendar 
+#               pack: calendar
+#             - modules: microsoft.onedrive 
+#               pack: onedrive
+#             - modules: microsoft.teams 
+#               pack: teams
+#             - modules: mongodb 
+#               pack: mongodb
+#             - modules: netsuite 
+#               pack: netsuite
+#             - modules: slack 
+#               pack: slack
+#             - modules: sfdc 
+#               pack: sfdc
+#             - modules: twitter 
+#               pack: twitter
+#             - modules: twilio 
+#               pack: twilio
+
+#       runs-on: ubuntu-latest
+#       name: Check ${{matrix.modules}} pack (3)
+#       steps:
+#         - name: Download ballerina distribution
+#           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
+
+#         - name: Install ballerina distribution
+#           run: sudo dpkg -i distribution.deb
+
+#         - name: checkout connector
+#           uses: actions/checkout@v2
+#           with:
+#             repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
+
+#         - name: Set up JDK 11
+#           uses: actions/setup-java@v1
+#           with:
+#             java-version: 11
+
+#         - name: Grant execute permission for gradlew
+#           run: chmod +x gradlew
+
+#         - name: build module with gradle
+#           env:
+#             packageUser: ${{ github.actor }}
+#             packagePAT: ${{ secrets.GITHUB_TOKEN }}
+#           run: ./gradlew clean build
+          
+#         - name: test and build with ballerina
+#           run: |
+#             bal build ./${{matrix.pack}}
+# #            bal test ./${{matrix.pack}}
+          
+            
+  build_ballerinax_connector_modules_with_bal:
       strategy:
         fail-fast: false
         matrix:
           include: 
-            - modules: aws.s3 
-              pack: s3
-            - modules: aws.sqs 
-              pack: sqs
-            - modules: aws.ses 
-              pack: ses
-            - modules: azure-cosmosdb 
-              pack: cosmosdb
-            - modules: azure-storage-service 
-              pack: storageservice
-            - modules: azure-service-bus 
-              pack: asb-ballerina
-            - modules: azure.eventhub 
-              pack: eventhub
-            - modules: googleapis.drive 
-              pack: drive
-            - modules: googleapis.people 
-              pack: gpeople
-            - modules: googleapis.sheets 
-              pack: gsheet
-            - modules: googleapis.calendar 
-              pack: calendar
-            - modules: googleapis.gmail 
-              pack: gmail
-            - modules: microsoft.outlook.mail 
-              pack: outlookmail
-            - modules: microsoft.onenote 
-              pack: onenote
-            - modules: microsoft.excel 
-              pack: excel
-            - modules: microsoft.outlook.calendar 
-              pack: calendar
-            - modules: microsoft.onedrive 
-              pack: onedrive
-            - modules: microsoft.teams 
-              pack: teams
-            - modules: mongodb 
-              pack: mongodb
-            - modules: netsuite 
-              pack: netsuite
-            - modules: slack 
-              pack: slack
-            - modules: sfdc 
-              pack: sfdc
-            - modules: twitter 
-              pack: twitter
-            - modules: twilio 
-              pack: twilio
+            - modules: aws.sns 
+              pack: sns
+            - modules: azure.ad 
+              pack: aad
+            - modules: aws.peoplehr 
+              pack: peoplehr
 
       runs-on: ubuntu-latest
-      name: Check ${{matrix.modules}} pack (3)
+      name: Check ${{matrix.modules}} pack (4)
       steps:
         - name: Download ballerina distribution
           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
@@ -136,26 +182,16 @@ jobs:
           with:
             repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
 
-        - name: Set up JDK 11
-          uses: actions/setup-java@v1
-          with:
-            java-version: 11
-
-        - name: Grant execute permission for gradlew
-          run: chmod +x gradlew
-
         - name: build module with gradle
           env:
             packageUser: ${{ github.actor }}
             packagePAT: ${{ secrets.GITHUB_TOKEN }}
           run: ./gradlew clean build
-          
+
         - name: test and build with ballerina
           run: |
             bal build ./${{matrix.pack}}
 #            bal test ./${{matrix.pack}}
-          
-          
 
 
 
