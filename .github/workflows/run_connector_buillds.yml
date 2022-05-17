@@ -5,7 +5,7 @@ jobs:
   check_breaking_changes_ballerina_extended_library:
     strategy:
       matrix:
-        stdlibs:
+        stdlibs: |
           [
             choreo,
             jaeger,
