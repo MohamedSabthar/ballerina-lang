@@ -138,16 +138,17 @@ jobs:
 #           unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
 #           ls ./distribution
 
-      - name: Check bal command
-        run: |
-          chmod +x ./distribution/*linux/bin/bal
-#          ./distribution/*linux/bin/bal -v
+#       - name: Check bal command
+#         run: |
+#           chmod +x ./distribution/*linux/bin/bal
+# #          ./distribution/*linux/bin/bal -v
       
       - name: Set bal path
         run: | 
-          cd ./distribution/*linux/bin
-          alias bal=$(pwd)/bal
           bal -v
+#          cd ./distribution/*linux/bin
+#          alias bal=$(pwd)/bal
+        
 
       - name: build stdlib
         run: ./gradlew clean build
