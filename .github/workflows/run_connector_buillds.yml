@@ -5,7 +5,7 @@ jobs:
   check_breaking_changes_ballerina_extended_library:
     strategy:
       matrix:
-        stdlibs:
+        modules:
           [
             choreo,
             jaeger,
@@ -21,7 +21,7 @@ jobs:
             stan,
           ]
     runs-on: ubuntu-latest
-    name: Check ${{matrix.stdlibs}} build
+    name: Check ${{matrix.modules}} build
     steps:
       - name: Download ballerina distribution
         run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
