@@ -3,10 +3,10 @@ on:
   workflow_dispatch
 
 jobs:
-  check_breaking_changes:
+  check_breaking_changes_ballerina_extended_library:
     strategy:
       matrix:
-        stdlibs: [java.jdbc, mssql, mysql, oracledb, postgresql]
+        stdlibs: [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb, postgresql, prometheus, rabbitmq, stan]
     runs-on: ubuntu-latest
     name: Check ${{matrix.stdlibs}} build
     steps:
