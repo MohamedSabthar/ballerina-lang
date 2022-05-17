@@ -137,7 +137,7 @@ jobs:
       - name: Set bal path
         run: | 
           cd ./distribution/*linux/bin
-          echo $(pwd) >> $GITHUB_PATH
+          alias bal=$(pwd)/bal
           bal -v
 
       - name: build stdlib
