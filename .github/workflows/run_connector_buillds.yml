@@ -186,6 +186,7 @@ jobs:
             repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
 
         - name: test and build with ballerina
+          if: matrix.pack
           run: |
             bal build ./${{matrix.pack}}
 #            bal test ./${{matrix.pack}}
