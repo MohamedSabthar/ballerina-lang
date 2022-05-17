@@ -1,25 +1,35 @@
 name: CCheck for breaking changes in ballerinax connectors
-on: 
-  workflow_dispatch
+on: workflow_dispatch
 
 jobs:
   check_breaking_changes_ballerina_extended_library:
     strategy:
       matrix:
-        stdlibs: >
-          [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb,
-          postgresql, prometheus, rabbitmq, stan]
+        stdlibs:
+          [
+            choreo,
+            jaeger,
+            java.jdbc,
+            kafka,
+            mssql,
+            mysql,
+            nats,
+            oracledb,
+            postgresql,
+            prometheus,
+            rabbitmq,
+            stan,
+          ]
     runs-on: ubuntu-latest
     name: Check ${{matrix.stdlibs}} build
     steps:
-    
       - name: Download ballerina distribution
         run: wget -O distribution.deb \
           https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
-    
+
       - name: Install ballerina distribution
         run: sudo dpkg -i distribution.deb
-      
+
       - name: checkout connector
         uses: actions/checkout@v2
         with:
@@ -38,4 +48,3 @@ jobs:
           packageUser: ${{ github.actor }}
           packagePAT: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew clean build
-    
