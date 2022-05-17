@@ -31,5 +31,8 @@ jobs:
         run: chmod +x gradlew
 
       - name: build stdlib
+        env:
+          packageUser: ${{ github.actor }}
+          packagePAT: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew clean build
     
