@@ -34,7 +34,7 @@ jobs:
 
       - name: Build repo with Gradle and publish maven local
         run: |
-          ./gradlew build publishToMavenLocal -x test --max-workers=2 --scan --no-daemon
+          ./gradlew clean build publishToMavenLocal -x test --max-workers=2 --scan --no-daemon
           cd ..
       
       - name: Checkout distribution
@@ -52,7 +52,7 @@ jobs:
           # TEST_MODE_ACTIVE: true
         run: |
           pwd
-          ./gradlew build  -x test
+          ./gradlew clean build -x test
       
       - name: Upload distribution
         uses: actions/upload-artifact@v3
