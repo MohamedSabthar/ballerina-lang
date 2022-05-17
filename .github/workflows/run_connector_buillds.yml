@@ -161,15 +161,20 @@ jobs:
         fail-fast: false
         matrix:
           include: 
+            - modules: aws.dynamodb
+            - modules: aws.simpledb
+            - modules: cdata.connect.driver
             - modules: aws.sns 
               pack: sns
             - modules: azure.ad 
               pack: aad
+            - modules: mysql.driver
+            - modules: mssql.driver
+            - modules: postgresql.driver
             - modules: peoplehr 
               pack: peoplehr
             - modules: snowflake.driver
-            - modules: cdata.connect.driver
-            - modules: aws.dynamodb
+
 
       runs-on: ubuntu-latest
       name: Check ${{matrix.modules}} pack (4)
