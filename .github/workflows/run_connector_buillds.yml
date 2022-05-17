@@ -77,10 +77,18 @@ jobs:
               pack: s3
             - modules: aws.sqs 
               pack: sqs
+            - modules: aws.sns 
+              pack: sns
             - modules: aws.ses 
               pack: ses
+            - modules: azure.ad 
+              pack: aad
             - modules: azure-cosmosdb 
               pack: cosmosdb
+            - modules: azure-storage-service 
+              pack: storageservice
+            - modules: azure-service-bus 
+              pack: asb-ballerina
             - modules: azure.eventhub 
               pack: eventhub
             - modules: googleapis.drive 
@@ -89,6 +97,10 @@ jobs:
               pack: gpeople
             - modules: googleapis.sheets 
               pack: gsheet
+            - modules: googleapis.calendar 
+              pack: calendar
+            - modules: googleapis.gmail 
+              pack: gmail
             - modules: microsoft.outlook.mail 
               pack: outlookmail
             - modules: microsoft.onenote 
@@ -101,14 +113,23 @@ jobs:
               pack: onedrive
             - modules: microsoft.teams 
               pack: teams
+            - modules: mongodb 
+              pack: mongodb
             - modules: netsuite 
               pack: netsuite
             - modules: redis 
               pack: redis
+            - modules: peoplehr 
+              pack: peoplehr
+            - modules: slack 
+              pack: slack
+            - modules: sfdc 
+              pack: sfdc
             - modules: twitter 
               pack: twitter
             - modules: twilio 
               pack: twilio
+
       runs-on: ubuntu-latest
       name: Check ${{matrix.modules}} pack (3)
       steps:
