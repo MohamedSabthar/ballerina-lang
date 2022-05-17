@@ -77,14 +77,10 @@ jobs:
               pack: s3
             - modules: aws.sqs 
               pack: sqs
-            - modules: aws.sns 
-              pack: sns
             - modules: aws.ses 
               pack: ses
             - modules: azure-cosmosdb 
               pack: cosmosdb
-            - modules: azure.ad 
-              pack: aad
             - modules: azure.eventhub 
               pack: eventhub
             - modules: googleapis.drive 
@@ -109,8 +105,6 @@ jobs:
               pack: netsuite
             - modules: redis 
               pack: redis
-            - modules: peoplehr 
-              pack: peoplehr
             - modules: twitter 
               pack: twitter
             - modules: twilio 
@@ -143,8 +137,8 @@ jobs:
             packagePAT: ${{ secrets.GITHUB_TOKEN }}
           run: ./gradlew clean build
           
-        - name: build with ballerina
-          run: bal build ./${{matrix.pack}}
+        - name: test and build with ballerina
+          run: bal test ./${{matrix.pack}} && bal build ./${{matrix.pack}}
           
           
 
