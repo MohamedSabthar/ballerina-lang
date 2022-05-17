@@ -152,8 +152,8 @@ jobs:
           
 #         - name: test and build with ballerina
 #           run: |
-#             bal build ./${{matrix.pack}}
-# #            bal test ./${{matrix.pack}}
+#             bal build ${{matrix.pack}}
+# #            bal test ${{matrix.pack}}
           
             
   build_ballerinax_connector_modules_with_bal:
@@ -165,7 +165,7 @@ jobs:
               pack: sns
             - modules: azure.ad 
               pack: aad
-            - modules: aws.peoplehr 
+            - modules: peoplehr 
               pack: peoplehr
             - modules: snowflake.driver
             - modules: cdata.connect.driver
@@ -188,7 +188,7 @@ jobs:
         - name: test and build with ballerina
           run: |
             bal build ${{matrix.pack}}
-#            bal test ./${{matrix.pack}}
+#            bal test ${{matrix.pack}}
 
 
 
