@@ -5,23 +5,9 @@ jobs:
   build_ballerina_extended_library_modules_with_gradle:
     strategy:
       matrix:
-        modules:
-          [
-            choreo,
-            jaeger,
-            java.jdbc,
-            kafka,
-            mssql,
-            mysql,
-            nats,
-            oracledb,
-            postgresql,
-            prometheus,
-            rabbitmq,
-            stan,
-          ]
+        modules: [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb, postgresql, prometheus, rabbitmq, stan]
     runs-on: ubuntu-latest
-    name: Check ${{matrix.modules}} build
+    name: Check ${{matrix.modules}} build (1)
     steps:
       - name: Download ballerina distribution
         run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
@@ -48,43 +34,35 @@ jobs:
           packagePAT: ${{ secrets.GITHUB_TOKEN }}
         run: ./gradlew clean build
         
-    build_ballerinax_connector_modules_with_gradle:
-    strategy:
-      matrix:
-        modules:
-          [
-            azure.functions,
-            snowflake,
-            cdata.connect,
-            prometheus,
-            jaeger,
-            datamapper
-          ]
-    runs-on: ubuntu-latest
-    name: Check ${{matrix.modules}} build
-    steps:
-      - name: Download ballerina distribution
-        run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
+  build_ballerinax_connector_modules_with_gradle:
+      strategy:
+        matrix:
+          modules: [azure.functions, snowflake, cdata.connect, prometheus, jaeger, datamapper]
+      runs-on: ubuntu-latest
+      name: Check ${{matrix.modules}} build (2)
+      steps:
+        - name: Download ballerina distribution
+          run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
 
-      - name: Install ballerina distribution
-        run: sudo dpkg -i distribution.deb
+        - name: Install ballerina distribution
+          run: sudo dpkg -i distribution.deb
 
-      - name: checkout connector
-        uses: actions/checkout@v2
-        with:
-          repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
+        - name: checkout connector
+          uses: actions/checkout@v2
+          with:
+            repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
+        - name: Set up JDK 11
+          uses: actions/setup-java@v1
+          with:
+            java-version: 11
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        - name: Grant execute permission for gradlew
+          run: chmod +x gradlew
 
-      - name: build stdlib
-        env:
-          packageUser: ${{ github.actor }}
-          packagePAT: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew clean build
-        
+        - name: build stdlib
+          env:
+            packageUser: ${{ github.actor }}
+            packagePAT: ${{ secrets.GITHUB_TOKEN }}
+          run: ./gradlew clean build
+
