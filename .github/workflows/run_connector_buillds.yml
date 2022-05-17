@@ -2,44 +2,118 @@ name: CCheck for breaking changes in ballerinax connectors
 on: workflow_dispatch
 
 jobs:
-  build_ballerina_extended_library_modules_with_gradle:
-    strategy:
-      matrix:
-        modules: [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb, postgresql, prometheus, rabbitmq, stan]
-    runs-on: ubuntu-latest
-    name: Check ${{matrix.modules}} build (1)
-    steps:
-      - name: Download ballerina distribution
-        run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
+#   build_ballerina_extended_library_modules_with_gradle:
+#     strategy:
+#       matrix:
+#         modules: [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb, postgresql, prometheus, rabbitmq, stan]
+#     runs-on: ubuntu-latest
+#     name: Check ${{matrix.modules}} build (1)
+#     steps:
+#       - name: Download ballerina distribution
+#         run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
 
-      - name: Install ballerina distribution
-        run: sudo dpkg -i distribution.deb
+#       - name: Install ballerina distribution
+#         run: sudo dpkg -i distribution.deb
 
-      - name: checkout connector
-        uses: actions/checkout@v2
-        with:
-          repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
+#       - name: checkout connector
+#         uses: actions/checkout@v2
+#         with:
+#           repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
 
-      - name: Set up JDK 11
-        uses: actions/setup-java@v1
-        with:
-          java-version: 11
+#       - name: Set up JDK 11
+#         uses: actions/setup-java@v1
+#         with:
+#           java-version: 11
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+#       - name: Grant execute permission for gradlew
+#         run: chmod +x gradlew
 
-      - name: build stdlib
-        env:
-          packageUser: ${{ github.actor }}
-          packagePAT: ${{ secrets.GITHUB_TOKEN }}
-        run: ./gradlew clean build
+#       - name: build stdlib
+#         env:
+#           packageUser: ${{ github.actor }}
+#           packagePAT: ${{ secrets.GITHUB_TOKEN }}
+#         run: ./gradlew clean build
         
-  build_ballerinax_connector_modules_with_gradle:
+#   build_ballerinax_connector_modules_with_gradle:
+#       strategy:
+#         matrix:
+#           modules: [azure.functions, cdata.connect, datamapper, jaeger, prometheus, snowflake]
+#       runs-on: ubuntu-latest
+#       name: Check ${{matrix.modules}} build (2)
+#       steps:
+#         - name: Download ballerina distribution
+#           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
+
+#         - name: Install ballerina distribution
+#           run: sudo dpkg -i distribution.deb
+
+#         - name: checkout connector
+#           uses: actions/checkout@v2
+#           with:
+#             repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
+
+#         - name: Set up JDK 11
+#           uses: actions/setup-java@v1
+#           with:
+#             java-version: 11
+
+#         - name: Grant execute permission for gradlew
+#           run: chmod +x gradlew
+
+#         - name: build module
+#           env:
+#             packageUser: ${{ github.actor }}
+#             packagePAT: ${{ secrets.GITHUB_TOKEN }}
+#           run: ./gradlew clean build
+          
+  pack_ballerinax_connector_modules_with_bal:
       strategy:
         matrix:
-          modules: [azure.functions, snowflake, cdata.connect, prometheus, jaeger, datamapper]
+          include: 
+            - modules: aws.s3 
+              pack: s3
+            - modules: aws.sqs 
+              pack: sqs
+            - modules: aws.sns 
+              pack: sns
+            - modules: aws.ses 
+              pack: ses
+            - modules: azure-cosmosdb 
+              pack: cosmosdb
+            - modules: azure.ad 
+              pack: aad
+            - modules: azure.eventhub 
+              pack: eventhub
+            - modules: googleapis.drive 
+              pack: drive
+            - modules: googleapis.people 
+              pack: gpeople
+            - modules: googleapis.sheets 
+              pack: gsheet
+            - modules: microsoft.outlook.mail 
+              pack: outlookmail
+            - modules: microsoft.onenote 
+              pack: onenote
+            - modules: microsoft.excel 
+              pack: excel
+            - modules: microsoft.outlook.calendar 
+              pack: calendar
+            - modules: microsoft.onedrive 
+              pack: onedrive
+            - modules: microsoft.teams 
+              pack: teams
+            - modules: netsuite 
+              pack: netsuite
+            - modules: redis 
+              pack: redis
+            - modules: peoplehr 
+              pack: peoplehr
+            - modules: twitter 
+              pack: twitter
+            - modules: twilio 
+              pack: twilio
       runs-on: ubuntu-latest
-      name: Check ${{matrix.modules}} build (2)
+      name: Check ${{matrix.modules}} pack (3)
       steps:
         - name: Download ballerina distribution
           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
@@ -60,9 +134,16 @@ jobs:
         - name: Grant execute permission for gradlew
           run: chmod +x gradlew
 
-        - name: build stdlib
+        - name: build module with gradle
           env:
             packageUser: ${{ github.actor }}
             packagePAT: ${{ secrets.GITHUB_TOKEN }}
           run: ./gradlew clean build
+          
+        - name: build with ballerina
+          run: bal build ./${{matrix.pack}}
+          
+          
+
+
 
