@@ -8,7 +8,7 @@ jobs:
       matrix:
         stdlibs: >
           [choreo, jaeger, java.jdbc, kafka, mssql, mysql, nats, oracledb,
-            postgresql, prometheus, rabbitmq, stan]
+          postgresql, prometheus, rabbitmq, stan]
     runs-on: ubuntu-latest
     name: Check ${{matrix.stdlibs}} build
     steps:
