@@ -118,7 +118,7 @@ jobs:
             - modules: slack 
               pack: slack
             - modules: sfdc 
-              pack: sfdc
+              pack: salesforce
             - modules: twitter 
               pack: twitter
             - modules: twilio 
