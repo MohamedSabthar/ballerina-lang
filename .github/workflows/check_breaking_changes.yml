@@ -45,7 +45,11 @@ jobs:
       - name: Build dist with Gradle
         env:
           packagePAT: ${{ secrets.packagePAT }}
-          packageUser: ${{ secrets.packageUser }}
+          packageUser: ${{ github.actor }}
+          # packageUser: ${{ github.actor }}
+          # packagePAT: ${{ secrets.GITHUB_TOKEN }}
+          # devCentralToken: ${{ secrets.BALLERINA_DEV_CENTRAL_ACCESS_TOKEN }}
+          # TEST_MODE_ACTIVE: true
         run: |
           pwd
           ./gradlew build  -x test
@@ -56,8 +60,48 @@ jobs:
           name: test-distriubtion
           path: ./ballerina/build/distributions/*SNAPSHOT-swan-lake-linux.zip
           
-  check_connectors:
-    name: Check for breaking changes in ballerinax connectors
+#   check_connectors:
+#     name: Check for breaking changes in ballerinax connectors
+#     runs-on: ubuntu-latest
+#     needs: ubuntu_build
+#     steps:
+
+#       - name: checkout connector
+#         uses: actions/checkout@v2
+#         with:
+#           repository: ballerina-platform/module-ballerinax-twitter
+          
+#       - name: Set up JDK 11
+#         uses: actions/setup-java@v1
+#         with:
+#           java-version: 11
+            
+#       - name: Grant execute permission for gradlew
+#         run: chmod +x gradlew
+        
+#       - name: Dowload archived distribution
+#         uses: actions/download-artifact@v3
+#         with:
+#           name: test-distriubtion
+          
+#       - name: Unzip distribution zip
+#         run: |
+#           unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
+#           ls ./distribution
+          
+#       - name: Check bal command
+#         run: |
+#           chmod +x ./distribution/*linux/bin/bal
+#           ./distribution/*linux/bin/bal -v
+        
+#       - name: build connector
+#         run: ./distribution/*linux/bin/bal build ./twitter
+        
+  check_stdlib:
+    name: Check for breaking changes in level 8 stdlib modules
+    strategy:
+      matrix:
+        stdlibs: [java.jdbc, mssql, mysql, oracledb, postgresql]
     runs-on: ubuntu-latest
     needs: ubuntu_build
     steps:
@@ -65,32 +109,38 @@ jobs:
       - name: checkout connector
         uses: actions/checkout@v2
         with:
-          repository: ballerina-platform/module-ballerinax-twitter
-          
+          repository: ballerina-platform/module-ballerinax-${{matrix.stdlibs}}
+
       - name: Set up JDK 11
         uses: actions/setup-java@v1
         with:
           java-version: 11
-            
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-        
+
       - name: Dowload archived distribution
         uses: actions/download-artifact@v3
         with:
           name: test-distriubtion
-          
+
       - name: Unzip distribution zip
         run: |
           unzip *SNAPSHOT-swan-lake-linux.zip -d ./distribution
           ls ./distribution
-          
+
       - name: Check bal command
         run: |
           chmod +x ./distribution/*linux/bin/bal
-          ./distribution/*linux/bin/bal -v
-        
-      - name: build connector
-        run: ./distribution/*linux/bin/bal build ./twitter
+#          ./distribution/*linux/bin/bal -v
       
-       
+      - name: Set bal path
+        run: | 
+          cd ./distribution/*linux/bin
+          echo $(pwd) >> $GITHUB_PATH
+          bal -v
+
+      - name: build stdlib
+        run: ./gradlew clean build
+
+
