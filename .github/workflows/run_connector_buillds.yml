@@ -182,12 +182,6 @@ jobs:
           with:
             repository: ballerina-platform/module-ballerinax-${{matrix.modules}}
 
-        - name: build module with gradle
-          env:
-            packageUser: ${{ github.actor }}
-            packagePAT: ${{ secrets.GITHUB_TOKEN }}
-          run: ./gradlew clean build
-
         - name: test and build with ballerina
           run: |
             bal build ./${{matrix.pack}}
