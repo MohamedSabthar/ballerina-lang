@@ -1,0 +1,34 @@
+name: Trigger ballerinax connector build
+on:
+  workflow_dispatch:
+    inputs:
+      artifact:
+        description: "Artifact ID"
+        required: true
+      version:
+        description: "Artifact version"
+        required: true
+      short_version:
+        description: "Artifact short version"
+        required: true
+
+jobs:
+  trigger_repository_disptach_in_ballerinax:
+    strategy:
+      fail-fast: false
+      matrix:
+        modules: [twitter]
+    name: Trigger ballerinax connector builds
+    runs-one: ubuntu-latest
+    steps:
+
+      - name: disptch build request
+        run: |
+          curl --request \
+          POST 'https://api.github.com/repos/sabthar/module-ballerinax-${{matrix.modules}}/dispatches' \
+          --header 'Accept: application/vnd.github.v3+json' \
+          --header 'Authorization: Bearer ${{ secrets.BALLERINA_BOT_TOKEN }}' \
+          --header 'Content-Type: application/json' \
+          --data-raw '{
+              "event_type": "distribution-update"
+          }'
