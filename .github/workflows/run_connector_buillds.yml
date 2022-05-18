@@ -75,58 +75,58 @@ jobs:
         matrix:
           include: 
             - modules: aws.s3 
-              pack: s3
+              ballerina_directory: s3
             - modules: aws.sqs 
-              pack: sqs
+              ballerina_directory: sqs
             - modules: aws.ses 
-              pack: ses
+              ballerina_directory: ses
             - modules: azure-cosmosdb 
-              pack: cosmosdb
+              ballerina_directory: cosmosdb
             - modules: azure-storage-service 
-              pack: storageservice
+              ballerina_directory: storageservice
             - modules: azure-service-bus 
-              pack: asb-ballerina
+              ballerina_directory: asb-ballerina
             - modules: azure.eventhub 
-              pack: eventhub
+              ballerina_directory: eventhub
             - modules: googleapis.drive 
-              pack: drive
+              ballerina_directory: drive
             - modules: googleapis.people 
-              pack: gpeople
+              ballerina_directory: gpeople
             - modules: googleapis.sheets 
-              pack: gsheet
+              ballerina_directory: gsheet
             - modules: googleapis.calendar 
-              pack: calendar
+              ballerina_directory: calendar
             - modules: googleapis.gmail 
-              pack: gmail
+              ballerina_directory: gmail
             - modules: github
-              pack: github
+              ballerina_directory: github
             - modules: microsoft.outlook.mail 
-              pack: outlookmail
+              ballerina_directory: outlookmail
             - modules: microsoft.onenote 
-              pack: onenote
+              ballerina_directory: onenote
             - modules: microsoft.excel 
-              pack: excel
+              ballerina_directory: excel
             - modules: microsoft.outlook.calendar 
-              pack: calendar
+              ballerina_directory: calendar
             - modules: microsoft.onedrive 
-              pack: onedrive
+              ballerina_directory: onedrive
             - modules: microsoft.teams 
-              pack: teams
+              ballerina_directory: teams
             - modules: mongodb 
-              pack: mongodb
+              ballerina_directory: mongodb
             - modules: netsuite 
-              pack: netsuite
+              ballerina_directory: netsuite
             - modules: slack 
-              pack: slack
+              ballerina_directory: slack
             - modules: sfdc 
-              pack: salesforce
+              ballerina_directory: salesforce
             - modules: twitter 
-              pack: twitter
+              ballerina_directory: twitter
             - modules: twilio 
-              pack: twilio
+              ballerina_directory: twilio
 
       runs-on: ubuntu-latest
-      name: Check ${{matrix.modules}} pack (3)
+      name: Check ${{matrix.modules}} build (3)
       steps:
         - name: Download ballerina distribution
           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
@@ -155,8 +155,8 @@ jobs:
           
         - name: test and build with ballerina
           run: |
-            bal build ${{matrix.pack}}
-#            bal test ${{matrix.pack}}
+            bal build ${{matrix.ballerina_directory}}
+#            bal test ${{matrix.ballerina_directory}}
           
             
   build_ballerinax_connector_modules_with_bal:
@@ -167,21 +167,21 @@ jobs:
             - modules: aws.dynamodb
             - modules: aws.simpledb
             - modules: aws.sns 
-              pack: sns
+              ballerina_directory: sns
             - modules: cdata.connect.driver
             - modules: azure.ad 
-              pack: aad
+              ballerina_directory: aad
             - modules: mysql.driver
             - modules: mssql.driver
             - modules: oracledb.driver
             - modules: postgresql.driver
             - modules: peoplehr 
-              pack: peoplehr
+              ballerina_directory: peoplehr
             - modules: snowflake.driver
 
 
       runs-on: ubuntu-latest
-      name: Check ${{matrix.modules}} pack (4)
+      name: Check ${{matrix.modules}} build (4)
       steps:
         - name: Download ballerina distribution
           run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
@@ -196,8 +196,8 @@ jobs:
 
         - name: test and build with ballerina
           run: |
-            bal build ${{matrix.pack}}
-#            bal test ${{matrix.pack}}
+            bal build ${{matrix.ballerina_directory}}
+#            bal test ${{matrix.ballerina_directory}}
 
 
 
