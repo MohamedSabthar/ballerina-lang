@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       distribution_url:
-        description: 'Url for the latest ballerina distribution (linux-deb)'
+        description: 'url for the latest ballerina distribution (linux-deb)'
         default: https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
         type: string
-
+        
 jobs:
   build_ballerina_extended_library_modules_with_gradle:
     strategy:
