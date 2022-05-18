@@ -19,7 +19,7 @@ jobs:
       matrix:
         modules: [twitter]
     name: Trigger ballerinax connector builds
-    runs-one: ubuntu-latest
+    runs-on: ubuntu-latest
     steps:
 
       - name: disptch build request
