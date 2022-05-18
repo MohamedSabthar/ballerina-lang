@@ -155,7 +155,7 @@ jobs:
         - name: test and build with ballerina
           run: |
             bal build ${{matrix.pack}}
-            bal test ${{matrix.pack}}
+#            bal test ${{matrix.pack}}
           
             
   build_ballerinax_connector_modules_with_bal:
@@ -196,7 +196,7 @@ jobs:
         - name: test and build with ballerina
           run: |
             bal build ${{matrix.pack}}
-            bal test ${{matrix.pack}}
+#            bal test ${{matrix.pack}}
 
 
 
