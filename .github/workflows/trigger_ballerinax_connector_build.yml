@@ -31,5 +31,9 @@ jobs:
           --header 'Authorization: token ${{secrets.BALLERINA_BOT_TOKEN}}' \
           --data-raw '{
               "event_type":"check_connector_for_breaking_changes",
-              "client_payload":{"unit":false,"integration":true}
+              "client_payload":{
+                "artifact":${{github.event.inputs.artifact}},
+                "version":${{github.event.inputs.version}},
+                "short_version":${{github.event.inputs.short_version}}
+                }
           }'
