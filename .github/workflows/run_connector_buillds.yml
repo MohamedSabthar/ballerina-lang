@@ -1,6 +1,6 @@
 name: CCheck for breaking changes in ballerinax connectors
 on: 
-  workflow_call:
+  workflow_dispatch:
     inputs:
       distribution_url:
         description: 'Url for the latest ballerina distribution (linux-deb)'
