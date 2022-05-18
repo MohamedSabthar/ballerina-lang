@@ -1,12 +1,6 @@
 name: CCheck for breaking changes in ballerinax connectors
 on: 
-  workflow_dispatch:
-    inputs:
-      distribution_url:
-        description: 'url for the latest ballerina distribution (linux-deb)'
-        default: https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
-        required: true
-        type: string
+  workflow_dispatch
         
 jobs:
   build_ballerina_extended_library_modules_with_gradle:
@@ -18,7 +12,7 @@ jobs:
     name: Check ${{matrix.modules}} build (1)
     steps:
       - name: Download ballerina distribution
-        run: wget -O distribution.deb ${{inputs.distribution_url}}
+        run: wget -O distribution.deb https://dist.ballerina.io/downloads/2201.0.3/ballerina-2201.0.3-swan-lake-linux-x64.deb
 
       - name: Install ballerina distribution
         run: sudo dpkg -i distribution.deb
