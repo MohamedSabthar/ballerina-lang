@@ -27,7 +27,6 @@ jobs:
           curl --request \
           POST 'https://api.github.com/repos/MohamedSabthar/module-ballerinax-${{matrix.modules}}/dispatches' \
           --header 'Accept: application/vnd.github.v3+json' \
-          --header 'Authorization: Bearer ${{ secrets.BALLERINA_BOT_TOKEN }}' \
           --header 'Content-Type: application/json' \
           --data-raw '{
               "client_payload":{"unit":false,"integration":true}
