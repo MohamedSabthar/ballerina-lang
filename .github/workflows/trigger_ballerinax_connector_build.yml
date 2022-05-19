@@ -26,6 +26,6 @@ jobs:
           --data-raw '{
               "event_type":"check_connector_for_breaking_changes",
               "client_payload":{
-                "artifact":${{github.event.inputs.artifact}}
+                "artifact":"${{github.event.inputs.artifact}}"
                 }
           }'
