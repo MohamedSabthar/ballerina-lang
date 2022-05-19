@@ -3,13 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       artifact:
-        description: "Artifact ID"
+        description: "artifact id"
         required: true
-      version:
-        description: "Artifact version"
-        required: true
-      short_version:
-        description: "Artifact short version"
+      suites:
+        description: "suites id"
         required: true
 
 jobs:
@@ -33,7 +30,6 @@ jobs:
               "event_type":"check_connector_for_breaking_changes",
               "client_payload":{
                 "artifact":${{github.event.inputs.artifact}},
-                "version":${{github.event.inputs.version}},
-                "short_version":${{github.event.inputs.short_version}}
+                "suites":${{github.event.inputs.suites}}
                 }
           }'
