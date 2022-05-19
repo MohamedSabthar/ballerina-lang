@@ -22,7 +22,7 @@ jobs:
           POST 'https://api.github.com/repos/mohamedsabthar/module-ballerinax-${{matrix.modules}}/dispatches' \
           --header 'Accept: application/vnd.github.v3+json' \
           --header 'Content-Type: application/json' \
-          --header 'Authorization: token ${{secrets.GITHUB_TOKEN}}' \
+          --header 'Authorization: token ${{secrets.BALLERINA_BOT_TOKEN}}' \
           --data-raw '{
               "event_type":"check_connector_for_breaking_changes",
               "client_payload":{
