@@ -5,9 +5,6 @@ on:
       artifact:
         description: "artifact id"
         required: true
-      suites:
-        description: "suites id"
-        required: true
 
 jobs:
   trigger_repository_disptach_in_ballerinax:
@@ -30,6 +27,5 @@ jobs:
               "event_type":"check_connector_for_breaking_changes",
               "client_payload":{
                 "artifact":${{github.event.inputs.artifact}},
-                "suites":${{github.event.inputs.suites}}
                 }
           }'
