@@ -27,13 +27,14 @@ import io.ballerina.compiler.syntax.tree.Node;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
+import org.ballerinalang.langserver.common.utils.PositionUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.StaticCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
 import org.ballerinalang.langserver.completions.util.FieldAccessCompletionResolver;
 import org.ballerinalang.langserver.completions.util.ForeachCompletionUtil;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.TypeGuardCompletionUtil;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
@@ -46,7 +47,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Generic Completion provider for field access providers.
@@ -86,7 +86,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         for xml attribute access expression where the attribute name being a qualified name reference.
         In this scenario we don't need to get the entries against the expr. This use case is handled above.
          */
-        if (!QNameReferenceUtil.onQualifiedNameIdentifier(ctx, ctx.getNodeAtCursor())) {
+        if (!QNameRefCompletionUtil.onQualifiedNameIdentifier(ctx, ctx.getNodeAtCursor())) {
             List<Symbol> symbolList = resolver.getVisibleEntries(expr);
             //Add typeguard and foreach snippets.
             if (expr.parent().kind() == SyntaxKind.FIELD_ACCESS) {
@@ -113,6 +113,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
      * @param node            Node for which completion is being provided
      * @param completionItems Completion items to be sorted
      */
+    @Override
     public abstract void sort(BallerinaCompletionContext context, T node, List<LSCompletionItem> completionItems);
 
     private boolean isMemberAccessAllowed(TypeSymbol typeSymbol, Node parentNode) {
@@ -122,7 +123,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
     }
 
     private List<LSCompletionItem> getXmlAttributeAccessCompletions(BallerinaCompletionContext context) {
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(context, context.getNodeAtCursor())) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, context.getNodeAtCursor())) {
             /*
             Following contexts are addressed
             eg:
@@ -135,7 +136,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
             Predicate<Symbol> predicate = symbol -> symbol.kind() == SymbolKind.CONSTANT
                     && CommonUtil.getRawType(((ConstantSymbol) symbol)
                     .broaderTypeDescriptor()).typeKind() == TypeDescKind.STRING;
-            List<Symbol> moduleContent = QNameReferenceUtil.getModuleContent(context, qNameRef, predicate);
+            List<Symbol> moduleContent = QNameRefCompletionUtil.getModuleContent(context, qNameRef, predicate);
 
             return this.getCompletionItemList(moduleContent, context);
         }
@@ -152,7 +153,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
          */
         List<Symbol> xmlNamespaces = context.visibleSymbols(context.getCursorPosition()).stream()
                 .filter(symbol -> symbol.kind() == SymbolKind.XMLNS)
-                .collect(Collectors.toList());
+                .toList();
         completionItems.addAll(this.getCompletionItemList(xmlNamespaces, context));
         completionItems.addAll(this.getModuleCompletionItems(context));
 
@@ -165,7 +166,7 @@ public abstract class FieldAccessContext<T extends Node> extends AbstractComplet
         int dotStart = faNode.dotToken().textRange().startOffset();
         int dotEnd = faNode.dotToken().textRange().endOffset();
         // Here we do not check for the existence of the current document because otherwise it will not reach here
-        Range range = CommonUtil.toRange(dotStart, dotEnd, context.currentDocument().get().textDocument());
+        Range range = PositionUtil.toRange(dotStart, dotEnd, context.currentDocument().get().textDocument());
 
         TextEdit textEdit = new TextEdit();
         textEdit.setNewText("");

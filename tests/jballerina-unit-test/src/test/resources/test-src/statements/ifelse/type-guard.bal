@@ -1748,6 +1748,114 @@ function yoo(SomeRecord|int|() aa) {
 
 }
 
+type R1 readonly & record {|int i;|}?;
+type R2 (readonly & record {|int i;|})?;
+type R record {|int i;|};
+
+function testR1(R1 r) {
+    if r is R {
+        R x = r; // no error
+        assertEquality(x.i, 2);
+    } else {
+        panic error("Type of 'r' should be 'R'");
+    }
+}
+
+function testR2(R2 r) {
+    if r is R {
+        R x = r; // no error
+        assertEquality(x.i, 3);
+    } else {
+        panic error("Type of 'r' should be 'R'");
+    }
+}
+
+function testTypeTestingInReadonlyRecord() {
+    testR1({i: 2});
+    testR2({i: 3});
+}
+
+type Type C|Tuple|List;
+type C "C";
+type Tuple ["tuple", Type, Type...];
+type List ["list", int?, Type];
+
+function testCustomCircularTupleTypeWithIsCheck() {
+    Type a = ["list", 1, "C"];
+    Type b = ["tuple", "C", "C", "C"];
+    Type c = "C";
+
+    assertEquality(checkIsExpressionWithCircularTuple(a), "List Type");
+    assertEquality(checkIsExpressionWithCircularTuple(b), "Not a List Type");
+    assertEquality(checkIsExpressionWithCircularTuple(c), "Not a List Type");
+
+    assertEquality(checkIsExpressionWithCircularTuple2(a), "List Type");
+    assertEquality(checkIsExpressionWithCircularTuple2(b), "Tuple Type");
+    assertEquality(checkIsExpressionWithCircularTuple2(c), "Type C");
+}
+
+function checkIsExpressionWithCircularTuple(Type t) returns string {
+    if t is List {
+        List _ = t;
+        return "List Type";
+    }
+    return "Not a List Type";
+}
+
+function checkIsExpressionWithCircularTuple2(Type t) returns string? {
+    if t is List {
+        List _ = t;
+        return "List Type";
+    } else if t is Tuple {
+        Tuple _ = t;
+        return "Tuple Type";
+    } else if t is C {
+        C _ = t;
+        return "Type C";
+    }
+}
+
+function testSingletonTypeNarrowedTypeDesc() {
+    assertEquality(testSingletonTypeNarrowedTypeDesc1(1,1), 1);
+    assertEquality(testSingletonTypeNarrowedTypeDesc2(3,1), 3);
+    assertEquality(testSingletonTypeNarrowedTypeDesc3("","abc"), "abc");
+}
+
+function testSingletonTypeNarrowedTypeDesc1(int foo, int bar) returns int {
+    if foo != 1 {
+        return foo;
+    } else if bar != 1 && foo == 1 {
+        return bar;
+    } else if foo == 1 && bar == 1 {
+        return 1;
+    }
+    return -1;
+}
+
+function testSingletonTypeNarrowedTypeDesc2(1|2|3 foo, int bar) returns int {
+    if foo == 1 {
+        return foo;
+    } else if bar != 1 && foo == 2 {
+        return bar;
+    } else if foo == 3 && bar == 1 {
+        return 3;
+    }
+    return -1;
+}
+
+function testSingletonTypeNarrowedTypeDesc3(string foo, string bar) returns string {
+    if foo != "" {
+        return foo;
+    }
+    if bar != "" && foo == "" {
+        return bar;
+    }
+    if foo == "" && bar == "" {
+        return "";
+    }
+    return "";
+}
+
 function assertTrue(anydata actual) {
     assertEquality(true, actual);
 }

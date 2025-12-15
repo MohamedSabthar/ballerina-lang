@@ -23,6 +23,7 @@ configurable float floatVar = 9.5;
 configurable string stringVar = ?;
 configurable boolean booleanVar = ?;
 configurable decimal decimalVar = 10.1;
+configurable () nilVar = ();
 
 configurable int[] & readonly intArr = ?;
 configurable byte[] & readonly byteArr = ?;
@@ -30,6 +31,7 @@ configurable float[] & readonly floatArr = [9.0, 5.3, 5.6];
 configurable string[] & readonly stringArr = ["apple", "orange", "banana"];
 configurable boolean[] & readonly booleanArr = [true, true];
 configurable decimal[] & readonly decimalArr = ?;
+configurable ()[] nilArr = [];
 
 configurable int[][] & readonly int2DArr = ?;
 configurable byte[][] & readonly byte2DArr = ?;
@@ -37,14 +39,19 @@ configurable float[][] & readonly float2DArr = ?;
 configurable string[][] & readonly string2DArr = ?;
 configurable boolean[][] & readonly boolean2DArr = ?;
 configurable decimal[][] & readonly decimal2DArr = ?;
+configurable ()[][] & readonly nil2DArr = [];
 configurable int[][][] & readonly int3DArr = ?;
 
 type CustomArrayType1 int[];
+
 type CustomArrayType2 int[][];
+
+type RefType "refType";
 
 configurable CustomArrayType1[] & readonly customType1Array = ?;
 configurable CustomArrayType2 & readonly customType2Array = ?;
 configurable CustomArrayType2[] & readonly customType3DArray = ?;
+configurable RefType[] & readonly refArr = ?;
 
 type AuthInfo record {|
     readonly string username;
@@ -52,6 +59,7 @@ type AuthInfo record {|
     string password;
     string[] scopes?;
     boolean isAdmin = false;
+    () nilField = ();
 |};
 
 type Employee record {|
@@ -74,9 +82,16 @@ type PersonInfo readonly & record {|
 
 type EmployeeInfo record {|
     int id;
-    string name= "test";
+    string name = "test";
     float salary?;
 |};
+
+public type CustomConfiguration record {
+    string username;
+    string logLevel = "OFF";
+};
+
+configurable CustomConfiguration customConfig = ?;
 
 type UserTable table<AuthInfo> key(username);
 
@@ -90,7 +105,7 @@ type PersonInfoTable table<PersonInfo> & readonly;
 
 type EmpInfoTable table<EmployeeInfo>;
 
-configurable AuthInfo & readonly admin = ?;
+configurable AuthInfo & readonly admin = {username: "admin", password: "1234"};
 configurable UserTable & readonly users = ?;
 configurable PersonInfo personInfo = ?;
 configurable EmployeeInfo & readonly empInfo = ?;
@@ -130,6 +145,7 @@ function testSimpleValues() {
     test:assertEquals(3.5, floatVar);
     test:assertEquals("abc", stringVar);
     test:assertTrue(booleanVar);
+    test:assertEquals((), nilVar);
 
     decimal result = 24.87;
     test:assertEquals(result, decimalVar);
@@ -143,6 +159,8 @@ function testArrayValues() {
     test:assertEquals([9.0, 5.6], floatArr);
     test:assertEquals(["red", "yellow", "green"], stringArr);
     test:assertEquals([true, false, false, true], booleanArr);
+    test:assertEquals([], nilArr);
+    test:assertEquals(["refType"], refArr);
 
     decimal[] & readonly resultArr = [8.9, 4.5, 6.2];
     test:assertEquals(resultArr, decimalArr);
@@ -152,29 +170,31 @@ function testArrayValues() {
 }
 
 function testMultiDimentionalArrayValues() {
-    test:assertEquals([[1,2],[3,4]], int2DArr);
+    test:assertEquals([[1, 2], [3, 4]], int2DArr);
     test:assertEquals([[9.0, 5.6], [4.1, 56.7]], float2DArr);
     test:assertEquals([["red", "yellow", "green"], ["white", "purple"]], string2DArr);
     test:assertEquals([[true, false], [false, true]], boolean2DArr);
+    test:assertEquals([], nil2DArr);
 
     decimal[][] & readonly resultArr = [[8.9, 4.5, 6.2], [5.4, 8.5]];
     test:assertEquals(resultArr, decimal2DArr);
 
-    byte[][] & readonly resultArr2 = [[11,22,33,44],[55,66,77,88,99]];
+    byte[][] & readonly resultArr2 = [[11, 22, 33, 44], [55, 66, 77, 88, 99]];
     test:assertEquals(byte2DArr, resultArr2);
 }
 
 function testCustomArrayTypeValues() {
-    test:assertEquals([[[1,2],[3,4]],[[1,2],[3,4]]], int3DArr);
-    test:assertEquals([[1,2],[3,4]], customType1Array);
-    test:assertEquals([[5,6],[7,8]], customType2Array);
-    test:assertEquals([[[5,6],[7,8]],[[5,6],[7,8]]], customType3DArray);
+    test:assertEquals([[[1, 2], [3, 4]], [[1, 2], [3, 4]]], int3DArr);
+    test:assertEquals([[1, 2], [3, 4]], customType1Array);
+    test:assertEquals([[5, 6], [7, 8]], customType2Array);
+    test:assertEquals([[[5, 6], [7, 8]], [[5, 6], [7, 8]]], customType3DArray);
 }
 
 function testRecordValues() {
     test:assertEquals("jack", admin.username);
     test:assertEquals("password", admin.password);
     test:assertEquals(["write", "read", "execute"], admin["scopes"]);
+    test:assertEquals((), admin.nilField);
     test:assertTrue(admin.isAdmin);
 
     test:assertEquals("harry", personInfo.name);
@@ -184,6 +204,9 @@ function testRecordValues() {
     test:assertEquals(34, empInfo.id);
     test:assertEquals("test", empInfo.name);
     test:assertEquals(75000.0, empInfo["salary"]);
+
+    test:assertEquals("chiranS", customConfig.username);
+    test:assertEquals("OFF", customConfig.logLevel);
 }
 
 function testTableValues() {

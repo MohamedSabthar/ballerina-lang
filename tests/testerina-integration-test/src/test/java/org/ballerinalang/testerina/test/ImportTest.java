@@ -24,6 +24,7 @@ import org.ballerinalang.testerina.test.utils.AssertionUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.HashMap;
 
 /**
@@ -35,16 +36,16 @@ public class ImportTest extends BaseTestCase {
     private String projectPath;
 
     @BeforeClass()
-    public void setup() throws BallerinaTestException {
+    public void setup() {
         balClient = new BMainInstance(balServer);
         projectPath = projectBasedTestsPath.toString();
     }
 
     @Test()
-    public void testImportTest() throws BallerinaTestException {
+    public void testImportTest() throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{"predeclared-import-tests"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, true);
-        AssertionUtils.assertForTestFailures(output, "predeclared import test failure");
+        AssertionUtils.assertOutput("ImportTest-testImportTest.txt", output);
     }
 }

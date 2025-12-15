@@ -39,11 +39,13 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.Document;
+import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.JarLibrary;
 import io.ballerina.projects.JarResolver;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectKind;
+import io.ballerina.projects.util.FileUtils;
 import io.ballerina.projects.util.ProjectConstants;
 import io.ballerina.tools.diagnostics.Location;
 import io.ballerina.tools.text.LinePosition;
@@ -71,7 +73,8 @@ public class TestProcessor {
     private static final String AFTER_SUITE_ANNOTATION_NAME = "AfterSuite";
     private static final String BEFORE_EACH_ANNOTATION_NAME = "BeforeEach";
     private static final String AFTER_EACH_ANNOTATION_NAME = "AfterEach";
-    private static final String MOCK_ANNOTATION_NAME = "Mock";
+    private static final String TEST_EXECUTE_FILE_PREFIX = "test_execute-generated_";
+            private static final String MOCK_ANNOTATION_NAME = "Mock";
     private static final String BEFORE_FUNCTION = "before";
     private static final String AFTER_FUNCTION = "after";
     private static final String DEPENDS_ON_FUNCTIONS = "dependsOn";
@@ -84,12 +87,9 @@ public class TestProcessor {
     private static final String AFTER_GROUPS_ANNOTATION_NAME = "AfterGroups";
     private static final String TEST_PREFIX = "test";
     private static final String FILE_NAME_PERIOD_SEPARATOR = "$$$";
-    private static final String MODULE = "moduleName";
-    private static final String FUNCTION = "functionName";
-    private static final String MOCK_ANNOTATION_DELIMITER = "#";
-    private static final String MOCK_FN_DELIMITER = "~";
+    private static final String MODULE_DELIMITER = "§";
 
-    private TesterinaRegistry registry = TesterinaRegistry.getInstance();
+    private final TesterinaRegistry registry = TesterinaRegistry.getInstance();
 
     private JarResolver jarResolver;
 
@@ -104,7 +104,7 @@ public class TestProcessor {
      * Generate and return the testsuite for module tests.
      *
      * @param module  Module
-     * @return Optional<TestSuite>
+     * @return {@link Optional Optional&lt;TestSuite&gt;}
      */
     public Optional<TestSuite> testSuite(Module module) {
         if (module.project().kind() != ProjectKind.SINGLE_FILE_PROJECT
@@ -147,29 +147,53 @@ public class TestProcessor {
      * @return TestSuite
      */
     private TestSuite generateTestSuite(Module module, JarResolver jarResolver) {
-        PackageID packageID = module.descriptor().moduleTestCompilationId();
-        String testModuleName = packageID.isTestPkg ? packageID.name.value + Names.TEST_PACKAGE : packageID.name.value;
+        String testModuleName = getTestModuleName(module);
+        TestSuite testSuite = createTestSuite(module, testModuleName);
+        if (jarResolver == null) {
+            throw new IllegalStateException("Jar resolver is null");
+        }
+
+        // If not a cloud build, add the test execution dependencies
+        if (!areTestsDelegated(module)) {
+            addTestExecutionDependencies(module, jarResolver, testSuite);
+        } else if (module.project().buildOptions().nativeImage()) {
+            // If it is a cloud build, add the test execution dependencies only if native image is enabled
+            addTestExecutionDependencies(module, jarResolver, testSuite);
+        }
+
+        // TODO: Remove redundancy in addUtilityFunctions
+        addUtilityFunctions(module, testSuite);
+        populateMockFunctionNamesMap(module, testSuite);
+        return testSuite;
+    }
+
+    private static void addTestExecutionDependencies(Module module, JarResolver jarResolver, TestSuite testSuite) {
+        List<Path> jarPaths = new ArrayList<>();
+        for (JarLibrary jarLibrary : jarResolver.getJarFilePathsRequiredForTestExecution(module.moduleName())) {
+            jarPaths.add(jarLibrary.path());
+        }
+        testSuite.addTestExecutionDependencies(jarPaths);
+    }
+
+    private TestSuite createTestSuite(Module module, String testModuleName) {
         TestSuite testSuite = new TestSuite(module.descriptor().name().toString(), testModuleName,
                 module.descriptor().packageName().toString(), module.descriptor().org().value(),
-                module.descriptor().version().toString());
+                module.descriptor().version().toString(), getExecutePath(module));
         TesterinaRegistry.getInstance().getTestSuites().put(
                 module.descriptor().name().toString(), testSuite);
         testSuite.setPackageName(module.descriptor().packageName().toString());
-        testSuite.setSourceRootPath(module.project().sourceRoot().toString());
 
-        if (jarResolver != null) {
-            List<Path> jarPaths = new ArrayList<>();
-            for (JarLibrary jarLibrary : jarResolver.getJarFilePathsRequiredForTestExecution(module.moduleName())) {
-                jarPaths.add(jarLibrary.path());
-            }
-            testSuite.addTestExecutionDependencies(jarPaths);
+        if (!areTestsDelegated(module)) {
+            testSuite.setSourceRootPath(module.project().sourceRoot().toString());
+        } else {
+            testSuite.setSourceRootPath("./");
         }
-
-        addUtilityFunctions(module, testSuite);
-        populateMockFunctionNamesMap(testSuite);
-        processAnnotations(module, testSuite);
-        testSuite.sort();
         return testSuite;
+    }
+
+    public static String getTestModuleName(Module module) {
+        PackageID packageID = module.descriptor().moduleTestCompilationId();
+        return packageID.isTestPkg ? packageID.name.value + Names.TEST_PACKAGE : packageID.name.value;
     }
 
     /**
@@ -332,7 +356,7 @@ public class TestProcessor {
                 PackageID moduleTestCompilationId = module.descriptor().moduleTestCompilationId();
                 String testModuleName = testable ? moduleTestCompilationId.name.value + Names.TEST_PACKAGE :
                         moduleTestCompilationId.name.value;
-                String className = pos.lineRange().filePath()
+                String className = pos.lineRange().fileName()
                         .replace(ProjectConstants.BLANG_SOURCE_EXT, "")
                         .replace(ProjectConstants.DOT, FILE_NAME_PERIOD_SEPARATOR)
                         .replace("/", ProjectConstants.DOT);
@@ -346,10 +370,13 @@ public class TestProcessor {
         }
     }
 
-    private void populateMockFunctionNamesMap(TestSuite testSuite) {
+    private void populateMockFunctionNamesMap(Module module, TestSuite testSuite) {
         Map<String, String> mockFunctionsSourceMap = registry.getMockFunctionSourceMap();
         for (Map.Entry<String, String> entry : mockFunctionsSourceMap.entrySet()) {
-            testSuite.addMockFunction(entry.getKey(), entry.getValue());
+            String[] entryValues = entry.getKey().split(MODULE_DELIMITER);
+            if (module.moduleName().toString().equals(entryValues[0])) {
+                testSuite.addMockFunction(entryValues[1], entry.getValue());
+            }
         }
     }
 
@@ -378,7 +405,7 @@ public class TestProcessor {
      * @return String
      */
     private String getStringValue(Node valueExpr) {
-        return valueExpr.toString().replaceAll("\\\"", "").trim();
+        return valueExpr.toString().replace("\"", "").trim();
     }
 
     /**
@@ -433,9 +460,9 @@ public class TestProcessor {
                         if (VALUE_FIELD_NAME.equals(getFieldName(specificField))) {
                             ExpressionNode valueExpr = specificField.valueExpr().orElse(null);
                             if (SyntaxKind.LIST_CONSTRUCTOR == valueExpr.kind() &&
-                                    valueExpr instanceof ListConstructorExpressionNode) {
+                                    valueExpr instanceof ListConstructorExpressionNode listConstructorExprNode) {
                                 List<String> groupList = new ArrayList<>();
-                                ((ListConstructorExpressionNode) valueExpr).expressions().forEach(
+                                listConstructorExprNode.expressions().forEach(
                                         expression -> groupList.add(getStringValue(expression)));
                                 if (isBeforeGroups) {
                                     suite.addBeforeGroupsFunction(functionName, groupList);
@@ -485,9 +512,9 @@ public class TestProcessor {
                             }
                             if (GROUP_ANNOTATION_NAME.equals(fieldName)) {
                                 if (SyntaxKind.LIST_CONSTRUCTOR == valueExpr.kind() &&
-                                        valueExpr instanceof ListConstructorExpressionNode) {
+                                        valueExpr instanceof ListConstructorExpressionNode listConstructorExprNode) {
                                     List<String> groupList = new ArrayList<>();
-                                    ((ListConstructorExpressionNode) valueExpr).expressions().forEach(
+                                    listConstructorExprNode.expressions().forEach(
                                             expression -> groupList.add(getStringValue(expression)));
                                     test.setGroups(groupList);
                                     suite.addTestToGroups(test);
@@ -525,9 +552,9 @@ public class TestProcessor {
                             }
                             if (DEPENDS_ON_FUNCTIONS.equals(fieldName)) {
                                 if (SyntaxKind.LIST_CONSTRUCTOR == valueExpr.kind() &&
-                                        valueExpr instanceof ListConstructorExpressionNode) {
+                                        valueExpr instanceof ListConstructorExpressionNode listConstructorExprNode) {
                                     List<String> dependsOnFunctions = new ArrayList<>();
-                                    ((ListConstructorExpressionNode) valueExpr).expressions().forEach(
+                                    listConstructorExprNode.expressions().forEach(
                                             expression -> dependsOnFunctions.add(getStringValue(expression)));
                                     for (String function : dependsOnFunctions) {
                                         test.addDependsOnTestFunction(function);
@@ -564,5 +591,32 @@ public class TestProcessor {
 
         String fieldName = ((BasicLiteralNode) fieldNameNode).literalToken().text();
         return fieldName.substring(1, fieldName.length() - 1);
+    }
+
+    /**
+     * Get the execution path string from {@code Module}.
+     *
+     * @param module Module
+     * @return String
+     */
+    private String getExecutePath(Module module) {
+        String executePath = "";
+        if (isSingleFileProject(module.project())) {
+            executePath = Optional.of(module.project().sourceRoot().getFileName()).get().toString();
+            return FileUtils.getFileNameWithoutExtension(executePath);
+        }
+        for (DocumentId docId : module.testDocumentIds()) {
+            if (module.document(docId).name().startsWith(
+                    ProjectConstants.TEST_DIR_NAME + "/" + TEST_EXECUTE_FILE_PREFIX)) {
+                executePath = module.document(docId).name().replace("/", ProjectConstants.DOT);
+                return FileUtils.getFileNameWithoutExtension(executePath);
+            }
+        }
+        //TODO: Throw an exception for not generating the test execution file. Currently, this handles at BTestRunner
+        return executePath;
+    }
+
+    private boolean areTestsDelegated(Module module) {
+        return module.project().buildOptions().cloud().equals("docker");
     }
 }

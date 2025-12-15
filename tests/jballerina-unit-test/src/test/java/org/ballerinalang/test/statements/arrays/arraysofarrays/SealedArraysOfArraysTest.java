@@ -18,15 +18,16 @@
  */
 package org.ballerinalang.test.statements.arrays.arraysofarrays;
 
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BArray;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -54,7 +55,7 @@ public class SealedArraysOfArraysTest {
 
         BArray returnValues = (BArray) BRunUtil.invoke(compileResult, "initTwoDimensionalSealedArray");
         Assert.assertFalse(
-                returnValues == null || returnValues.size() == 0 || returnValues.get(0) == null,
+                returnValues == null || returnValues.isEmpty() || returnValues.get(0) == null,
                 "Invalid Return Values.");
         Assert.assertEquals(returnValues.get(0), 3L, "Value didn't match");
         Assert.assertEquals(returnValues.get(1), 4L, "Value didn't match");
@@ -67,7 +68,7 @@ public class SealedArraysOfArraysTest {
 
         BArray returnValues = (BArray) BRunUtil.invoke(compileResult, "initThreeDimensionalSealedArray");
         Assert.assertFalse(
-                returnValues == null || returnValues.size() == 0 || returnValues.get(0) == null,
+                returnValues == null || returnValues.isEmpty() || returnValues.get(0) == null,
                 "Invalid Return Values.");
         Assert.assertEquals(returnValues.get(0), 3L, "Value didn't match");
         Assert.assertEquals(returnValues.get(1), 4L, "Value didn't match");
@@ -80,13 +81,13 @@ public class SealedArraysOfArraysTest {
     @Test
     public void testIntegerSealedArraysOfArrays() {
 
-        BArray arrayValue = ValueCreator.createArrayValue(TypeCreator.createArrayType(PredefinedTypes.TYPE_INT, 2), 2);
+        BArray arrayValue = ValueCreator.createArrayValue(TypeCreator.createArrayType(PredefinedTypes.TYPE_INT, 2));
         arrayValue.add(0, 10);
         arrayValue.add(1, 12);
         Object[] args = {arrayValue};
 
         BArray returnValues = (BArray) BRunUtil.invoke(compileResult, "twoDArrayIntAssignment", args);
-        Assert.assertFalse(returnValues == null || returnValues.size() == 0 || returnValues.get(0) == null, "Invalid " +
+        Assert.assertFalse(returnValues == null || returnValues.isEmpty() || returnValues.get(0) == null, "Invalid " +
                 "Return Values.");
         Assert.assertEquals(returnValues.get(0), 3L, "Value didn't match");
         Assert.assertEquals(returnValues.get(1), 10L, "Value didn't match");
@@ -97,14 +98,14 @@ public class SealedArraysOfArraysTest {
     public void testStringSealedArraysOfArrays() {
 
         BArray arrayValue =
-                ValueCreator.createArrayValue(TypeCreator.createArrayType(PredefinedTypes.TYPE_STRING, 2), 2);
+                ValueCreator.createArrayValue(TypeCreator.createArrayType(PredefinedTypes.TYPE_STRING, 2));
         arrayValue.add(0, "ballerina");
         arrayValue.add(1, "multidimensional");
         Object[] args = {arrayValue};
 
         BArray returnValues = (BArray) BRunUtil.invoke(compileResult, "twoDArrayStringAssignment", args);
         Assert.assertFalse(
-                returnValues == null || returnValues.size() == 0 || returnValues.get(0) == null,
+                returnValues == null || returnValues.isEmpty() || returnValues.get(0) == null,
                 "Invalid Return Values.");
         Assert.assertEquals((returnValues.get(0)).toString(), "val1", "Value didn't match");
         Assert.assertEquals((returnValues.get(1)).toString(), "ballerina", "Value didn't match");
@@ -113,7 +114,6 @@ public class SealedArraysOfArraysTest {
 
     @Test()
     public void testNegativeSealedArraysOfArrays() {
-        Assert.assertEquals(resultNegative.getErrorCount(), 34);
         int i = 0;
         BAssertUtil.validateError(
                 resultNegative, i++, "size mismatch in closed array. expected '2', but found '3'", 19, 23);
@@ -152,10 +152,7 @@ public class SealedArraysOfArraysTest {
         BAssertUtil.validateError(
                 resultNegative, i++, "size mismatch in closed array. expected '3', but found '4'", 72, 66);
         BAssertUtil.validateError(
-                resultNegative, i++, "invalid usage of closed type: array not initialized", 73, 5);
-        BAssertUtil.validateError(
-                resultNegative, i++, "incompatible types: expected '((float[*][] & readonly)|string)', " +
-                        "found '(float[2][2] & readonly)'", 76, 40);
+                resultNegative, i++, "invalid usage of closed type: array not initialized", 73, 5);;
         BAssertUtil.validateError(
                 resultNegative, i++, "list index out of range: index: '4'", 83, 11);
         BAssertUtil.validateError(
@@ -182,8 +179,9 @@ public class SealedArraysOfArraysTest {
                 resultNegative, i++, "incompatible types: expected 'map<int[*][]>', found 'map<(float|int[1][1])>'",
                 118, 19);
         BAssertUtil.validateError(
-                resultNegative, i, "incompatible types: expected '[(int[*][] & readonly),float]', " +
+                resultNegative, i++, "incompatible types: expected '[(int[*][] & readonly),float]', " +
                         "found '[(string|int[1][]),float]'", 121, 34);
+        Assert.assertEquals(resultNegative.getErrorCount(), i);
     }
 
     @Test
@@ -206,49 +204,48 @@ public class SealedArraysOfArraysTest {
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
                 "dimension of an array type descriptor", 32, 6);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 36, 15);
+                "dimension of an array type descriptor", 35, 17);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                37, 44);
-        BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                38, 43);
-        BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                39, 40);
+                35, 46);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 47, 17);
+                "dimension of an array type descriptor", 40, 15);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                47, 46);
+                41, 43);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                51, 46);
+                42, 40);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 55, 24);
+                "dimension of an array type descriptor", 50, 24);
+
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 59, 24);
+                "dimension of an array type descriptor", 54, 24);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                63, 41);
+                58, 41);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 63, 53);
+                "dimension of an array type descriptor", 58, 53);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                67, 14);
+                62, 14);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                70, 2);
+                65, 2);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                71, 9);
+                66, 9);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                72, 2);
+                67, 2);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                74, 5);
+                69, 5);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "inferred array size is only allowed in the first " +
-                "dimension of an array type descriptor", 75, 11);
+                "dimension of an array type descriptor", 70, 11);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                76, 5);
+                71, 5);
         BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                77, 11);
-        BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                77, 60);
-        BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                77, 88);
-        BAssertUtil.validateError(codeAnalysisNegative, i++, "length of the array cannot be inferred from the context",
-                78, 36);
+                72, 36);
         Assert.assertEquals(codeAnalysisNegative.getErrorCount(), i);
+    }
+
+    @AfterClass
+    public void tearDown() {
+        compileResult = null;
+        resultNegative = null;
+        codeAnalysisNegative = null;
+
     }
 }

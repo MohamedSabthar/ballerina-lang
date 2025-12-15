@@ -19,11 +19,11 @@ package org.ballerinalang.test.expressions.lambda;
 
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BString;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -64,6 +64,11 @@ public class FunctionPointersTest {
     @Test
     public void testFunctionPointerAsParameter() {
       invokeFunctionPointerProgram(fpProgram, "test3", 4);
+    }
+
+    @Test
+    public void testFuncInvocationWithinTypeNarrowingExpr() {
+        BRunUtil.invoke(fpProgram, "testFuncInvocationWithinTypeNarrowingExpr");
     }
 
     @Test
@@ -204,7 +209,7 @@ public class FunctionPointersTest {
         Assert.assertEquals(returns.get(1).toString(), "smith, tom");
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class)
+    @Test(expectedExceptions = BLangTestException.class)
     public void testStructFPNullReference() {
         BRunUtil.invoke(structProgram, "test2");
     }
@@ -261,7 +266,7 @@ public class FunctionPointersTest {
         Assert.assertEquals(returns, 40L);
     }
 
-    @Test(expectedExceptions = { BLangRuntimeException.class },
+    @Test(expectedExceptions = { BLangTestException.class },
             expectedExceptionsMessageRegExp = "error: \\{ballerina\\}TypeCastError " +
                     "\\{\"message\":\"incompatible types: " +
                     "'isolated function \\(Student\\) returns \\(int\\)' cannot be cast to 'function \\(Person\\)" +
@@ -326,12 +331,14 @@ public class FunctionPointersTest {
         CompileResult result =
                 BCompileUtil.compile("test-src/expressions/lambda/fps_hiding_block_scope_symbols.bal");
         int i = 0;
-        BAssertUtil.validateError(result, i++, "redeclared symbol 'y'", 3, 26);
+        BAssertUtil.validateError(result, i++, "redeclared symbol 'y'", 3, 30);
+        BAssertUtil.validateError(result, i++, "incompatible types: expected 'function (int) returns (int)', " +
+                "found 'function (other) returns (int)'", 7, 12);
         BAssertUtil.validateError(result, i++, "redeclared symbol 'y'", 11, 55);
         BAssertUtil.validateError(result, i++, "redeclared symbol 'z'", 11, 58);
         BAssertUtil.validateError(result, i++, "redeclared symbol 'y'", 34, 13);
-        BAssertUtil.validateError(result, i++, "redeclared symbol 'a'", 42, 32);
-        BAssertUtil.validateError(result, i++, "redeclared symbol 'a'", 47, 32);
+        BAssertUtil.validateError(result, i++, "redeclared symbol 'a'", 42, 36);
+        BAssertUtil.validateError(result, i++, "redeclared symbol 'a'", 47, 36);
         Assert.assertEquals(result.getErrorCount(), i);
     }
 

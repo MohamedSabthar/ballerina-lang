@@ -70,10 +70,6 @@ public class TypeReferenceTypeBalaTest {
         validateError(negativeResult, i++, "unknown type 'Bar2'", 29, 6);
         validateError(negativeResult, i++, "undefined field 'b' in record 'record {| |} & readonly'", 30, 9);
         validateError(negativeResult, i++,
-                      "incompatible types: expected " +
-                              "'(testorg/typereftypes:1.0.0:Foo|testorg/typereftypes:1.0.0:Bar)', found '()'",
-                      33, 22);
-        validateError(negativeResult, i++,
                       "incompatible types: expected 'testorg/typereftypes:1.0.0:Corge', found '()'",
                       34, 22);
         validateError(negativeResult, i++, "unknown type 'FooBar2'", 38, 9);
@@ -84,7 +80,6 @@ public class TypeReferenceTypeBalaTest {
         validateError(negativeResult, i++, "unknown type 'Integer2'", 44, 13);
         validateError(negativeResult, i++, "attempt to refer to non-accessible symbol 'Integer2'", 45, 9);
         validateError(negativeResult, i++, "unknown type 'Integer2'", 45, 9);
-        validateError(negativeResult, i++, "unknown type 'ImmutableIntOrStringArray'", 49, 23);
         validateError(negativeResult, i++, "unknown type 'ImmutableIntArray2'", 49, 60);
         validateError(negativeResult, i++, "unknown type 'ImmutableIntArray2'", 50, 13);
         validateError(negativeResult, i++, "unknown type 'ImmutableIntArray2'", 51, 17);

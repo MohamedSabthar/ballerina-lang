@@ -18,12 +18,16 @@
 
 package org.wso2.ballerinalang.compiler.bir.codegen.split;
 
+import org.wso2.ballerinalang.compiler.bir.codegen.JvmCastGen;
 import org.wso2.ballerinalang.compiler.bir.codegen.JvmPackageGen;
 import org.wso2.ballerinalang.compiler.bir.codegen.JvmTypeGen;
+import org.wso2.ballerinalang.compiler.bir.codegen.internal.AsyncDataCollector;
+import org.wso2.ballerinalang.compiler.bir.codegen.internal.JarEntries;
+import org.wso2.ballerinalang.compiler.bir.codegen.internal.LazyLoadingDataCollector;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.semantics.analyzer.TypeHashVisitor;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * Split initialization of types and other type related methods.
@@ -35,28 +39,28 @@ public class JvmMethodsSplitter {
     private final JvmPackageGen jvmPackageGen;
     private final JvmCreateTypeGen jvmCreateTypeGen;
     private final JvmValueCreatorGen jvmValueCreatorGen;
-    private final JvmAnnotationsGen jvmAnnotationsGen;
     private final BIRNode.BIRPackage module;
-    private final String moduleInitClass;
 
-    public JvmMethodsSplitter(JvmPackageGen jvmPackageGen, JvmConstantsGen jvmConstantsGen,
-                              BIRNode.BIRPackage module, String moduleInitClass, TypeHashVisitor typeHashVisitor) {
+    public JvmMethodsSplitter(JvmPackageGen jvmPackageGen, JvmConstantsGen jvmConstantsGen, BIRNode.BIRPackage module,
+                              TypeHashVisitor typeHashVisitor, JvmTypeGen jvmTypeGen) {
         this.module = module;
         this.jvmPackageGen = jvmPackageGen;
-        this.moduleInitClass = moduleInitClass;
-        JvmTypeGen jvmTypeGen = new JvmTypeGen(jvmConstantsGen, module.packageID, typeHashVisitor);
-        this.jvmCreateTypeGen = new JvmCreateTypeGen(jvmTypeGen, jvmConstantsGen, module.packageID, typeHashVisitor);
-        this.jvmAnnotationsGen = new JvmAnnotationsGen(module, jvmPackageGen, jvmTypeGen);
-        this.jvmValueCreatorGen = new JvmValueCreatorGen(module.packageID);
+        this.jvmCreateTypeGen = new JvmCreateTypeGen(jvmTypeGen, jvmConstantsGen, module, typeHashVisitor);
+        this.jvmValueCreatorGen = new JvmValueCreatorGen(module.packageID, jvmTypeGen);
         jvmConstantsGen.setJvmCreateTypeGen(jvmCreateTypeGen);
     }
 
-    public void generateMethods(Map<String, byte[]> jarEntries) {
-        jvmCreateTypeGen.generateTypeClass(jvmPackageGen, module, jarEntries, moduleInitClass,
-                jvmPackageGen.symbolTable);
-        jvmValueCreatorGen.generateValueCreatorClasses(jvmPackageGen, module, moduleInitClass, jarEntries,
-                jvmPackageGen.symbolTable);
-        jvmCreateTypeGen.generateAnonTypeClass(jvmPackageGen, module, moduleInitClass, jarEntries);
-        jvmAnnotationsGen.generateAnnotationsClass(jarEntries);
+    public void generateMethods(JarEntries jarEntries, JvmCastGen jvmCastGen,
+                                List<BIRNode.BIRTypeDefinition> recordTypeDefList,
+                                List<BIRNode.BIRFunction> sortedFunctions, AsyncDataCollector asyncDataCollector,
+                                LazyLoadingDataCollector lazyLoadingDataCollector) {
+        jvmCreateTypeGen.generateRefTypeConstants(module.typeDefs, jvmPackageGen, jvmCastGen, asyncDataCollector,
+                lazyLoadingDataCollector);
+        jvmCreateTypeGen.createTypes(module, jarEntries, jvmPackageGen, jvmCastGen, asyncDataCollector,
+                lazyLoadingDataCollector);
+        jvmValueCreatorGen.generateValueCreatorClasses(jvmPackageGen, module, jarEntries, jvmCastGen, sortedFunctions);
+        jvmCreateTypeGen.generateAnonTypeClass(jvmPackageGen, module, jarEntries);
+        jvmCreateTypeGen.generateRecordTypeClass(jvmPackageGen, module, jarEntries, recordTypeDefList);
+        jvmCreateTypeGen.generateFunctionTypeClass(jvmPackageGen, module, jarEntries, sortedFunctions);
     }
 }

@@ -15,31 +15,44 @@
  */
 package org.ballerinalang.langserver.hover;
 
+import io.ballerina.compiler.api.symbols.ArrayTypeSymbol;
 import io.ballerina.compiler.api.symbols.ClassSymbol;
 import io.ballerina.compiler.api.symbols.Documentation;
 import io.ballerina.compiler.api.symbols.FunctionSymbol;
 import io.ballerina.compiler.api.symbols.MethodSymbol;
 import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
+import io.ballerina.compiler.api.symbols.ParameterKind;
 import io.ballerina.compiler.api.symbols.ParameterSymbol;
+import io.ballerina.compiler.api.symbols.PathParameterSymbol;
 import io.ballerina.compiler.api.symbols.RecordTypeSymbol;
 import io.ballerina.compiler.api.symbols.ResourceMethodSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
+import io.ballerina.compiler.api.symbols.SymbolKind;
 import io.ballerina.compiler.api.symbols.TypeDefinitionSymbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeReferenceTypeSymbol;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.UnionTypeSymbol;
 import io.ballerina.compiler.api.symbols.VariableSymbol;
+import io.ballerina.compiler.api.symbols.resourcepath.PathRestParam;
+import io.ballerina.compiler.api.symbols.resourcepath.PathSegmentList;
+import io.ballerina.compiler.api.symbols.resourcepath.ResourcePath;
+import io.ballerina.compiler.syntax.tree.DefaultableParameterNode;
 import io.ballerina.compiler.syntax.tree.Node;
+import io.ballerina.compiler.syntax.tree.NonTerminalNode;
+import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.Project;
 import org.ballerinalang.langserver.common.constants.ContextConstants;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.NameUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.HoverContext;
 import org.ballerinalang.langserver.util.MarkupUtils;
 import org.eclipse.lsp4j.Hover;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +62,7 @@ import java.util.stream.Collectors;
 /**
  * Hover Provider for Ballerina.
  *
- * @since 2.0.0
+ * @since 2201.1.2
  */
 public class HoverObjectResolver {
 
@@ -65,29 +78,22 @@ public class HoverObjectResolver {
      * @return {@link Hover} hover object.
      */
     public Hover getHoverObjectForSymbol(Symbol symbol) {
-        switch (symbol.kind()) {
-            case FUNCTION:
-                return getHoverObjectForSymbol((FunctionSymbol) symbol);
-            case METHOD:
-                return getHoverObjectForSymbol((MethodSymbol) symbol);
-            case RESOURCE_METHOD:
-                return getHoverObjectForSymbol((ResourceMethodSymbol) symbol);
-            case TYPE_DEFINITION:
-                return getHoverObjectForSymbol((TypeDefinitionSymbol) symbol);
-            case CLASS:
-                return getHoverObjectForSymbol((ClassSymbol) symbol);
-            case VARIABLE:
-                return getHoverObjectForSymbol((VariableSymbol) symbol);
-            case PARAMETER:
-                return getHoverObjectForSymbol((ParameterSymbol) symbol);
-            case TYPE:
-                if (symbol instanceof TypeReferenceTypeSymbol) {
-                    return getHoverObjectForSymbol(((TypeReferenceTypeSymbol) symbol).definition());
+        return switch (symbol.kind()) {
+            case FUNCTION -> getHoverObjectForSymbol((FunctionSymbol) symbol);
+            case METHOD -> getHoverObjectForSymbol((MethodSymbol) symbol);
+            case RESOURCE_METHOD -> getHoverObjectForSymbol((ResourceMethodSymbol) symbol);
+            case TYPE_DEFINITION -> getHoverObjectForSymbol((TypeDefinitionSymbol) symbol);
+            case CLASS -> getHoverObjectForSymbol((ClassSymbol) symbol);
+            case VARIABLE -> getHoverObjectForSymbol((VariableSymbol) symbol);
+            case PARAMETER -> getHoverObjectForSymbol((ParameterSymbol) symbol);
+            case TYPE -> {
+                if (symbol instanceof TypeReferenceTypeSymbol refTypeSymbol) {
+                    yield getHoverObjectForSymbol(refTypeSymbol.definition());
                 }
-                return HoverUtil.getHoverObject();
-            default:
-                return HoverUtil.getDescriptionOnlyHoverObject(symbol);
-        }
+                yield HoverUtil.getHoverObject();
+            }
+            default -> HoverUtil.getDescriptionOnlyHoverObject(symbol);
+        };
     }
 
     private Hover getHoverObjectForSymbol(VariableSymbol variableSymbol) {
@@ -152,31 +158,85 @@ public class HoverObjectResolver {
         }
         List<String> hoverContent = new ArrayList<>();
         documentation.get().description().ifPresent(hoverContent::add);
+        List<PathParameterSymbol> parameterSymbols = new ArrayList<>();
+        boolean isResourceMethod = functionSymbol.kind() == SymbolKind.RESOURCE_METHOD;
 
+        if (isResourceMethod) {
+            ResourcePath resourcePath = ((ResourceMethodSymbol) functionSymbol).resourcePath();
+            switch (resourcePath.kind()) {
+                case PATH_SEGMENT_LIST -> {
+                    PathSegmentList pathSegmentList = (PathSegmentList) resourcePath;
+                    List<PathParameterSymbol> pathParameterSymbols = pathSegmentList.pathParameters();
+                    parameterSymbols.addAll(pathParameterSymbols);
+                    pathSegmentList.pathRestParameter().ifPresent(parameterSymbols::add);
+                }
+                case PATH_REST_PARAM -> parameterSymbols.add(((PathRestParam) resourcePath).parameter());
+                default -> {
+                    // ignore
+                }
+            }
+        }
         Map<String, String> paramsMap = documentation.get().parameterMap();
-        if (!paramsMap.isEmpty()) {
-            List<String> params = new ArrayList<>();
+        List<String> params = new ArrayList<>();
+
+        if (!paramsMap.isEmpty() || !parameterSymbols.isEmpty()) {
             params.add(MarkupUtils.header(3, ContextConstants.PARAM_TITLE) + CommonUtil.MD_LINE_SEPARATOR);
-            params.addAll(functionSymbol.typeDescriptor().params().get().stream().map(param -> {
+            params.addAll(parameterSymbols.stream().map(param -> {
                 if (param.getName().isEmpty()) {
-                    return MarkupUtils.quotedString(CommonUtil
+                    return MarkupUtils.quotedString(NameUtil
                             .getModifiedTypeName(context, param.typeDescriptor()));
                 }
                 String paramName = param.getName().get();
-                String desc = paramsMap.get(paramName);
-                return MarkupUtils.quotedString(CommonUtil.getModifiedTypeName(context,
-                        param.typeDescriptor())) + " "
+                String desc = paramsMap.getOrDefault(paramName, "");
+                return MarkupUtils.quotedString(NameUtil.getModifiedTypeName(context, param.typeDescriptor())) + " "
                         + MarkupUtils.italicString(MarkupUtils.boldString(paramName)) + " : " + desc;
-            }).collect(Collectors.toList()));
+            }).toList());
+            params.addAll(functionSymbol.typeDescriptor().params().get().stream().map(param -> {
+                if (param.getName().isEmpty()) {
+                    return MarkupUtils.quotedString(NameUtil
+                            .getModifiedTypeName(context, param.typeDescriptor()));
+                }
+                String paramName = param.getName().get();
+                String desc = paramsMap.getOrDefault(paramName, "");
+                String defaultValueEdit = "";
+                if (param.paramKind() == ParameterKind.DEFAULTABLE) {
+                    // Get file path for the symbol
+                    Optional<Path> filePathForSymbol = this.context.workspace().project(this.context.filePath())
+                            .flatMap(project -> PathUtil.getFilePathForSymbol(functionSymbol, project, this.context));
+                    // Lookup the parameter node from syntax tree using the parameter symbol
+                    Optional<NonTerminalNode> paramNode = this.context.workspace().syntaxTree(filePathForSymbol.get())
+                            .flatMap(syntaxTree -> CommonUtil.findNode(param, syntaxTree));
+                    if (paramNode.isPresent() && paramNode.get().kind() == SyntaxKind.DEFAULTABLE_PARAM
+                            && !((DefaultableParameterNode) paramNode.get()).expression().isMissing()) {
+                        // If there's a default value, use that instead of the default value of the type
+                        DefaultableParameterNode node = (DefaultableParameterNode) paramNode.get();
+                        defaultValueEdit = MarkupUtils
+                                .quotedString(String.format("(default: %s)", node.expression().toSourceCode()));
+                    }
+                    // Else we are not going to provide a default value since it can be incorrect.
+                    // The default value can be an expression and will be evaluated at the runtime. Therefore, 
+                    // we cannot provide a default value for the parameter.
+                }
+                return MarkupUtils.quotedString(NameUtil.getModifiedTypeName(context, param.typeDescriptor())) + " "
+                        + MarkupUtils.italicString(MarkupUtils.boldString(paramName)) + " : " + desc + defaultValueEdit;
+            }).toList());
 
             Optional<ParameterSymbol> restParam = functionSymbol.typeDescriptor().restParam();
             if (restParam.isPresent()) {
-                String modifiedTypeName = CommonUtil.getModifiedTypeName(context, restParam.get().typeDescriptor());
+                TypeSymbol typeSymbol = restParam.get().typeDescriptor();
+                String modifiedTypeName = typeSymbol.typeKind() == TypeDescKind.ARRAY ? NameUtil
+                        .getModifiedTypeName(context, ((ArrayTypeSymbol) typeSymbol).memberTypeDescriptor())
+                        : NameUtil.getModifiedTypeName(context, typeSymbol);
+
                 StringBuilder restParamBuilder = new StringBuilder(MarkupUtils.quotedString(modifiedTypeName + "..."));
                 if (restParam.get().getName().isPresent()) {
+                    String paramName = paramsMap.get(restParam.get().getName().get());
+                    if (paramName == null) {
+                        paramName = "";
+                    }
                     restParamBuilder.append(" ")
                             .append(MarkupUtils.italicString(MarkupUtils.boldString(restParam.get().getName().get())))
-                            .append(" : ").append(paramsMap.get(restParam.get().getName().get()));
+                            .append(" : ").append(paramName);
                 }
                 params.add(restParamBuilder.toString());
             }
@@ -185,7 +245,7 @@ public class HoverObjectResolver {
         }
         if (documentation.get().returnDescription().isPresent()) {
             TypeSymbol returnTypeDesc = functionSymbol.typeDescriptor().returnTypeDescriptor().orElseThrow();
-            String returnTypeName = MarkupUtils.quotedString(CommonUtil.getModifiedTypeName(context, returnTypeDesc));
+            String returnTypeName = MarkupUtils.quotedString(NameUtil.getModifiedTypeName(context, returnTypeDesc));
             String returnDoc = MarkupUtils.header(3, ContextConstants.RETURN_TITLE) + CommonUtil.MD_LINE_SEPARATOR +
                     returnTypeName + " : " + documentation.get().returnDescription().get();
             hoverContent.add(returnDoc);
@@ -209,14 +269,14 @@ public class HoverObjectResolver {
             params.addAll(recordType.fieldDescriptors().entrySet().stream()
                     .map(fieldEntry -> {
                         String desc = paramsMap.get(fieldEntry.getKey());
-                        String typeName = CommonUtil
+                        String typeName = NameUtil
                                 .getModifiedTypeName(context, fieldEntry.getValue().typeDescriptor());
                         return MarkupUtils.quotedString(typeName) + " "
                                 + MarkupUtils.italicString(MarkupUtils.boldString(fieldEntry.getKey())) + " : " + desc;
-                    }).collect(Collectors.toList()));
+                    }).toList());
             Optional<TypeSymbol> restTypeDesc = recordType.restTypeDescriptor();
             restTypeDesc.ifPresent(typeSymbol ->
-                    params.add(MarkupUtils.quotedString(CommonUtil.getModifiedTypeName(context, typeSymbol) + "...")));
+                    params.add(MarkupUtils.quotedString(NameUtil.getModifiedTypeName(context, typeSymbol) + "...")));
             hoverContent.add(String.join(CommonUtil.MD_LINE_SEPARATOR, params));
         }
 
@@ -246,11 +306,11 @@ public class HoverObjectResolver {
                         .map(fieldEntry -> {
                             String desc = paramsMap.get(fieldEntry.getKey());
                             String modifiedTypeName =
-                                    CommonUtil.getModifiedTypeName(context, fieldEntry.getValue().typeDescriptor());
+                                    NameUtil.getModifiedTypeName(context, fieldEntry.getValue().typeDescriptor());
                             return MarkupUtils.quotedString(modifiedTypeName) + " " +
                                     MarkupUtils.italicString(MarkupUtils.boldString(fieldEntry.getKey()))
                                     + " : " + desc;
-                        }).collect(Collectors.toList()));
+                        }).toList());
                 if (params.size() > 1) {
                     hoverContent.add(String.join(CommonUtil.MD_LINE_SEPARATOR, params));
                 }
@@ -314,8 +374,7 @@ public class HoverObjectResolver {
                     typeSymbol = classTypeSymbol.get();
                 }
 
-                if (typeSymbol instanceof ClassSymbol) {
-                    ClassSymbol classSymbol = (ClassSymbol) typeSymbol;
+                if (typeSymbol instanceof ClassSymbol classSymbol) {
                     if (classSymbol.initMethod().isEmpty()) {
                         break;
                     }

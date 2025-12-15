@@ -19,7 +19,6 @@ import com.google.gson.annotations.Expose;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Represent documentation for an BClass.
@@ -38,10 +37,13 @@ public class BClass extends Construct {
     public List<Function> otherMethods;
     @Expose
     public boolean isIsolated;
+    @Expose
+    public boolean isService;
 
-    public BClass(String name, String description, boolean isDeprecated, List<DefaultableVariable> fields,
-                  List<Function> methods, boolean isReadOnly, boolean isIsolated) {
-        super(name, description, isDeprecated);
+    public BClass(String name, String description, List<String> descriptionSections, boolean isDeprecated,
+                  List<DefaultableVariable> fields, List<Function> methods, boolean isReadOnly, boolean isIsolated,
+                  boolean isService) {
+        super(name, description, descriptionSections, isDeprecated);
         this.fields = fields;
         this.methods = methods;
         Optional<Function> initMethod = getInitMethod(methods);
@@ -49,6 +51,7 @@ public class BClass extends Construct {
         this.otherMethods = getOtherMethods(methods);
         this.isReadOnly = isReadOnly;
         this.isIsolated = isIsolated;
+        this.isService = isService;
     }
 
     public Optional<Function> getInitMethod(List<Function> methods) {
@@ -60,7 +63,7 @@ public class BClass extends Construct {
     public List<Function> getOtherMethods(List<Function> methods) {
         return methods.stream()
                 .filter(function -> !function.name.equals("init"))
-                .collect(Collectors.toList());
+                .toList();
     }
 
 }

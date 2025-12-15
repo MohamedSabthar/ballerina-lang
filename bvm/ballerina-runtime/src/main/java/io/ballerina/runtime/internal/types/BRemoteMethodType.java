@@ -17,6 +17,7 @@
  */
 package io.ballerina.runtime.internal.types;
 
+import io.ballerina.runtime.api.Module;
 import io.ballerina.runtime.api.types.MethodType;
 import io.ballerina.runtime.api.types.Parameter;
 import io.ballerina.runtime.api.types.RemoteMethodType;
@@ -30,13 +31,13 @@ import java.util.StringJoiner;
  */
 public class BRemoteMethodType extends BMethodType implements RemoteMethodType {
 
-    public BRemoteMethodType(String funcName, BObjectType parent, BFunctionType type, long flags) {
-        super(funcName, parent, type, flags);
+    public BRemoteMethodType(String funcName, Module pkg, BObjectType parent, BFunctionType type, long flags) {
+        super(funcName, pkg, parent, type, flags);
     }
 
     @Override
     public String toString() {
-        StringJoiner sj = new StringJoiner(",", "remote function (", ") returns (" + type.retType + ")");
+        StringJoiner sj = new StringJoiner(",", "remote function (", ") returns (" + this.retType + ")");
         for (Parameter parameter : parameters) {
             sj.add(parameter.type.getName());
         }
@@ -45,7 +46,7 @@ public class BRemoteMethodType extends BMethodType implements RemoteMethodType {
 
     @Override
     public <T extends MethodType> MethodType duplicate() {
-        return new BRemoteMethodType(funcName, parentObjectType, type, flags);
+        return new BRemoteMethodType(funcName, pkg, parentObjectType, this, flags);
     }
 
 }

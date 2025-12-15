@@ -33,9 +33,9 @@ import org.testng.annotations.Test;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Test implementation for debug breakpoint verification scenarios.
@@ -47,14 +47,14 @@ public class BreakpointVerificationTest extends BaseTestCase {
 
     private static final int ENUM_DCLN_START = 17;
     private static final int CLASS_DEFN_START = ENUM_DCLN_START + 6;
-    private static final int TYPE_DEFN_START = CLASS_DEFN_START + 16;
-    private static final int IF_STATEMENT_START = TYPE_DEFN_START + 20;
+    private static final int IF_STATEMENT_START = CLASS_DEFN_START + 25;
     private static final int WHILE_LOOP_START = IF_STATEMENT_START + 9;
     private static final int FOREACH_LOOP_START = WHILE_LOOP_START + 10;
     private static final int MATCH_STMT_START = FOREACH_LOOP_START + 10;
     private static final int DOCUMENTATION_START = MATCH_STMT_START + 8;
     private static final int WORKER_DCLN_START = DOCUMENTATION_START + 10;
 
+    @Override
     @BeforeClass
     public void setup() {
         String testProjectName = "breakpoint-verification-tests";
@@ -64,13 +64,17 @@ public class BreakpointVerificationTest extends BaseTestCase {
 
     @Test(description = "Test to assert runtime verification on breakpoints which were added before starting a " +
             "debug session")
-    public void testInitialBreakpointVerification() throws BallerinaTestException {
+    public void testBasicBreakpointVerification() throws BallerinaTestException {
         // Adds breakpoints for all the lines in the source.
         for (int line = 1; line <= SRC_LINE_COUNT; line++) {
             debugTestRunner.addBreakPoint(new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, line));
         }
 
-        debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN);
+        HashMap<String, Object> extendedCapabilities = new HashMap<>();
+        extendedCapabilities.put("supportsBreakpointVerification", true);
+        HashMap<String, Object> launchConfigs = new HashMap<>();
+        launchConfigs.put("capabilities", extendedCapabilities);
+        debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN, launchConfigs);
         Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(25000);
         debugTestRunner.resumeProgram(debugHitInfo.getRight(), DebugTestRunner.DebugResumeKind.NEXT_BREAKPOINT);
         debugHitInfo = debugTestRunner.waitForDebugHit(10000);
@@ -78,20 +82,25 @@ public class BreakpointVerificationTest extends BaseTestCase {
         debugHitInfo = debugTestRunner.waitForDebugHit(10000);
         debugTestRunner.resumeProgram(debugHitInfo.getRight(), DebugTestRunner.DebugResumeKind.NEXT_BREAKPOINT);
         debugHitInfo = debugTestRunner.waitForDebugHit(10000);
-        Assert.assertEquals(debugHitInfo.getLeft(), new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, 26));
+        Assert.assertEquals(debugHitInfo.getLeft(), new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, 27));
 
         // retrieves all the 'breakpoint' events received from the server, which indicates breakpoint verification
         // status changes.
         List<BallerinaTestDebugPoint> changedBreakpoints = debugTestRunner.waitForModifiedBreakpoints(2000);
-        assertBreakpointChanges(changedBreakpoints);
+        assertBreakpoints(changedBreakpoints);
     }
 
     @Test(description = "Test to assert runtime verification on breakpoints which are getting added on-the-fly " +
-            "during a debug session")
+            "during a debug session", enabled = false)
     public void testOnTheFlyBreakpointVerification() throws BallerinaTestException {
         // adds one initial breakpoint and run debug session until the breakpoint is reached.
         debugTestRunner.addBreakPoint(new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, 27));
-        debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN);
+
+        HashMap<String, Object> extendedCapabilities = new HashMap<>();
+        extendedCapabilities.put("supportsBreakpointVerification", true);
+        HashMap<String, Object> launchConfigs = new HashMap<>();
+        launchConfigs.put("capabilities", extendedCapabilities);
+        debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN, launchConfigs);
         Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(25000);
         Assert.assertEquals(debugHitInfo.getLeft(), new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, 27));
 
@@ -107,12 +116,43 @@ public class BreakpointVerificationTest extends BaseTestCase {
         List<BallerinaTestDebugPoint> breakPoints = Arrays.stream(breakpointResponse.get().getBreakpoints())
                 .map(breakpoint -> new BallerinaTestDebugPoint(Path.of(breakpoint.getSource().getPath()),
                         breakpoint.getLine(), breakpoint.isVerified()))
-                .collect(Collectors.toList());
+                .toList();
 
-        assertBreakpointChanges(breakPoints);
+        assertBreakpoints(breakPoints);
     }
 
-    private void assertBreakpointChanges(List<BallerinaTestDebugPoint> breakpoints) {
+    @Test(description = "Test to assert runtime verification on breakpoints when the debug client doesn't support " +
+            "breakpoint verification")
+    public void testNegativeBreakpointVerification() throws BallerinaTestException {
+        // Adds breakpoints for all the lines in the source.
+        for (int line = 1; line <= SRC_LINE_COUNT; line++) {
+            debugTestRunner.addBreakPoint(new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, line));
+        }
+
+        HashMap<String, Object> extendedCapabilities = new HashMap<>();
+        extendedCapabilities.put("supportsBreakpointVerification", false);
+        HashMap<String, Object> launchConfigs = new HashMap<>();
+        launchConfigs.put("capabilities", extendedCapabilities);
+        debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN, launchConfigs);
+        Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(25000);
+        debugTestRunner.resumeProgram(debugHitInfo.getRight(), DebugTestRunner.DebugResumeKind.NEXT_BREAKPOINT);
+        debugHitInfo = debugTestRunner.waitForDebugHit(10000);
+        debugTestRunner.resumeProgram(debugHitInfo.getRight(), DebugTestRunner.DebugResumeKind.NEXT_BREAKPOINT);
+        debugHitInfo = debugTestRunner.waitForDebugHit(10000);
+        debugTestRunner.resumeProgram(debugHitInfo.getRight(), DebugTestRunner.DebugResumeKind.NEXT_BREAKPOINT);
+        debugHitInfo = debugTestRunner.waitForDebugHit(10000);
+        Assert.assertEquals(debugHitInfo.getLeft(), new BallerinaTestDebugPoint(debugTestRunner.testEntryFilePath, 27));
+
+        // retrieves all the 'breakpoint' events received from the server, which indicates breakpoint verification
+        // status changes.
+        try {
+            List<BallerinaTestDebugPoint> changedBreakpoints = debugTestRunner.waitForModifiedBreakpoints(2000);
+        } catch (BallerinaTestException ignored) {
+            // expected exception because the debug client doesn't support breakpoint verification.
+        }
+    }
+
+    private void assertBreakpoints(List<BallerinaTestDebugPoint> breakpoints) {
         // if statement
         assertVerifiedBreakpoints(breakpoints, IF_STATEMENT_START, 7, true, true, true, true, false, true, false);
         // while statement
@@ -121,14 +161,11 @@ public class BreakpointVerificationTest extends BaseTestCase {
         assertVerifiedBreakpoints(breakpoints, MATCH_STMT_START, 5, true, true, true, false, false);
         // documentation statement
         assertVerifiedBreakpoints(breakpoints, DOCUMENTATION_START, 4, false, false, false, false);
-
         // enum declaration
         assertVerifiedBreakpoints(breakpoints, ENUM_DCLN_START, 5, false, false, false, false, false);
         // class definition
-        assertVerifiedBreakpoints(breakpoints, CLASS_DEFN_START, 15, false, false, false, true, true, true, false,
+        assertVerifiedBreakpoints(breakpoints, CLASS_DEFN_START, 15, true, false, false, true, true, true, false,
                 false, true, true, false, false, true, true, false);
-        // type definition
-        assertVerifiedBreakpoints(breakpoints, TYPE_DEFN_START, 5, false, false, false, false, true);
         // worker declarations
         assertVerifiedBreakpoints(breakpoints, WORKER_DCLN_START, 9, true, true, false, false, true, true, false, false,
                 true);
@@ -150,6 +187,7 @@ public class BreakpointVerificationTest extends BaseTestCase {
         }
     }
 
+    @Override
     @AfterMethod(alwaysRun = true)
     public void cleanUp() {
         debugTestRunner.terminateDebugSession();

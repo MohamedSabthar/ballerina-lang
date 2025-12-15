@@ -27,12 +27,18 @@ import io.ballerina.compiler.api.symbols.DiagnosticState;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
+import io.ballerina.compiler.syntax.tree.NonTerminalNode;
+import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.projects.Document;
 import io.ballerina.tools.diagnostics.Diagnostic;
 import io.ballerina.tools.diagnostics.Location;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
+import io.ballerina.tools.text.TextDocument;
+import io.ballerina.tools.text.TextRange;
+import io.ballerina.types.Core;
 import org.ballerinalang.model.elements.Flag;
 import org.ballerinalang.model.symbols.SymbolKind;
 import org.ballerinalang.model.tree.NodeKind;
@@ -48,7 +54,6 @@ import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeDefinitionSy
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BVarSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
-import org.wso2.ballerinalang.compiler.semantics.model.types.BFiniteType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BFutureType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.tree.BLangClassDefinition;
@@ -78,12 +83,14 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import static io.ballerina.compiler.api.symbols.SymbolKind.CLASS_FIELD;
+import static io.ballerina.compiler.api.symbols.SymbolKind.MODULE;
 import static io.ballerina.compiler.api.symbols.SymbolKind.OBJECT_FIELD;
 import static io.ballerina.compiler.api.symbols.SymbolKind.RECORD_FIELD;
 import static io.ballerina.compiler.api.symbols.SymbolKind.TYPE;
 import static org.ballerinalang.model.symbols.SymbolOrigin.COMPILED_SOURCE;
 import static org.ballerinalang.model.symbols.SymbolOrigin.SOURCE;
 import static org.ballerinalang.model.tree.SourceKind.REGULAR_SOURCE;
+import static org.wso2.ballerinalang.compiler.semantics.analyzer.Types.getImpliedType;
 import static org.wso2.ballerinalang.compiler.semantics.model.symbols.SymTag.ANNOTATION;
 import static org.wso2.ballerinalang.compiler.semantics.model.symbols.SymTag.PACKAGE;
 
@@ -99,6 +106,7 @@ public class BallerinaSemanticModel implements SemanticModel {
     private final SymbolFactory symbolFactory;
     private final TypesFactory typesFactory;
     private final SymbolTable symbolTable;
+    private final Types types;
 
     public BallerinaSemanticModel(BLangPackage bLangPackage, CompilerContext context) {
         this.compilerContext = context;
@@ -106,6 +114,7 @@ public class BallerinaSemanticModel implements SemanticModel {
         this.symbolFactory = SymbolFactory.getInstance(context);
         this.typesFactory = TypesFactory.getInstance(context);
         this.symbolTable = SymbolTable.getInstance(context);
+        this.types = new BallerinaTypes(bLangPackage, compilerContext);
     }
 
     /**
@@ -113,7 +122,7 @@ public class BallerinaSemanticModel implements SemanticModel {
      * */
     @Override
     public Types types() {
-        return BallerinaTypes.getInstance(this.compilerContext);
+        return types;
     }
 
     /**
@@ -126,7 +135,11 @@ public class BallerinaSemanticModel implements SemanticModel {
 
     @Override
     public List<Symbol> visibleSymbols(Document sourceFile, LinePosition position, DiagnosticState... states) {
-        BLangCompilationUnit compilationUnit = getCompilationUnit(sourceFile);
+        Optional<BLangCompilationUnit> optionalCompUnit = getCompilationUnit(sourceFile);
+        if (optionalCompUnit.isEmpty()) {
+            return Collections.emptyList();
+        }
+        BLangCompilationUnit compilationUnit = optionalCompUnit.get();
         BPackageSymbol moduleSymbol = getModuleSymbol(compilationUnit);
         SymbolTable symbolTable = SymbolTable.getInstance(this.compilerContext);
         SymbolEnv pkgEnv = symbolTable.pkgEnvMap.get(moduleSymbol);
@@ -159,8 +172,11 @@ public class BallerinaSemanticModel implements SemanticModel {
      */
     @Override
     public Optional<Symbol> symbol(Document sourceDocument, LinePosition position) {
-        BLangCompilationUnit compilationUnit = getCompilationUnit(sourceDocument);
-        return lookupSymbol(compilationUnit, position);
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(sourceDocument);
+        if (compilationUnit.isEmpty()) {
+            return Optional.empty();
+        }
+        return lookupSymbol(compilationUnit.get(), position);
     }
 
     @Override
@@ -171,8 +187,13 @@ public class BallerinaSemanticModel implements SemanticModel {
             return Optional.empty();
         }
 
-        BLangCompilationUnit compilationUnit = getCompilationUnit(nodeIdentifierLocation.get().lineRange().filePath());
-        return lookupSymbol(compilationUnit, nodeIdentifierLocation.get().lineRange().startLine());
+        Optional<BLangCompilationUnit> compilationUnit = 
+                getCompilationUnit(nodeIdentifierLocation.get().lineRange().fileName());
+        
+        if (compilationUnit.isEmpty()) {
+            return Optional.empty();
+        }
+        return lookupSymbol(compilationUnit.get(), nodeIdentifierLocation.get().lineRange().startLine());
     }
 
     /**
@@ -249,8 +270,12 @@ public class BallerinaSemanticModel implements SemanticModel {
         if (symbolLocation.isEmpty()) {
             return Collections.emptyList();
         }
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(targetDocument);
+        if (compilationUnit.isEmpty()) {
+            return Collections.emptyList();
+        }
         BLangNode node = new NodeFinder(false)
-                .lookupEnclosingContainer(getCompilationUnit(targetDocument), symbolLocation.get().lineRange());
+                .lookupEnclosingContainer(compilationUnit.get(), symbolLocation.get().lineRange());
 
         return getReferences(symbolAtCursor, node, withDefinition);
     }
@@ -266,16 +291,25 @@ public class BallerinaSemanticModel implements SemanticModel {
             return Collections.emptyList();
         }
         Location symbolLocation = symbolAtCursor.getPosition();
+
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(targetDocument);
+        if (compilationUnit.isEmpty()) {
+            return Collections.emptyList();
+        }
+
         BLangNode node = new NodeFinder(false)
-                .lookupEnclosingContainer(getCompilationUnit(targetDocument), symbolLocation.lineRange());
+                .lookupEnclosingContainer(compilationUnit.get(), symbolLocation.lineRange());
 
         return getReferences(symbolAtCursor, node, withDefinition);
     }
 
     private BSymbol findSymbolAtCursorPosition(Document sourceDocument, LinePosition linePosition) {
-        BLangCompilationUnit sourceCompilationUnit = getCompilationUnit(sourceDocument);
+        Optional<BLangCompilationUnit> sourceCompilationUnit = getCompilationUnit(sourceDocument);
+        if (sourceCompilationUnit.isEmpty()) {
+            return null;
+        }
         SymbolFinder symbolFinder = new SymbolFinder();
-        return symbolFinder.lookup(sourceCompilationUnit, linePosition);
+        return symbolFinder.lookup(sourceCompilationUnit.get(), linePosition);
     }
 
     private List<Location> getReferences(BSymbol symbol, BLangNode node, boolean withDefinition) {
@@ -288,9 +322,12 @@ public class BallerinaSemanticModel implements SemanticModel {
      */
     @Override
     public Optional<TypeSymbol> type(LineRange range) {
-        BLangCompilationUnit compilationUnit = getCompilationUnit(range.filePath());
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(range.fileName());
+        if (compilationUnit.isEmpty()) {
+            return Optional.empty();
+        }
         NodeFinder nodeFinder = new NodeFinder(true);
-        BLangNode node = nodeFinder.lookup(compilationUnit, range);
+        BLangNode node = nodeFinder.lookup(compilationUnit.get(), range);
 
         if (node == null) {
             return Optional.empty();
@@ -301,9 +338,12 @@ public class BallerinaSemanticModel implements SemanticModel {
 
     @Override
     public Optional<TypeSymbol> typeOf(LineRange range) {
-        BLangCompilationUnit compilationUnit = getCompilationUnit(range.filePath());
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(range.fileName());
+        if (compilationUnit.isEmpty()) {
+            return Optional.empty();
+        }
         NodeFinder nodeFinder = new NodeFinder(false);
-        BLangNode node = nodeFinder.lookup(compilationUnit, range);
+        BLangNode node = nodeFinder.lookup(compilationUnit.get(), range);
 
         if (!isNonNamedArgExprNode(node) && !isObjectConstructorExpr(node) && !isAnonFunctionExpr(node)) {
             return Optional.empty();
@@ -317,7 +357,8 @@ public class BallerinaSemanticModel implements SemanticModel {
     }
 
     private BType getDeterminedType(BLangNode node, LineRange range) {
-        if (node.getKind() == NodeKind.INVOCATION && node.getDeterminedType().getKind() == TypeKind.FUTURE) {
+        if (node.getKind() == NodeKind.INVOCATION && node.getDeterminedType() != null
+                && node.getDeterminedType().getKind() == TypeKind.FUTURE) {
             BLangInvocation invocationNode = (BLangInvocation) node;
             if (invocationNode.isAsync()
                     && PositionUtil.withinBlock(range.startLine(), invocationNode.getName().getPosition())) {
@@ -365,7 +406,7 @@ public class BallerinaSemanticModel implements SemanticModel {
         for (Diagnostic diagnostic : allDiagnostics) {
             LineRange lineRange = diagnostic.location().lineRange();
 
-            if (lineRange.filePath().equals(range.filePath()) && PositionUtil.withinRange(lineRange, range)) {
+            if (lineRange.fileName().equals(range.fileName()) && PositionUtil.withinRange(lineRange, range)) {
                 filteredDiagnostics.add(diagnostic);
             }
         }
@@ -379,6 +420,36 @@ public class BallerinaSemanticModel implements SemanticModel {
     @Override
     public List<Diagnostic> diagnostics() {
         return this.bLangPackage.getDiagnostics();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Optional<TypeSymbol> expectedType(Document sourceDocument, LinePosition linePosition) {
+        Optional<TypeSymbol> typeSymbol = null;
+        Optional<BLangCompilationUnit> compilationUnit = getCompilationUnit(sourceDocument);
+        if (compilationUnit.isEmpty()) {
+            return Optional.empty();
+        }
+        SyntaxTree syntaxTree = sourceDocument.syntaxTree();
+        Node node = findInnerMostNode(linePosition, syntaxTree);
+        ExpectedTypeFinder expectedTypeFinder = new ExpectedTypeFinder(this, compilationUnit.get(),
+                this.compilerContext, linePosition, sourceDocument);
+        while (node != null) {
+            try {
+                typeSymbol = node.apply(expectedTypeFinder);
+            } catch (IllegalStateException e) {
+                break;
+            }
+            // To handle the cases related to ExternalTreeNodeList.
+            if (typeSymbol != null && typeSymbol.isPresent()) {
+                break;
+            }
+            node = node.parent();
+        }
+
+        return typeSymbol == null ? Optional.empty() : typeSymbol;
     }
 
     // Private helper methods for the public APIs above.
@@ -443,38 +514,37 @@ public class BallerinaSemanticModel implements SemanticModel {
                 (Symbols.isFlagOn(symbol.flags, Flags.PUBLIC) || symbol.getKind() == SymbolKind.PACKAGE);
     }
 
-    private BLangCompilationUnit getCompilationUnit(Document srcFile) {
+    private Optional<BLangCompilationUnit> getCompilationUnit(Document srcFile) {
         return getCompilationUnit(srcFile.name());
     }
 
-    private BLangCompilationUnit getCompilationUnit(String srcFile) {
+    private Optional<BLangCompilationUnit> getCompilationUnit(String srcFile) {
         List<BLangCompilationUnit> testSrcs = new ArrayList<>();
         for (BLangTestablePackage pkg : bLangPackage.testablePkgs) {
             testSrcs.addAll(pkg.compUnits);
         }
 
         Stream<BLangCompilationUnit> units = Stream.concat(bLangPackage.compUnits.stream(), testSrcs.stream());
-        return units
-                .filter(unit -> unit.name.equals(srcFile))
-                .findFirst()
-                .get();
+        return units.filter(unit -> unit.name.equals(srcFile)).findFirst();
     }
 
     private boolean isCursorNotAtDefinition(BLangCompilationUnit compilationUnit, BSymbol symbolAtCursor,
                                             LinePosition cursorPos) {
         return !(compilationUnit.getPackageID().equals(symbolAtCursor.pkgID)
-                && compilationUnit.getName().equals(symbolAtCursor.pos.lineRange().filePath())
+                && compilationUnit.getName().equals(symbolAtCursor.pos.lineRange().fileName())
                 && PositionUtil.withinBlock(cursorPos, symbolAtCursor.pos));
     }
 
     private boolean isInlineSingletonType(BSymbol symbol) {
         // !(symbol.kind == SymbolKind.TYPE_DEF) is checked to exclude type defs
-        return !(symbol.kind == SymbolKind.TYPE_DEF) && symbol.type.tag == TypeTags.FINITE &&
-                ((BFiniteType) symbol.type).getValueSpace().size() == 1;
+        BType type = org.wso2.ballerinalang.compiler.semantics.analyzer.Types.getImpliedType(symbol.type);
+        return !(symbol.kind == SymbolKind.TYPE_DEF) && type.tag == TypeTags.FINITE &&
+                Core.singleShape((symbol.type).semType()).isPresent();
     }
 
     private boolean isInlineErrorType(BSymbol symbol) {
-        return symbol.type.tag == TypeTags.ERROR && Symbols.isFlagOn(symbol.type.flags, Flags.ANONYMOUS);
+        return getImpliedType(symbol.type).tag == TypeTags.ERROR &&
+                Symbols.isFlagOn(symbol.type.getFlags(), Flags.ANONYMOUS);
     }
 
     private boolean isTypeSymbol(BSymbol tSymbol) {
@@ -537,7 +607,7 @@ public class BallerinaSemanticModel implements SemanticModel {
                 compiledSymbol = symbolFactory.getBCompiledSymbol(symbol, symbol.getOriginalName().getValue());
             }
 
-            if (compiledSymbol == null || compiledSymbols.contains(compiledSymbol)) {
+            if (compiledSymbol == null || checkAndUpdateModuleSymbols(compiledSymbols, compiledSymbol, symbol)) {
                 return;
             }
 
@@ -555,6 +625,27 @@ public class BallerinaSemanticModel implements SemanticModel {
             compiledSymbols.add(compiledSymbol);
         }
         addToCompiledSymbols(compiledSymbols, scopeEntry.next, cursorPos, name, symbolEnv, states, compUnitName);
+    }
+
+    private boolean checkAndUpdateModuleSymbols(Set<Symbol> compiledSymbols, Symbol evaluatingSymbol, BSymbol symbol) {
+        boolean symbolExists = compiledSymbols.contains(evaluatingSymbol);
+
+        if (!symbolExists) {
+            return false;
+        }
+
+        if (evaluatingSymbol.kind() != MODULE) {
+            return true;
+        }
+
+        // If the same module symbol, but without a module alias is already added, then it shall be removed to add
+        // the new symbol with the import alias.
+        if (((BPackageSymbol) symbol).importPrefix != null) {
+            compiledSymbols.remove(evaluatingSymbol);
+            return false;
+        }
+
+        return true;
     }
 
     private boolean isWithinCurrentWorker(long symbolEnvScopeOwnerFlags, SymbolEnv enclEnv, BSymbol symbol) {
@@ -599,15 +690,16 @@ public class BallerinaSemanticModel implements SemanticModel {
     }
 
     private boolean isFilteredVarSymbol(BSymbol symbol, Set<DiagnosticState> states) {
-        return symbol instanceof BVarSymbol && !states.contains(((BVarSymbol) symbol).state);
+        return symbol instanceof BVarSymbol varSymbol && !states.contains(varSymbol.state);
     }
 
     private boolean isObjectConstructorExpr(BLangNode node) {
-        return node instanceof BLangClassDefinition && ((BLangClassDefinition) node).flagSet.contains(Flag.OBJECT_CTOR);
+        return node instanceof BLangClassDefinition classDefinition &&
+                classDefinition.flagSet.contains(Flag.OBJECT_CTOR);
     }
 
     private boolean isAnonFunctionExpr(BLangNode node) {
-        return (node instanceof BLangFunction && ((BLangFunction) node).flagSet.contains(Flag.LAMBDA))
+        return (node instanceof BLangFunction bLangFunction && bLangFunction.flagSet.contains(Flag.LAMBDA))
                 || node instanceof BLangArrowFunction;
     }
 
@@ -618,4 +710,12 @@ public class BallerinaSemanticModel implements SemanticModel {
     private boolean isPackageImportedOnTheCompUnit(BSymbol symbol, String compUnit) {
         return symbol.getKind() == SymbolKind.PACKAGE && ((BPackageSymbol) symbol).compUnit.getValue().equals(compUnit);
     }
+
+    private static NonTerminalNode findInnerMostNode(LinePosition linePosition, SyntaxTree syntaxTree) {
+        TextDocument textDocument = syntaxTree.textDocument();
+        int start = textDocument.textPositionFrom(linePosition);
+        int end = textDocument.textPositionFrom(linePosition);
+        return ((ModulePartNode) syntaxTree.rootNode()).findNode(TextRange.from(start, end - start), true);
+    }
+
 }

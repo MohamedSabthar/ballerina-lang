@@ -98,6 +98,16 @@ function checkFloatEquality() {
     test:assertFalse((b == a) || !(b != a));
 }
 
+function checkDecimalEquality() {
+    decimal d1 = 0d;
+    decimal d2 = 0.0d;
+    decimal d3 = 1.0001;
+    decimal d4 = 1.000100;
+    test:assertTrue((d1 == d2) && !(d1 != d2));
+    test:assertTrue((d3 == d4) && !(d3 != d4));
+    test:assertFalse((d1 == d3) && !(d4 != d2));
+}
+
 function checkStringEquality() {
     string a = "a";
     string b = "Hello, from Ballerina!";
@@ -140,6 +150,20 @@ function checkAnyDataEquality() {
     test:assertFalse((a == e) || !(a != e));
     test:assertFalse((a == f) || !(a != f));
     test:assertFalse((a == g) || !(a != g));
+}
+
+type IntOne 1;
+
+function checkFiniteTypeEquality() {
+    IntOne intOne_1 = 1;
+    IntOne intOne_2 = 1;
+    byte byteOne = 1;
+    byte byteTwo = 2;
+
+    test:assertTrue((intOne_1 == intOne_2) && !(intOne_1 != intOne_2));
+    test:assertTrue((intOne_1 == byteOne) && !(intOne_1 != byteOne));
+    test:assertTrue(!(intOne_1 == byteTwo) && (intOne_1 != byteTwo));
+    test:assertTrue(!(byteOne == byteTwo) && (byteOne != byteTwo));
 }
 
 type ErrorDetail record {
@@ -204,6 +228,16 @@ function testOpenRecordWithOptionalFieldsEqualityNegative() {
     test:assertFalse((e1 == e2) || !(e1 != e2) || (e3 == e4) || !(e3 != e4));
 }
 
+type EmployeeWithOptionalId record {|
+    string name;
+    float id?;
+|};
+
+type PersonWithOptionalId record {|
+    string name;
+    string id?;
+|};
+
 function testClosedRecordWithOptionalFieldsEqualityPositive() {
     ClosedRecordWithOptionalFieldOne e1 = {name: "Em", one: 4000};
     ClosedRecordWithOptionalFieldOne e2 = e1;
@@ -212,6 +246,10 @@ function testClosedRecordWithOptionalFieldsEqualityPositive() {
     ClosedRecordWithOptionalFieldTwo e4 = {name: "Em"};
 
     test:assertTrue((e1 == e2) && !(e1 != e2) && isEqual(e3, e4));
+
+    EmployeeWithOptionalId e5 = { name: "Maryam" };
+    PersonWithOptionalId p1 = { name: "Maryam" };
+    test:assertTrue(e5 == p1 && !(e5 != p1));
 }
 
 function testClosedRecordWithOptionalFieldsEqualityNegative() {
@@ -571,6 +609,9 @@ function checkComplexMapEqualityNegative() {
     test:assertFalse(m1 == m2 || !(m1 != m2));
 }
 
+type Array ["array", 1];
+type Mapping ["mapping", 2];
+
 function checkTupleEqualityPositive() {
     [string, int] t1 = ["", 0];
     [string, int] t2 = ["", 0];
@@ -579,6 +620,10 @@ function checkTupleEqualityPositive() {
     [string, int, OpenEmployee] t4 = ["hi", 0, {name: "Em"}];
 
     test:assertTrue(t1 == t2 && !(t1 != t2) && t3 == t4 && !(t3 != t4));
+
+    Array a = ["array", 1];
+    Array b = ["array", 1];
+    test:assertTrue(a == b);
 }
 
 function checkTupleEqualityNegative() {
@@ -660,6 +705,18 @@ function checkUnionConstrainedMapsNegative() {
     m4["one"] = ["hi", 100.0];
 
     test:assertFalse('equals || m3 == m4 || !(m3 != m4));
+}
+
+function checkEqualityOfMapsOfIncompatibleConstraintTypes() {
+    map<int> a = {};
+    map<float> b = {};
+    boolean bool1 = a == b && !(a != b);
+
+    map<string|int> c = {};
+    map<float> d = {};
+    boolean bool2 = c == d && !(c != d);
+
+    test:assertTrue(bool1 && bool2);
 }
 
 function checkUnionArrayPositive() {
@@ -1095,6 +1152,17 @@ public function testXmlSequenceAndXmlItemEqualityNegative() {
     xml x2 = xml `<name>Book Two</name>`;
     xml x3 = x2.get(0);
     test:assertFalse(x1 == x3 || !(x1 != x3) || x3 == x1 || !(x3 != x1));
+}
+
+public function testXmlSequenceLHSEquals() {
+    string a = "hello";
+    xml x1 = xml `AS-${a}`;
+    xml x2 = xml `AS-${a}`;
+    test:assertTrue(x1 == x2 && !(x1 != x2));
+
+    x1 = xml `<?target data?><?target_two data_two?>`;
+    x2 = xml `<?target data?><?target_two data_two?>`;
+    test:assertTrue(x1 == x2 && !(x1 != x2));
 }
 
 function testXmlStringNegative() {
@@ -1729,4 +1797,67 @@ function testEqualityByteWithIntSubTypes() {
     test:assertFalse((b !== a) || (c !== a) || (d !== a) || (e !== a) ||
     (g !== a) || (h !== a));
     // Need to add (a !== f) , (f !== a) after fixing #32924
+}
+
+type Part anydata[];
+type J anydata;
+
+function testEqualityWithCyclicReferences() {
+    map<anydata> m1 = {one: 1, two: 2};
+    map<anydata> m2 = {one: 1, two: 2};
+    m1["three"] = m2;
+    m2["three"] = m1;
+    test:assertTrue(m1 == m2);
+    test:assertFalse(m1 != m2);
+
+    map<J> j1 = { loop: () };
+    map<J> j2 = { loop: () };
+    j1["loop"] = j1;
+    j2["loop"] = j1;
+    map<J> j3 = { loop: () };
+    j3["loop"] = { loop: { loop: { loop: j3 }}};
+    test:assertTrue(j1 == j3);
+
+    Part yin = [];
+    Part yang = [];
+    yin[0] = yang;
+    yang[0] = yin;
+    test:assertTrue(yin == yang);
+
+    table<map<anydata>> t1 = table [];
+    table<map<anydata>> t2 = table [];
+    t1.add({loop: t2});
+    t2.add({loop: t1});
+    test:assertTrue(t1 == t2);
+
+    table<map<anydata>> t3 = table [];
+    table<map<anydata>> t4 = table [];
+    table<map<anydata>> t5 = table [];
+    t3.add({loop: t4});
+    t4.add({loop: t5});
+    t5.add({loop: t3});
+    test:assertTrue(t3 == t4);
+    test:assertTrue(t3 == t5);
+}
+
+function readonlyMapEquality() {
+    map<int> & readonly immutableMarks = {
+        math: 80,
+        physics: 85,
+        chemistry: 75
+    };
+    readonly readonlyMarks = immutableMarks;
+
+    map<int> marks = {
+        math: 80,
+        physics: 85,
+        chemistry: 75
+    };
+
+    test:assertTrue(readonlyMarks == marks);
+}
+
+function readonlyListEquality() {
+    readonly arr = [1, 2 , 3];
+    test:assertTrue(arr == [1, 2 , 3]);
 }

@@ -18,6 +18,8 @@
 
 package io.ballerina.projects.internal.model;
 
+import io.ballerina.projects.PackageManifest;
+
 import java.util.List;
 
 /**
@@ -35,6 +37,7 @@ public class PackageJson {
     private String source_repository; //?
     private List<String> keywords; //?
     private List<String> export; //?
+    private List<String> include;
     private String visibility;
 
     // Distribution details
@@ -52,6 +55,14 @@ public class PackageJson {
     // Templating support
     private boolean template; //?
     private String template_version; //?
+
+    // GraalVM compatibility property for package
+    private Boolean graalvmCompatible;
+
+    // Docs
+    private String readme;
+    private String description;
+    private List<PackageManifest.Module> modules;
 
     public PackageJson(String organization, String name, String version) {
         this.organization = organization;
@@ -119,8 +130,16 @@ public class PackageJson {
         return export;
     }
 
+    public List<String> getInclude() {
+        return include;
+    }
+
     public void setExport(List<String> export) {
         this.export = export;
+    }
+
+    public void setInclude(List<String> include) {
+        this.include = include;
     }
 
     public String getVisibility() {
@@ -193,5 +212,37 @@ public class PackageJson {
 
     public void setLocalDependencies(List<LocalDependency> localDependencies) {
         this.localDependencies = localDependencies;
+    }
+
+    public Boolean getGraalvmCompatible() {
+        return graalvmCompatible;
+    }
+
+    public void setGraalvmCompatible(Boolean graalvmCompatible) {
+        this.graalvmCompatible = graalvmCompatible;
+    }
+
+    public String getReadme() {
+        return readme;
+    }
+
+    public void setReadme(String readme) {
+        this.readme = readme;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public List<PackageManifest.Module> getModules() {
+        return modules;
+    }
+
+    public void setModules(List<PackageManifest.Module> modules) {
+        this.modules = modules;
     }
 }

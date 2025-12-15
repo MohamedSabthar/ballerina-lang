@@ -172,7 +172,7 @@ json jsonValue = {name: "John", age: 20};
 var '\ \/\:\@\[\`\{\~\u{03C0}_IL = "IL with global var";
 
 // configurable variables
-configurable int port = ?;
+configurable int port = 9090;
 
 // let expression helper declarations
 const globalVar = 2;
@@ -263,7 +263,8 @@ public function main() {
             maths: 80,
             physics: 75,
             chemistry: 65
-        }
+        },
+        "course": "ballerina"
     };
 
     record {|string city; string country;|} anonRecord = {city: "London", country: "UK"};
@@ -310,6 +311,7 @@ public function main() {
     byte byteVar = 128;
     json jsonVar = {name: "apple", color: "red", price: 40};
     xml<never> neverVar = <xml<never>>'xml:concat();
+    string:RegExp regexVar  = re `[a-zA-Z0-9]`;
 
     // quoted identifiers
     string '\ \/\:\@\[\`\{\~\u{03C0}_var = "IL with special characters in var";

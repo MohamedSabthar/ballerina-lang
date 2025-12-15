@@ -49,7 +49,7 @@ public class InitCommandTest extends BaseCommandTest {
         System.setProperty(USER_NAME, "testuserorg");
         String[] args = {};
         InitCommand initCommand = new InitCommand(projectPath, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
 
         Assert.assertTrue(Files.exists(projectPath));
@@ -60,6 +60,44 @@ public class InitCommandTest extends BaseCommandTest {
         String expectedContent = "[package]\n" +
                 "org = \"testuserorg\"\n" +
                 "name = \"" + projectPath.getFileName().toString() + "\"\n" +
+                "version = \"0.1.0\"\n" +
+                "distribution = \"" + RepoUtils.getBallerinaShortVersion() + "\"\n\n" +
+                "[build-options]\n" +
+                "observabilityIncluded = true\n";
+        Assert.assertEquals(tomlContent.trim(), expectedContent.trim());
+
+        Path testPath = projectPath.resolve(ProjectConstants.TEST_DIR_NAME);
+        Assert.assertFalse(Files.exists(testPath));
+
+        Path resourcePath = projectPath.resolve(ProjectConstants.RESOURCE_DIR_NAME);
+        Assert.assertFalse(Files.exists(resourcePath));
+        Assert.assertTrue(Files.notExists(projectPath.resolve(ProjectConstants.PACKAGE_MD_FILE_NAME)));
+        Assert.assertFalse(Files.exists(projectPath.resolve("main.bal")));
+
+        Assert.assertTrue(readOutput().contains("Created new package"));
+    }
+
+    @Test(description = "Initialize a new empty project within a directory has invalid characters for project name")
+    public void testInitCommandWithinInvalidCharsDir() throws IOException {
+        Path projectPath = tmpDir.resolve("hello-world");
+        Files.createDirectory(projectPath);
+        Path balFile = projectPath.resolve("data.bal");
+        Files.createFile(balFile);
+
+        System.setProperty(USER_NAME, "testuserorg");
+        String[] args = {};
+        InitCommand initCommand = new InitCommand(projectPath, printStream, false);
+        new CommandLine(initCommand).parseArgs(args);
+        initCommand.execute();
+
+        Assert.assertTrue(Files.exists(projectPath));
+        Assert.assertTrue(Files.exists(balFile));
+        Assert.assertTrue(Files.exists(projectPath.resolve(ProjectConstants.BALLERINA_TOML)));
+        String tomlContent = Files.readString(
+                projectPath.resolve(ProjectConstants.BALLERINA_TOML), StandardCharsets.UTF_8);
+        String expectedContent = "[package]\n" +
+                "org = \"testuserorg\"\n" +
+                "name = \"hello_world\"\n" +
                 "version = \"0.1.0\"\n" +
                 "distribution = \"" + RepoUtils.getBallerinaShortVersion() + "\"\n\n" +
                 "[build-options]\n" +
@@ -207,7 +245,7 @@ public class InitCommandTest extends BaseCommandTest {
         // Test if no arguments was passed in
         String[] args = {"sample2", "sample3"};
         InitCommand initCommand = new InitCommand(tmpDir, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
 
         Assert.assertTrue(readOutput().contains("too many arguments"));
@@ -218,11 +256,11 @@ public class InitCommandTest extends BaseCommandTest {
         // Test if no arguments was passed in
         String[] args = {"sample2", "--help"};
         InitCommand initCommand = new InitCommand(tmpDir, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
 
         Assert.assertTrue(readOutput().contains(
-                " ballerina-init - Create a new Ballerina package inside the current\n"));
+                " ballerina-init - Initialize a Ballerina package inside the current\n"));
 
     }
 
@@ -231,11 +269,11 @@ public class InitCommandTest extends BaseCommandTest {
         // Test if no arguments was passed in
         String[] args = {"-h"};
         InitCommand initCommand = new InitCommand(tmpDir, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
 
         Assert.assertTrue(readOutput().contains(
-                "ballerina-init - Create a new Ballerina package inside the current\n"));
+                "ballerina-init - Initialize a Ballerina package inside the current\n"));
     }
 
     @Test(description = "Test init command inside a directory with invalid package name")
@@ -250,10 +288,12 @@ public class InitCommandTest extends BaseCommandTest {
         Assert.assertTrue(Files.exists(projectPath));
         Assert.assertTrue(Files.exists(projectPath.resolve(ProjectConstants.BALLERINA_TOML)));
 
-        String initLog = readOutput().replaceAll("\r", "");
-        Assert.assertEquals(initLog, "package name is derived as 'my_app'. " +
-                "Edit the Ballerina.toml to change it.\n\n" +
-                "Created new package 'my_app'.\n");
+        String initLog = readOutput().replace("\r", "");
+        Assert.assertTrue(initLog.contains("""
+                package name is derived as 'my_app'. Edit the Ballerina.toml to change it.
+
+                Created new package 'my_app'.
+                """));
     }
 
     @Test(description = "Test init command with invalid project name")
@@ -319,13 +359,37 @@ public class InitCommandTest extends BaseCommandTest {
         Assert.assertTrue(readOutput().contains("invalid package name : '" + pkgName + "' :\n" + errMessage));
     }
 
+    @DataProvider(name = "PackageNameHasOnlyDots")
+    public Object[][] providePackageNameHasOnlyDots() {
+        return new Object[][] {
+                { ".", "Package name can only contain alphanumerics and underscores." },
+                { "..", "Package name can only contain alphanumerics and underscores." }
+        };
+    }
+    @Test(description = "Test init command with package name has only dots",
+            dataProvider = "PackageNameHasOnlyDots")
+    public void testInitCommandWithPackageNameHasOnlyDots(String pkgName, String errMessage)
+            throws IOException {
+        Path projectPath = tmpDir.resolve("sample5");
+        if (Files.notExists(projectPath)) {
+            Files.createDirectory(projectPath);
+        }
+
+        String[] args = { pkgName };
+        InitCommand initCommand = new InitCommand(projectPath, printStream, false);
+        new CommandLine(initCommand).parseArgs(args);
+        initCommand.execute();
+
+        Assert.assertTrue(readOutput().contains("invalid package name : '" + pkgName + "' :\n" + errMessage));
+    }
+
     @Test(description = "Test init command inside a ballerina project", dependsOnMethods = "testInitCommand")
     public void testInitCommandInsideProject() throws IOException {
         // Test if no arguments was passed in
         Path projectPath = tmpDir.resolve("sample1");
         String[] args = {};
         InitCommand initCommand = new InitCommand(projectPath, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
 
         //initialize a project again
@@ -342,7 +406,7 @@ public class InitCommandTest extends BaseCommandTest {
         Files.createDirectory(projectDir);
         //initialize a project again
         InitCommand initCommand = new InitCommand(projectDir, printStream, false);
-        new CommandLine(initCommand).parse(args);
+        new CommandLine(initCommand).parseArgs(args);
         initCommand.execute();
         Assert.assertTrue(readOutput().contains("directory is already within a Ballerina project"));
     }

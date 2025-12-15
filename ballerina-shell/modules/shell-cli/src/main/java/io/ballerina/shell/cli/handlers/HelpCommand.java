@@ -72,9 +72,9 @@ public class HelpCommand extends AbstractCommand {
                 ballerinaShell.outputInfo(topics.toString());
             } else {
                 try {
-                    ballerinaShell.outputInfo(DESCRIPTION_PREFIX + NEW_LINE + NEW_LINE +
-                            bbeHelpProvider.getDescription(topic).replaceAll(TAGS, EMPTY_STRING));
-                    ballerinaShell.outputInfo(URL_PREFIX + URL + topic.replaceAll(" ", "-"));
+                    ballerinaShell.outputInfo(NEW_LINE + bbeHelpProvider.getDescription(topic)
+                            .replace(TAGS, EMPTY_STRING));
+                    ballerinaShell.outputInfo(URL_PREFIX + URL + topic.replace(" ", "-"));
 
                 } catch (HelpProviderException e) {
                     ballerinaShell.outputError(NEW_LINE + "Can not find the topic : " + topic  + NEW_LINE + NEW_LINE +

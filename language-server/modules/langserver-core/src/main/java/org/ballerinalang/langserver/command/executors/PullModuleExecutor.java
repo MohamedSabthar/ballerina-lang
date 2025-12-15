@@ -23,16 +23,19 @@ import org.ballerinalang.langserver.LSContextOperation;
 import org.ballerinalang.langserver.codeaction.providers.imports.PullModuleCodeAction;
 import org.ballerinalang.langserver.command.CommandUtil;
 import org.ballerinalang.langserver.common.constants.CommandConstants;
-import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.ballerinalang.langserver.commons.ExecuteCommandContext;
+import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.client.ExtendedLanguageClient;
 import org.ballerinalang.langserver.commons.command.CommandArgument;
-import org.ballerinalang.langserver.commons.command.LSCommandExecutorException;
 import org.ballerinalang.langserver.commons.command.spi.LSCommandExecutor;
+import org.ballerinalang.langserver.commons.eventsync.EventKind;
+import org.ballerinalang.langserver.commons.eventsync.exceptions.EventSyncException;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceDocumentException;
+import org.ballerinalang.langserver.commons.workspace.WorkspaceManager;
 import org.ballerinalang.langserver.contexts.ContextBuilder;
-import org.ballerinalang.langserver.diagnostic.DiagnosticsHelper;
+import org.ballerinalang.langserver.eventsync.EventSyncPubSubHolder;
 import org.ballerinalang.langserver.exception.UserErrorException;
 import org.ballerinalang.langserver.workspace.BallerinaWorkspaceManager;
 import org.ballerinalang.util.diagnostic.DiagnosticErrorCode;
@@ -42,6 +45,7 @@ import org.eclipse.lsp4j.ProgressParams;
 import org.eclipse.lsp4j.WorkDoneProgressBegin;
 import org.eclipse.lsp4j.WorkDoneProgressCreateParams;
 import org.eclipse.lsp4j.WorkDoneProgressEnd;
+import org.eclipse.lsp4j.WorkDoneProgressReport;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
 import java.nio.file.Path;
@@ -49,7 +53,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 
 /**
  * Command executor for pulling a package from central.
@@ -60,8 +63,8 @@ import java.util.stream.Collectors;
 public class PullModuleExecutor implements LSCommandExecutor {
 
     public static final String COMMAND = "PULL_MODULE";
-    
     private static final String TITLE_PULL_MODULE = "Pull Module";
+    private static final String PULL_MODULE_TASK_PREFIX = "pull-module-";
 
     /**
      * {@inheritDoc}
@@ -69,7 +72,7 @@ public class PullModuleExecutor implements LSCommandExecutor {
      * @param context
      */
     @Override
-    public Object execute(ExecuteCommandContext context) throws LSCommandExecutorException {
+    public Object execute(ExecuteCommandContext context) {
         String fileUri = null;
         String moduleName = null;
         for (CommandArgument arg : context.getArguments()) {
@@ -83,18 +86,20 @@ public class PullModuleExecutor implements LSCommandExecutor {
                 default:
             }
         }
+        resolveModules(fileUri, context.getLanguageClient(), context.workspace(), context.languageServercontext());
+        return new Object();
+    }
 
+    public static void resolveModules(String fileUri, ExtendedLanguageClient languageClient,
+                                      WorkspaceManager workspaceManager, LanguageServerContext languageServerContext) {
         // TODO Prevent running parallel tasks for the same project in future
-        String taskId = UUID.randomUUID().toString();
-        Path filePath = CommonUtil.getPathFromURI(fileUri)
+        String taskId = PULL_MODULE_TASK_PREFIX + UUID.randomUUID();
+        Path filePath = PathUtil.getPathFromURI(fileUri)
                 .orElseThrow(() -> new UserErrorException("Couldn't determine file path"));
-
-        Project project = context.workspace().project(filePath)
+        Project project = workspaceManager.project(filePath)
                 .orElseThrow(() -> new UserErrorException("Couldn't find project to pull modules"));
 
-        ExtendedLanguageClient languageClient = context.getLanguageClient();
-        LSClientLogger clientLogger = LSClientLogger.getInstance(context.languageServercontext());
-        String finalFileUri = fileUri;
+        LSClientLogger clientLogger = LSClientLogger.getInstance(languageServerContext);
         CompletableFuture
                 .runAsync(() -> {
                     clientLogger.logTrace("Started pulling modules for project: " + project.sourceRoot().toString());
@@ -108,7 +113,7 @@ public class PullModuleExecutor implements LSCommandExecutor {
                     WorkDoneProgressBegin beginNotification = new WorkDoneProgressBegin();
                     beginNotification.setTitle(TITLE_PULL_MODULE);
                     beginNotification.setCancellable(false);
-                    beginNotification.setMessage("pulling missing ballerina modules");
+                    beginNotification.setMessage("pulling the missing ballerina modules");
                     languageClient.notifyProgress(new ProgressParams(Either.forLeft(taskId),
                             Either.forLeft(beginNotification)));
                 })
@@ -116,20 +121,33 @@ public class PullModuleExecutor implements LSCommandExecutor {
                 .thenRunAsync(() -> {
                     try {
                         // Refresh project
-                        ((BallerinaWorkspaceManager) context.workspace()).refreshProject(filePath);
+                        ((BallerinaWorkspaceManager) workspaceManager).refreshProject(filePath);
                     } catch (WorkspaceDocumentException e) {
                         throw new UserErrorException("Failed to refresh project");
                     }
                 })
                 .thenRunAsync(() -> {
-                    DocumentServiceContext docContext = ContextBuilder.buildDocumentServiceContext(finalFileUri,
-                            context.workspace(), LSContextOperation.TXT_DID_CHANGE,
-                            context.languageServercontext());
-                    DiagnosticsHelper.getInstance(context.languageServercontext())
-                            .schedulePublishDiagnostics(languageClient, docContext);
+                    DocumentServiceContext docContext = ContextBuilder.buildDocumentServiceContext(
+                            fileUri,
+                            workspaceManager,
+                            LSContextOperation.RELOAD_PROJECT,
+                            languageServerContext);
+                    try {
+                        EventSyncPubSubHolder.getInstance(languageServerContext)
+                                .getPublisher(EventKind.PROJECT_UPDATE)
+                                .publish(languageClient, languageServerContext, docContext);
+                    } catch (EventSyncException e) {
+                        // ignore
+                    }
                 })
                 .thenRunAsync(() -> {
-                    Optional<List<String>> missingModules = context.workspace()
+                    WorkDoneProgressReport workDoneProgressReport = new WorkDoneProgressReport();
+                    workDoneProgressReport.setCancellable(false);
+                    workDoneProgressReport.setMessage("compiling the project");
+                    languageClient.notifyProgress(new ProgressParams(Either.forLeft(taskId),
+                            Either.forLeft(workDoneProgressReport)));
+
+                    Optional<List<String>> missingModules = workspaceManager
                             .waitAndGetPackageCompilation(filePath)
                             .map(compilation -> compilation.diagnosticResult().diagnostics().stream()
                                     .filter(diagnostic -> DiagnosticErrorCode.MODULE_NOT_FOUND.diagnosticId()
@@ -137,7 +155,7 @@ public class PullModuleExecutor implements LSCommandExecutor {
                                     .map(PullModuleCodeAction::getMissingModuleNameFromDiagnostic)
                                     .filter(Optional::isPresent)
                                     .map(Optional::get)
-                                    .collect(Collectors.toList())
+                                    .toList()
                             );
                     if (missingModules.isEmpty()) {
                         throw new UserErrorException("Failed to pull modules!");
@@ -163,6 +181,18 @@ public class PullModuleExecutor implements LSCommandExecutor {
                         CommandUtil.notifyClient(languageClient, MessageType.Info, "Module(s) pulled successfully!");
                         clientLogger
                                 .logTrace("Finished pulling modules for project: " + project.sourceRoot().toString());
+
+                        try {
+                            DocumentServiceContext documentServiceContext =
+                                    ContextBuilder.buildDocumentServiceContext(filePath.toUri().toString(),
+                                            workspaceManager, LSContextOperation.WS_EXEC_CMD,
+                                            languageServerContext);
+                            EventSyncPubSubHolder.getInstance(languageServerContext)
+                                    .getPublisher(EventKind.PULL_MODULE)
+                                    .publish(languageClient, languageServerContext, documentServiceContext);
+                        } catch (Throwable e) {
+                            //ignore
+                        }
                     }
 
                     WorkDoneProgressEnd endNotification = new WorkDoneProgressEnd();
@@ -174,8 +204,6 @@ public class PullModuleExecutor implements LSCommandExecutor {
                     languageClient.notifyProgress(new ProgressParams(Either.forLeft(taskId),
                             Either.forLeft(endNotification)));
                 });
-
-        return new Object();
     }
 
     /**

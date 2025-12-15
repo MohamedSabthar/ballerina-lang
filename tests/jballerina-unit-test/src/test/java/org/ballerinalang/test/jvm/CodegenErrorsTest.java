@@ -22,6 +22,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.BeforeGroups;
 import org.testng.annotations.Test;
 
 /**
@@ -31,6 +32,10 @@ import org.testng.annotations.Test;
  */
 @Test
 public class CodegenErrorsTest {
+
+    private CompileResult testLargeMethodsResult = null;
+    private CompileResult testLargeMethods2Result = null;
+    private CompileResult testLargeMethods3Result = null;
 
     @Test
     public void testTooLargeMethod() {
@@ -53,7 +58,7 @@ public class CodegenErrorsTest {
     @Test
     public void testTooLargePackageVar() {
         CompileResult result = BCompileUtil.compile("test-src/jvm/too-large-package-variable.bal");
-        BAssertUtil.validateError(result, 0, "method is too large: '.<init>'", ".", 1, 1);
+        BAssertUtil.validateError(result, 0, "method is too large: '<clinit>'", ".", 1, 1);
     }
 
     @Test
@@ -68,10 +73,38 @@ public class CodegenErrorsTest {
         BRunUtil.invoke(result, "main");
     }
 
-    @Test
+    @BeforeGroups("TestLargeMethods")
+    public void beforeTestLargeMethods() {
+        testLargeMethodsResult = BCompileUtil.compile("test-src/jvm/largeMethods");
+    }
+
+    @Test(groups = {"TestLargeMethods"})
     public void testLargeMethods() {
-        CompileResult result = BCompileUtil.compile("test-src/jvm/largeMethods");
-        BRunUtil.invoke(result, "main");
+        BRunUtil.invoke(testLargeMethodsResult, "main");
+    }
+
+    @BeforeGroups("TestLargeMethods2")
+    public void beforeTestLargeMethods2() {
+        testLargeMethods2Result = BCompileUtil.compile("test-src/jvm/largeMethods2");
+    }
+
+    @Test(groups = {"TestLargeMethods2"})
+    public void testLargeMethods2() {
+        BRunUtil.invoke(testLargeMethods2Result, "main");
+    }
+
+    @BeforeGroups("TestLargeMethods3")
+    public void beforeTestLargeMethods3() {
+        testLargeMethods3Result = BCompileUtil.compile("test-src/jvm/largeMethods3");
+    }
+
+    @Test(groups = {"TestLargeMethods3"})
+    public void testLargeMethods3() {
+        BRunUtil.runMain(testLargeMethods3Result);
+    }
+
+    public void testLargeMethods4() {
+        BCompileUtil.compile("test-src/jvm/largeMethods4");
     }
 
     @Test
@@ -81,5 +114,30 @@ public class CodegenErrorsTest {
         final Object result = BRunUtil.invoke(compileResult, "getStartCount");
         Assert.assertNotNull(result);
         Assert.assertEquals(result.toString(), "500");
+    }
+
+    @Test
+    public void testTooLargeHardCodedStringValue() {
+        CompileResult result = BCompileUtil.compile("test-src/jvm/largeStringConstants");
+        Assert.assertEquals(result.getErrorCount(), 0);
+        BRunUtil.invoke(result, "main");
+    }
+
+    @Test
+    public void testTooLargeMethodWithMultipleCheckedExpression() {
+        CompileResult result = BCompileUtil.compile("test-src/jvm/checked_expr_method_too_large.bal");
+        Assert.assertEquals(result.getErrorCount(), 0);
+    }
+
+    @Test
+    public void testTooLargeStringConstantClass() {
+        CompileResult result = BCompileUtil.compile("test-src/jvm/tooLargeStringConstantClass");
+        BRunUtil.invoke(result, "main");
+    }
+
+    @Test
+    public void testTooLargeFiles() {
+        CompileResult result = BCompileUtil.compile("test-src/jvm/tooLargeFileTest");
+        BRunUtil.invoke(result, "main");
     }
 }

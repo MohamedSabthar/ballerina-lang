@@ -19,6 +19,8 @@ package io.ballerina.compiler.api.impl.symbols;
 
 import io.ballerina.compiler.api.SymbolTransformer;
 import io.ballerina.compiler.api.SymbolVisitor;
+import io.ballerina.compiler.api.impl.values.BallerinaConstantValue;
+import io.ballerina.compiler.api.symbols.AnnotationAttachmentSymbol;
 import io.ballerina.compiler.api.symbols.AnnotationSymbol;
 import io.ballerina.compiler.api.symbols.ConstantSymbol;
 import io.ballerina.compiler.api.symbols.FunctionSymbol;
@@ -26,15 +28,11 @@ import io.ballerina.compiler.api.symbols.Qualifier;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
-import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
-import org.wso2.ballerinalang.compiler.tree.BLangConstantValue;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
-import org.wso2.ballerinalang.compiler.util.TypeTags;
 import org.wso2.ballerinalang.util.Flags;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -49,15 +47,16 @@ import static org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols.is
  */
 public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements ConstantSymbol {
 
-    private final String constValue;
-    private TypeSymbol broaderType;
+    private final BallerinaConstantValue constValue;
+    private final TypeSymbol broaderType;
 
     private BallerinaConstantSymbol(String name, List<Qualifier> qualifiers, List<AnnotationSymbol> annots,
-                                    TypeSymbol typeDescriptor, TypeSymbol broaderType, Object constValue,
-                                    BSymbol bSymbol, CompilerContext context) {
+                                    List<AnnotationAttachmentSymbol> annotAttachments, TypeSymbol typeDescriptor,
+                                    TypeSymbol broaderType, BallerinaConstantValue constValue, BSymbol bSymbol,
+                                    CompilerContext context) {
         super(name, isFlagOn(bSymbol.flags, Flags.ENUM_MEMBER) ? ENUM_MEMBER : CONSTANT, qualifiers, annots,
-              typeDescriptor, bSymbol, context);
-        this.constValue = stringValueOf((BLangConstantValue) constValue);
+              annotAttachments, typeDescriptor, bSymbol, context);
+        this.constValue = constValue;
         this.broaderType = broaderType;
     }
 
@@ -68,9 +67,7 @@ public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements 
      */
     @Override
     public Object constValue() {
-        // explicitly returning null here since this will be deprecated and this anyways used to return null always
-        // since the corresponding internal API for this wasn't implemented before.
-        return null;
+        return this.constValue;
     }
 
     @Override
@@ -79,7 +76,7 @@ public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements 
             return Optional.empty();
         }
 
-        return Optional.of(this.constValue);
+        return Optional.of(stringValueOf(this.constValue));
     }
 
     @Override
@@ -122,27 +119,26 @@ public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements 
         return transformer.transform(this);
     }
 
-    private String stringValueOf(BLangConstantValue value) {
+    private String stringValueOf(BallerinaConstantValue value) {
         if (value == null) {
             return null;
         }
 
-        if (value.value instanceof BLangConstantValue) {
-            return stringValueOf((BLangConstantValue) value.value);
+        if (value.value() instanceof BallerinaConstantValue ballerinaConstantValue) {
+            return stringValueOf(ballerinaConstantValue);
         }
 
-        if (value.value instanceof HashMap) {
+        if (value.value() instanceof HashMap<?, ?> map) {
             StringJoiner joiner = new StringJoiner(", ", "{", "}");
-            Map map = (Map) value.value;
 
             map.forEach((k, v) -> {
                 StringBuilder builder = new StringBuilder();
                 builder.append(k).append(": ");
 
-                if (v instanceof BLangConstantValue) {
-                    builder.append(stringValueOf((BLangConstantValue) v));
+                if (v instanceof BallerinaConstantValue ballerinaConstantValue) {
+                    builder.append(stringValueOf(ballerinaConstantValue));
                 } else {
-                    builder.append(toStringVal(v, value.type));
+                    builder.append(toStringVal(v, value.valueType()));
                 }
 
                 joiner.add(builder.toString());
@@ -151,15 +147,20 @@ public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements 
             return joiner.toString();
         }
 
-        return toStringVal(value.value, value.type);
+        return toStringVal(value.value(), value.valueType());
     }
 
-    private String toStringVal(Object obj, BType valType) {
-        if (obj instanceof String && TypeTags.isStringTypeTag(valType.tag)) {
+    private String toStringVal(Object obj, TypeSymbol valType) {
+        if (obj instanceof String && valType.typeKind() == TypeDescKind.STRING) {
             return String.format("\"%s\"", obj);
         }
 
         return String.valueOf(obj);
+    }
+
+    @Override
+    public TypeSymbol originalType() {
+        return this.broaderTypeDescriptor();
     }
 
     /**
@@ -167,19 +168,21 @@ public class BallerinaConstantSymbol extends BallerinaVariableSymbol implements 
      */
     public static class ConstantSymbolBuilder extends VariableSymbolBuilder {
 
-        private Object constantValue;
+        private BallerinaConstantValue constantValue;
         private TypeSymbol broaderType;
 
         public ConstantSymbolBuilder(String name, BSymbol symbol, CompilerContext context) {
             super(name, symbol, context);
         }
 
+        @Override
         public BallerinaConstantSymbol build() {
-            return new BallerinaConstantSymbol(this.name, this.qualifiers, this.annots, this.typeDescriptor,
-                                               this.broaderType, this.constantValue, this.bSymbol, this.context);
+            return new BallerinaConstantSymbol(this.name, this.qualifiers, this.annots, this.annotAttachments,
+                                               this.typeDescriptor, this.broaderType, this.constantValue, this.bSymbol,
+                                               this.context);
         }
 
-        public ConstantSymbolBuilder withConstValue(Object constValue) {
+        public ConstantSymbolBuilder withConstValue(BallerinaConstantValue constValue) {
             this.constantValue = constValue;
             return this;
         }

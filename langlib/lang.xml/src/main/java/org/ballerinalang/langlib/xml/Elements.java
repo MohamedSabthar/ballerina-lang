@@ -22,7 +22,7 @@ import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.values.BIterator;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BXml;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,24 +32,21 @@ import java.util.List;
  * 
  * @since 0.88
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "elements",
-//        returnType = {@ReturnType(type = TypeKind.XML)},
-//        isPublic = true
-//)
-public class Elements {
+public final class Elements {
 
     private static final String OPERATION = "get elements from xml";
 
+    private Elements() {
+    }
+
     public static BXml elements(BXml xml, Object name) {
         try {
-            if (name instanceof BString) {
-                return (BXml) xml.elements(((BString) name).getValue());
+            if (name instanceof BString bString) {
+                return xml.elements(bString.getValue());
             }
-            return (BXml) xml.elements();
+            return xml.elements();
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
 
         return null;
@@ -57,7 +54,7 @@ public class Elements {
 
     private static BXml generateCodePointSequence(BXml value) {
         List<BXml> list = new ArrayList<>();
-        BIterator bIterator = value.getIterator();
+        BIterator<?> bIterator = value.getIterator();
         while (bIterator.hasNext()) {
             list.add((BXml) bIterator.next());
         }

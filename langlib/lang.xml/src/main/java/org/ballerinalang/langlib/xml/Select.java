@@ -19,30 +19,26 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 import io.ballerina.runtime.internal.scheduling.Strand;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
 
 /**
  * Get all the elements-type items in the given sequence, that matches a given qualified name.
  * 
  * @since 0.88
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "select",
-//        args = {@Argument(name = "qname", type = TypeKind.STRING)},
-//        returnType = {@ReturnType(type = TypeKind.XML)},
-//        isPublic = true
-//)
-public class Select {
+public final class Select {
 
     private static final String OPERATION = "select elements from xml";
 
+    private Select() {
+    }
+
     public static BXml select(Strand strand, BXml xml, String qname) {
         try {
-            return (BXml) xml.elements(qname);
+            return xml.elements(qname);
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
         return null;
     }

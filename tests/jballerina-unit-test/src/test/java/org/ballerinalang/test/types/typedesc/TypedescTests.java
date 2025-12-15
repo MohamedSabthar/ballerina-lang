@@ -16,7 +16,7 @@
  */
 package org.ballerinalang.test.types.typedesc;
 
-import io.ballerina.runtime.api.TypeTags;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BTypedesc;
 import org.ballerinalang.test.BCompileUtil;
@@ -41,7 +41,7 @@ public class TypedescTests {
         result = BCompileUtil.compile("test-src/types/typedesc/typedesc_positive.bal");
     }
 
-    @Test(description = "Test basics types", groups = {"disableOnOldParser"})
+    @Test(description = "Test basics types")
     public void testNegative() {
         final CompileResult compileResult = BCompileUtil.compile("test-src/types/typedesc/typedesc_negative.bal");
         int index = 0;
@@ -55,19 +55,19 @@ public class TypedescTests {
                 10, 24);
         validateError(compileResult, index++, "missing key expr in member access expr", 10, 31);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<readonly>', found " +
-                "'typedesc<int[]>'", 21, 28);
+                "'typedesc<IntArray>'", 21, 28);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<(string[]|boolean[])>', found " +
                 "'typedesc<ImmutableIntArray>'", 22, 38);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<string>', " +
                 "found 'typedesc<ImmutableIntArray>'", 23, 26);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<string[]>', found " +
-                "'typedesc<\"foo\">'", 24, 28);
+                "'typedesc<Foo>'", 24, 28);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<string>', found " +
-                "'typedesc<\"foo\"|1>'", 25, 26);
+                "'typedesc<FooBar>'", 25, 26);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<string>', found " +
-                "'typedesc<function (int) returns (string)>'", 26, 26);
+                "'typedesc<FunctionTypeOne>'", 26, 26);
         validateError(compileResult, index++, "incompatible types: expected 'typedesc<function (int) returns (string)" +
-                ">', found 'typedesc<function () returns (string)>'", 27, 51);
+                ">', found 'typedesc<FunctionTypeTwo>'", 27, 51);
         Assert.assertEquals(compileResult.getErrorCount(), index);
     }
 
@@ -80,6 +80,11 @@ public class TypedescTests {
         Assert.assertEquals(returns.get(2).toString(), "typedesc float");
         Assert.assertEquals(returns.get(3).toString(), "typedesc boolean");
         Assert.assertEquals(returns.get(4).toString(), "typedesc byte");
+    }
+
+    @Test(description = "Test type desc shapes")
+    public void testTypeDescShape() {
+        BRunUtil.invoke(result, "testRecordWithTypedescField");
     }
 
     @Test(description = "Test buildin ref types")
@@ -100,15 +105,15 @@ public class TypedescTests {
     public void testArrayTypes() {
         BArray returns = (BArray) BRunUtil.invoke(result, "testArrayTypes");
         Assert.assertEquals(returns.size(), 2);
-        Assert.assertEquals(returns.get(0).toString(), "typedesc int[]");
-        Assert.assertEquals(returns.get(1).toString(), "typedesc int[][]");
+        Assert.assertEquals(returns.get(0).toString(), "typedesc intArray");
+        Assert.assertEquals(returns.get(1).toString(), "typedesc intArrayArray");
     }
 
     @Test(description = "Test tuple/union types")
     public void testTupleUnionTypes() {
         BArray returns = (BArray) BRunUtil.invoke(result, "testTupleUnionTypes");
         Assert.assertEquals(returns.size(), 2);
-        Assert.assertEquals(returns.get(0).toString(), "typedesc [string,Person]");
+        Assert.assertEquals(returns.get(0).toString(), "typedesc stringOrPerson");
         Assert.assertEquals(returns.get(1).toString(), "typedesc intOrString");
     }
 

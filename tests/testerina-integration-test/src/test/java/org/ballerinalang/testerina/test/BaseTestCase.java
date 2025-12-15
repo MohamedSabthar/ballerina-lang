@@ -26,10 +26,8 @@ import org.testng.annotations.BeforeSuite;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -42,6 +40,7 @@ public class BaseTestCase {
     Path tempProjectDirectory;
     protected static Path singleFileTestsPath;
     protected static Path projectBasedTestsPath;
+    protected static Path workspaceProjectPath;
     String[] coverageArgs = new String[]{"--code-coverage", "--includes=*"};
 
     @BeforeSuite(alwaysRun = true)
@@ -50,15 +49,17 @@ public class BaseTestCase {
         tempProjectDirectory = Files.createTempDirectory("bal-test-integration-testerina-project-");
 
         // copy TestProjects to a temp
-        Path originalSingleFileTestsDir = Paths.get("src", "test", "resources", "single-file-tests")
-                .toAbsolutePath();
+        Path originalSingleFileTestsDir = Path.of("src/test/resources/single-file-tests").toAbsolutePath();
         singleFileTestsPath = tempProjectDirectory.resolve("single-file-tests");
         FileUtils.copyFolder(originalSingleFileTestsDir, singleFileTestsPath);
 
-        Path originalProjTestsDir = Paths.get("src", "test", "resources", "project-based-tests")
-                .toAbsolutePath();
+        Path originalProjTestsDir = Path.of("src/test/resources/project-based-tests").toAbsolutePath();
         projectBasedTestsPath = tempProjectDirectory.resolve("project-based-tests");
         FileUtils.copyFolder(originalProjTestsDir, projectBasedTestsPath);
+
+        Path workspaceProject = Path.of("src/test/resources/workspace-with-tests").toAbsolutePath();
+        workspaceProjectPath = tempProjectDirectory.resolve("workspace-with-tests");
+        FileUtils.copyFolder(workspaceProject, workspaceProjectPath);
     }
 
     @AfterSuite(alwaysRun = true)
@@ -69,10 +70,8 @@ public class BaseTestCase {
     @AfterSuite
     public void copyBallerinaExecFiles() {
         List<Path> packageDirs;
-        try {
-            packageDirs = Files.walk(projectBasedTestsPath, 1)
-                    .filter(Files::isDirectory)
-                    .collect(Collectors.toList());
+        try (Stream<Path> paths = Files.walk(projectBasedTestsPath, 1)) {
+            packageDirs = paths.filter(Files::isDirectory).toList();
             for (Path dir : packageDirs) {
                 try {
                     FileUtils.copyBallerinaExec(dir, "");

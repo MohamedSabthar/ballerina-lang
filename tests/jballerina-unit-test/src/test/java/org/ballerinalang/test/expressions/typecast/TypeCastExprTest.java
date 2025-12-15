@@ -22,11 +22,11 @@ import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -88,7 +88,7 @@ public class TypeCastExprTest {
         Object returns = BRunUtil.invoke(result, "stringtofloat", args);
         Assert.assertTrue(returns instanceof BError);
         BError error = (BError) returns;
-        String errorMsg = ((BMap) error.getDetails()).get(StringUtils.fromString("message")).toString();
+        String errorMsg = ((BMap<?, ?>) error.getDetails()).get(StringUtils.fromString("message")).toString();
         Assert.assertEquals(errorMsg, "'string' value '2222.333f' cannot be converted to 'float'");
     }
 
@@ -226,7 +226,7 @@ public class TypeCastExprTest {
         Object returns = BRunUtil.invoke(result, "testIncompatibleJsonToInt");
         Assert.assertTrue(returns instanceof BError);
         BError error = (BError) returns;
-        String errorMsg = ((BMap) error.getDetails()).get(StringUtils.fromString("message")).toString();
+        String errorMsg = ((BMap<?, ?>) error.getDetails()).get(StringUtils.fromString("message")).toString();
         Assert.assertEquals(errorMsg, "'string' value '\"hello\"' cannot be converted to 'int'");
     }
 
@@ -235,50 +235,46 @@ public class TypeCastExprTest {
         Object returns = BRunUtil.invoke(result, "testIncompatibleJsonToFloat");
         Assert.assertTrue(returns instanceof BError);
         BError error = (BError) returns;
-        String errorMsg = ((BMap) error.getDetails()).get(StringUtils.fromString("message")).toString();
+        String errorMsg = ((BMap<?, ?>) error.getDetails()).get(StringUtils.fromString("message")).toString();
         Assert.assertEquals(errorMsg, "'string' value '\"hello\"' cannot be converted to 'float'");
     }
 
-    @Test(enabled = false) // See https://github.com/ballerina-platform/ballerina-lang/issues/29359
+    @Test
     public void testBooleanInJsonToInt() {
-        Object returns = BRunUtil.invoke(result, "testBooleanInJsonToInt");
-        Assert.assertTrue(returns instanceof BError);
-        BError error = (BError) returns;
-        String errorMsg = error.getMessage();
-        Assert.assertEquals(errorMsg, "'boolean' cannot be cast to 'int'");
+        BRunUtil.invoke(result, "testBooleanInJsonToInt");
     }
 
     @Test(description = "Test casting a null JSON to string",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'string'.*")
     public void testNullJsonToString() {
         BRunUtil.invoke(result, "testNullJsonToString");
     }
 
     @Test(description = "Test casting a null JSON to int",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'int'.*")
     public void testNullJsonToInt() {
         BRunUtil.invoke(result, "testNullJsonToInt");
     }
 
     @Test(description = "Test casting a null JSON to float",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'float'.*")
     public void testNullJsonToFloat() {
         BRunUtil.invoke(result, "testNullJsonToFloat");
     }
 
     @Test(description = "Test casting a null JSON to boolean",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: 'map<json>' cannot be cast to 'boolean'.*")
     public void testNullJsonToBoolean() {
         BRunUtil.invoke(result, "testNullJsonToBoolean");
     }
 
     @Test(description = "Test casting nil to a record",
-            expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to 'Student'.*")
+            expectedExceptions = {BLangTestException.class},
+            expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to 'StudentTC'.*")
     public void testNullStructToStruct() {
         BRunUtil.invoke(result, "testNullStructToStruct");
     }
@@ -313,15 +309,15 @@ public class TypeCastExprTest {
     }
 
     @Test(description = "Test casting a map as any type to json",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: 'map' cannot be cast to 'json'.*")
     public void testAnyMapToJson() {
         BRunUtil.invoke(result, "testAnyMapToJson");
     }
 
     @Test(description = "Test casting a struct as any type to json",
-            expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'Address' cannot be cast to 'json'.*")
+            expectedExceptions = {BLangTestException.class},
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'AddressTC' cannot be cast to 'json'.*")
     public void testAnyStructToJson() {
         BRunUtil.invoke(result, "testAnyStructToJson");
     }
@@ -371,22 +367,22 @@ public class TypeCastExprTest {
     }
 
     @Test(description = "Test casting any to struct",
-            expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: 'map' cannot be cast to 'Person'.*")
+            expectedExceptions = {BLangTestException.class},
+            expectedExceptionsMessageRegExp = ".*incompatible types: 'map' cannot be cast to 'PersonTC'.*")
     public void testAnyToStruct() {
         BRunUtil.invoke(result, "testAnyToStruct");
     }
 
     @Test(description = "Test casting a null stored as any to struct",
-            expectedExceptions = {BLangRuntimeException.class},
-            expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to 'Person'.*")
+            expectedExceptions = {BLangTestException.class},
+            expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to 'PersonTC'.*")
     public void testAnyNullToStruct() {
         Object returns = BRunUtil.invoke(result, "testAnyNullToStruct");
         Assert.assertNull(returns);
     }
 
     @Test(description = "Test casting a null stored as any to map",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to 'map'.*")
     public void testAnyNullToMap() {
         Object returns = BRunUtil.invoke(result, "testAnyNullToMap");
@@ -394,7 +390,7 @@ public class TypeCastExprTest {
     }
 
     @Test(description = "Test casting a null stored as any to xml",
-            expectedExceptions = {BLangRuntimeException.class},
+            expectedExceptions = {BLangTestException.class},
             expectedExceptionsMessageRegExp = ".*incompatible types: '\\(\\)' cannot be cast to " +
                     "'xml<\\(lang\\.xml:Element" + "\\|lang\\.xml:Comment\\|lang\\.xml:ProcessingInstruction\\|" +
                     "lang\\.xml:Text\\)>'.*")
@@ -462,7 +458,7 @@ public class TypeCastExprTest {
         BError error = (BError) returns;
         String errorMsg =
                 ((BMap<String, BString>) error.getDetails()).get(StringUtils.fromString("message")).toString();
-        Assert.assertEquals(errorMsg, "'B' value cannot be converted to 'A': " +
+        Assert.assertEquals(errorMsg, "'B' value cannot be converted to 'ATypedesc': " +
                 "\n\t\tmissing required field 'y' of type 'int' in record 'A'");
     }
 
@@ -642,6 +638,11 @@ public class TypeCastExprTest {
         Assert.assertEquals(returns.toString(), "{\"name\":\"Pubudu\"}");
     }
 
+    @Test(dataProvider = "typeCastExprTestFunctions")
+    public void testSimpleValueCasting(String function) {
+        BRunUtil.invoke(result, function);
+    }
+
     @Test(dataProvider = "typesTestExpressionTestFunctions")
     public void testTypeTestsExpression(String function) {
         BRunUtil.invoke(result, function);
@@ -650,6 +651,15 @@ public class TypeCastExprTest {
     @Test(dataProvider = "immutableArrayTypesTestFunctions")
     public void testCastOfImmutableArrayTypes(String function) {
         BRunUtil.invoke(result, function);
+    }
+
+    @DataProvider(name = "typeCastExprTestFunctions")
+    public Object[] typeCastExprTestFunctions() {
+        return new Object[] {
+                "testDecimalToIntCasting",
+                "testFloatToDecimalCasting",
+                "testDecimalToFloatCasting"
+        };
     }
 
     @DataProvider(name = "typesTestExpressionTestFunctions")

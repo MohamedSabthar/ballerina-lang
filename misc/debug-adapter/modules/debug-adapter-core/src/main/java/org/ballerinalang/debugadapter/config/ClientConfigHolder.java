@@ -16,6 +16,9 @@
 
 package org.ballerinalang.debugadapter.config;
 
+import org.eclipse.lsp4j.debug.RunInTerminalRequestArgumentsKind;
+
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ public class ClientConfigHolder {
     private final ClientConfigKind kind;
     private String sourcePath;
     private Integer debuggePort;
+    private Boolean isLowCodeMode;
     private ExtendedClientCapabilities extendedClientCapabilities;
 
     protected static final String ARG_FILE_PATH = "script";
@@ -37,6 +41,12 @@ public class ClientConfigHolder {
     protected static final String ARG_DEBUGGEE_PORT = "debuggeePort";
     private static final String ARG_CAPABILITIES = "capabilities";
     private static final String ARG_SUPPORT_READONLY_EDITOR = "supportsReadOnlyEditors";
+    private static final String ARG_SUPPORT_BP_VERIFICATION = "supportsBreakpointVerification";
+    private static final String ARG_SUPPORT_FAST_RUN = "supportsFastRun";
+    private static final String ARG_TERMINAL_KIND = "terminal";
+    private static final String ARG_LOW_CODE_MODE = "lowCodeMode";
+    private static final String INTEGRATED_TERMINAL_KIND = "INTEGRATED";
+    private static final String EXTERNAL_TERMINAL_KIND = "EXTERNAL";
 
     protected ClientConfigHolder(Map<String, Object> clientRequestArgs, ClientConfigKind kind) {
         this.clientRequestArgs = clientRequestArgs;
@@ -68,22 +78,65 @@ public class ClientConfigHolder {
             return Optional.of(extendedClientCapabilities);
         }
         Object capabilitiesObj = clientRequestArgs.get(ARG_CAPABILITIES);
-        if (!(capabilitiesObj instanceof Map)) {
+        if (!(capabilitiesObj instanceof Map<?, ?> capabilities)) {
             return Optional.empty();
         }
 
-        Map<String, Object> capabilities = (Map<String, Object>) capabilitiesObj;
         extendedClientCapabilities = new ExtendedClientCapabilities();
         Object readOnlyEditorConfig = capabilities.get(ARG_SUPPORT_READONLY_EDITOR);
-        if (readOnlyEditorConfig instanceof Boolean) {
-            extendedClientCapabilities.setSupportsReadOnlyEditors((Boolean) readOnlyEditorConfig);
-        } else if (readOnlyEditorConfig instanceof String) {
-            extendedClientCapabilities.setSupportsReadOnlyEditors(Boolean.parseBoolean((String) readOnlyEditorConfig));
+        if (readOnlyEditorConfig instanceof Boolean b) {
+            extendedClientCapabilities.setSupportsReadOnlyEditors(b);
+        } else if (readOnlyEditorConfig instanceof String s) {
+            extendedClientCapabilities.setSupportsReadOnlyEditors(Boolean.parseBoolean(s));
         } else {
             extendedClientCapabilities.setSupportsReadOnlyEditors(false);
         }
 
+        Object bpVerificationConfig = capabilities.get(ARG_SUPPORT_BP_VERIFICATION);
+        if (bpVerificationConfig instanceof Boolean b) {
+            extendedClientCapabilities.setSupportsBreakpointVerification(b);
+        } else if (bpVerificationConfig instanceof String s) {
+            extendedClientCapabilities.setSupportsBreakpointVerification(Boolean.parseBoolean(s));
+        } else {
+            extendedClientCapabilities.setSupportsBreakpointVerification(false);
+        }
+
+        Object fastRunConfig = capabilities.get(ARG_SUPPORT_FAST_RUN);
+        if (fastRunConfig instanceof Boolean b) {
+            extendedClientCapabilities.setSupportsFastRun(b);
+        } else if (fastRunConfig instanceof String s) {
+            extendedClientCapabilities.setSupportsFastRun(Boolean.parseBoolean(s));
+        } else {
+            extendedClientCapabilities.setSupportsFastRun(false);
+        }
+
         return Optional.ofNullable(extendedClientCapabilities);
+    }
+
+    public RunInTerminalRequestArgumentsKind getRunInTerminalKind() {
+        if (clientRequestArgs.get(ARG_TERMINAL_KIND) != null) {
+            String terminalConfig = clientRequestArgs.get(ARG_TERMINAL_KIND).toString().toUpperCase(Locale.ENGLISH);
+            // To Do - enable the run in external terminal option
+            if (terminalConfig.equals(INTEGRATED_TERMINAL_KIND) || terminalConfig.equals(EXTERNAL_TERMINAL_KIND)) {
+                return RunInTerminalRequestArgumentsKind.INTEGRATED;
+            }
+        }
+        return null;
+    }
+
+    public boolean isLowCodeMode() {
+        if (this.isLowCodeMode == null) {
+            Object isLowCodeMode = clientRequestArgs.get(ARG_LOW_CODE_MODE);
+            if (isLowCodeMode instanceof Boolean b) {
+                this.isLowCodeMode = b;
+            } else if (isLowCodeMode instanceof String s) {
+                this.isLowCodeMode = Boolean.parseBoolean(s);
+            } else {
+                this.isLowCodeMode = false;
+            }
+        }
+
+        return isLowCodeMode;
     }
 
     protected void failIfConfigMissing(String configName) throws ClientConfigurationException {
@@ -106,6 +159,8 @@ public class ClientConfigHolder {
     public static class ExtendedClientCapabilities {
 
         private boolean supportsReadOnlyEditors = false;
+        private boolean supportsBreakpointVerification = false;
+        private boolean supportsFastRun = false;
 
         public boolean supportsReadOnlyEditors() {
             return supportsReadOnlyEditors;
@@ -113,6 +168,22 @@ public class ClientConfigHolder {
 
         public void setSupportsReadOnlyEditors(boolean supportsReadOnlyEditors) {
             this.supportsReadOnlyEditors = supportsReadOnlyEditors;
+        }
+
+        public boolean supportsBreakpointVerification() {
+            return supportsBreakpointVerification;
+        }
+
+        public void setSupportsBreakpointVerification(boolean supportsBreakpointVerification) {
+            this.supportsBreakpointVerification = supportsBreakpointVerification;
+        }
+
+        public boolean supportsFastRun() {
+            return supportsFastRun;
+        }
+
+        public void setSupportsFastRun(boolean supportsFastRun) {
+            this.supportsFastRun = supportsFastRun;
         }
     }
 }

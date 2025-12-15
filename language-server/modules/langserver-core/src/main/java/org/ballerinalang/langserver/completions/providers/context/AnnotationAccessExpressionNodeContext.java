@@ -30,13 +30,13 @@ import io.ballerina.compiler.syntax.tree.AnnotAccessExpressionNode;
 import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.TypeCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
 import org.ballerinalang.langserver.completions.util.FieldAccessCompletionResolver;
 import org.ballerinalang.langserver.completions.util.ItemResolverConstants;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.CompletionItemKind;
@@ -48,7 +48,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static io.ballerina.compiler.api.symbols.SymbolKind.ANNOTATION;
 
@@ -102,7 +101,7 @@ public class AnnotationAccessExpressionNodeContext extends AbstractCompletionPro
             }
         });
 
-        if (!QNameReferenceUtil.onQualifiedNameIdentifier(context, context.getNodeAtCursor())) {
+        if (!QNameRefCompletionUtil.onQualifiedNameIdentifier(context, context.getNodeAtCursor())) {
             completionItems.addAll(this.getModuleCompletionItems(context));
         }
 
@@ -131,7 +130,7 @@ public class AnnotationAccessExpressionNodeContext extends AbstractCompletionPro
                 if (((ObjectTypeSymbol) symbol).qualifiers().contains(Qualifier.SERVICE)) {
                     annotationAttachPoints.add(AnnotationAttachPoint.SERVICE);
                 } else {
-                    annotationAttachPoints.add(AnnotationAttachPoint.OBJECT_FIELD);
+                    annotationAttachPoints.add(AnnotationAttachPoint.CLASS);
                 }
                 break;
             case FUNCTION:
@@ -139,12 +138,12 @@ public class AnnotationAccessExpressionNodeContext extends AbstractCompletionPro
                 annotationAttachPoints.add(AnnotationAttachPoint.TYPE);
                 break;
             case RECORD:
-                annotationAttachPoints.add(AnnotationAttachPoint.RECORD_FIELD);
+                annotationAttachPoints.add(AnnotationAttachPoint.TYPE);
                 break;
             case UNION:
                 List<TypeDescKind> typeDescKinds = ((UnionTypeSymbol) symbol).memberTypeDescriptors().stream()
                         .map(TypeSymbol::typeKind)
-                        .collect(Collectors.toList());
+                        .toList();
                 if (typeDescKinds.contains(TypeDescKind.ANY) || !typeDescKinds.contains(TypeDescKind.ANYDATA)) {
                     annotationAttachPoints.addAll(Arrays.asList(
                             AnnotationAttachPoint.TYPE,
@@ -174,17 +173,17 @@ public class AnnotationAccessExpressionNodeContext extends AbstractCompletionPro
         NonTerminalNode nodeAtCursor = ctx.getNodeAtCursor();
         Predicate<Symbol> predicate = symbol -> symbol.kind() == ANNOTATION;
         List<AnnotationSymbol> annotationSymbols;
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
             annotationSymbols =
-                    QNameReferenceUtil.getModuleContent(ctx, (QualifiedNameReferenceNode) nodeAtCursor, predicate)
+                    QNameRefCompletionUtil.getModuleContent(ctx, (QualifiedNameReferenceNode) nodeAtCursor, predicate)
                             .stream()
                             .map(symbol -> (AnnotationSymbol) symbol)
-                            .collect(Collectors.toList());
+                            .toList();
         } else {
             annotationSymbols = ctx.visibleSymbols(ctx.getCursorPosition()).stream()
                     .filter(predicate)
                     .map(symbol -> (AnnotationSymbol) symbol)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         return annotationSymbols;

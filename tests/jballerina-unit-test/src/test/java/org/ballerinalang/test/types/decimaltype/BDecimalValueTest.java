@@ -23,13 +23,14 @@ import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BDecimal;
 import io.ballerina.runtime.api.values.BMap;
-import io.ballerina.runtime.internal.DecimalValueKind;
+import io.ballerina.runtime.internal.values.DecimalValueKind;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -276,14 +277,21 @@ public class BDecimalValueTest {
         Assert.assertEquals(returns, ValueCreator.createDecimalValue("2.0", DecimalValueKind.OTHER));
     }
 
-    @Test(description = "Test decimal filler value")
-    public void testDecimalFillerValue() {
-        BRunUtil.invoke(result, "testDecimalFillerValue");
+    @Test(dataProvider = "decimalValueTestFunctions")
+    public void testDecimalValueOperations(String function) {
+        BRunUtil.invoke(result, function);
     }
 
-    @Test()
-    public void testDecimalZeroOperations() {
-        BRunUtil.invoke(result, "testDecimalZeroOperations");
+    @DataProvider(name = "decimalValueTestFunctions")
+    public Object[] decimalValueTestFunctions() {
+        return new Object[] {
+                "testDecimalFillerValue",
+                "testDecimalValueWithExponent",
+                "testDecimalZeroOperations",
+                "testDecimalValueOverflow",
+                "testDecimalValUsingIntLiterals",
+                "testDecimalTypeRef"
+        };
     }
 
     @AfterClass

@@ -20,11 +20,11 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Test the formatting of parser test cases.
@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
  */
 public class ParserTestFormatter extends FormatterTest {
 
+    @Override
     @Test(dataProvider = "test-file-provider")
     public void test(String fileName, String path) throws IOException {
         super.testParserResources(path);
@@ -41,7 +42,7 @@ public class ParserTestFormatter extends FormatterTest {
 //    // Uncomment to run a subset of test cases.
 //    @Override
 //    public Object[][] testSubset() {
-//        Path buildDirectory = Paths.get("build").toAbsolutePath().normalize();
+//        Path buildDirectory = Path.of("build").toAbsolutePath().normalize();
 //
 //        return new Object[][] {
 //                {"annot_decl_source_01.bal", getFilePath("annot_decl_source_01.bal",
@@ -58,6 +59,7 @@ public class ParserTestFormatter extends FormatterTest {
                 "minutiae_test_03.bal",
                 "minutiae_test_04.bal",
                 "minutiae_test_05.bal",
+                "minutiae_test_04_with_no_newlines.bal",
                 "minutiae_test_05_with_no_newlines.bal",
                 "invalid_token_minutiae_test_01.bal",
                 "invalid_token_minutiae_test_02.bal",
@@ -70,20 +72,28 @@ public class ParserTestFormatter extends FormatterTest {
                 "float_literal_source_07.bal",
                 "method_call_expr_source_03.bal",
                 "method_call_expr_source_05.bal",
-                "qualified_identifier_assert_08.bal",
+                "qualified_identifier_source_08.bal",
                 "conditional_expr_source_28.bal",
                 "resiliency_source_04.bal",
+                "record_type_def_source_14.bal",
+                "record_type_def_source_29.bal",
+                "object_type_def_source_12.bal",
+                "anon_func_source_01.bal",
+                "conditional_expr_source_27.bal",
 
                 // the following tests need to be enabled in the future
                 "annotations_source_04.bal", // could be considered an invalid scenario
                 "receive_action_source_01.bal", // issue #26376
                 "doc_source_21.bal", // issue #28172
                 "module_var_decl_source_18.bal", // issue #31307
-                "match_stmt_source_21.bal", // issue #35240
-                "func_params_source_27.bal", // issue #35240
 
                 "service_decl_source_02.bal", "service_decl_source_05.bal", "service_decl_source_17.bal",
                 "service_decl_source_20.bal",
+
+                "separated_node_list_import_decl.bal", "node_location_test_03.bal",
+
+                // formatter keeps adding whitespaces #41698
+                "worker_decl_source_07.bal",
 
                 // parser tests with syntax errors that cannot be handled by the formatter
                 "worker_decl_source_03.bal", "worker_decl_source_05.bal", "invalid_identifier_source_01.bal",
@@ -103,11 +113,12 @@ public class ParserTestFormatter extends FormatterTest {
                 "tuple_type_source_04.bal", "tuple_type_source_06.bal", "trivia_source_02.bal",
                 "enum_decl_source_05.bal", "enum_decl_source_08.bal", "enum_decl_source_09.bal",
                 "service_decl_source_09.bal", "service_decl_source_15.bal", "service_decl_source_03.bal",
-                 "service_decl_source_12.bal", "service_decl_source_10.bal", "service_decl_source_04.bal",
+                "service_decl_source_12.bal", "service_decl_source_10.bal", "service_decl_source_04.bal",
                 "service_decl_source_11.bal", "import_decl_source_19.bal", "import_decl_source_20.bal",
                 "import_decl_source_21.bal", "import_decl_source_23.bal", "import_decl_source_22.bal",
                 "import_decl_source_06.bal", "import_decl_source_04.bal", "import_decl_source_10.bal",
-                "import_decl_source_05.bal", "import_decl_source_15.bal", "import_decl_source_14.bal",
+                "import_decl_source_05.bal", "import_decl_source_08.bal",
+                "import_decl_source_15.bal", "import_decl_source_14.bal",
                 "import_decl_source_16.bal", "module_var_decl_source_09.bal", "module_var_decl_source_03.bal",
                 "module_var_decl_source_07.bal", "module_var_decl_source_06.bal", "isolated_service_func_source_04.bal",
                 "func_def_source_06.bal", "func_def_source_12.bal", "func_def_source_16.bal", "func_def_source_03.bal",
@@ -172,7 +183,16 @@ public class ParserTestFormatter extends FormatterTest {
                 "predeclared-module-prefix_02.bal", "object_type_def_source_44.bal", "record_type_def_source_27.bal",
                 "func_type_source_09.bal", "func_type_source_13.bal", "func_type_source_14.bal",
                 "func_type_source_15.bal", "func_type_source_16.bal", "import_decl_source_24.bal",
-                "member_access_expr_source_11.bal", "float_literal_source_08.bal");
+                "member_access_expr_source_11.bal", "float_literal_source_08.bal", "object_type_def_source_47.bal", 
+                "client_resource_access_action_source_05.bal", "client_resource_access_action_source_06.bal",
+                "resiliency_source_05.bal", "regexp_constructor_source_26.bal", "regexp_constructor_source_28.bal",
+                "regexp_constructor_source_44.bal", "regexp_constructor_source_47.bal",
+                "regexp_constructor_source_52.bal", "regexp_constructor_source_53.bal", "completion_source_07.bal",
+                "query_expr_source_101.bal", "query_expr_source_105.bal", "query_expr_source_94.bal",
+                "query_expr_source_116.bal", "query_expr_source_117.bal", "query_expr_source_118.bal",
+                "query_expr_source_119.bal", "query_expr_source_103.bal", "query_expr_source_115.bal",
+                "transaction_stmt_source_09.bal", "func_def_source_37.bal", "natural_expr_source_02.bal"
+        );
     }
 
     @DataProvider(name = "test-file-provider")
@@ -183,14 +203,13 @@ public class ParserTestFormatter extends FormatterTest {
 
     @Override
     public String getTestResourceDir() {
-        return Paths.get("parser-tests").toString();
+        return Path.of("parser-tests").toString();
     }
 
     private Optional<String> getFilePath(String fileName, String directoryPath) {
-        try {
-            return Optional.ofNullable(Files.walk(Paths.get(directoryPath))
-                    .filter(f -> f.getFileName().toString().equals(fileName))
-                    .collect(Collectors.toList()).get(0).toString());
+        try (Stream<Path> paths = Files.walk(Path.of(directoryPath))) {
+            return Optional.ofNullable(paths.filter(f -> f.getFileName().toString().equals(fileName))
+                    .toList().get(0).toString());
         } catch (IOException e) {
             return Optional.empty();
         }

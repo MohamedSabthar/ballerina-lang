@@ -56,7 +56,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static io.ballerina.runtime.api.constants.RuntimeConstants.UNDERSCORE;
 
@@ -78,8 +77,8 @@ public class ServiceDesugar {
     private final SymbolTable symTable;
     private final SymbolResolver symResolver;
     private final Names names;
-    private DeclarativeAuthDesugar declarativeAuthDesugar;
-    private TransactionDesugar transactionDesugar;
+    private final DeclarativeAuthDesugar declarativeAuthDesugar;
+    private final TransactionDesugar transactionDesugar;
     private final Types types;
 
     public static ServiceDesugar getInstance(CompilerContext context) {
@@ -126,9 +125,9 @@ public class ServiceDesugar {
         final Location pos = variable.pos;
 
         // Find correct symbol.
-        BTypeSymbol listenerTypeSymbol = Types.getReferredType(
+        BTypeSymbol listenerTypeSymbol = Types.getImpliedType(
                 getListenerType(variable.getBType())).tsymbol;
-        final Name functionName = names
+        final Name functionName = Names
                 .fromString(Symbols.getAttachedFuncSymbolName(listenerTypeSymbol.name.value, method));
         BInvokableSymbol methodInvocationSymbol = (BInvokableSymbol) symResolver
                 .lookupMemberSymbol(pos, listenerTypeSymbol.scope, env, functionName,
@@ -155,8 +154,10 @@ public class ServiceDesugar {
 
         final Location pos = service.pos;
 
-        ASTBuilderUtil.defineVariable(service.serviceVariable, env.enclPkg.symbol, names);
-        env.enclPkg.globalVars.add(service.serviceVariable);
+        BLangSimpleVariable serviceVariable = service.serviceVariable;
+        ASTBuilderUtil.defineVariable(serviceVariable, env.enclPkg.symbol, names);
+        env.enclPkg.globalVars.add(serviceVariable);
+        env.enclPkg.topLevelNodes.add(serviceVariable);
 
         int count = 0;
         for (BLangExpression attachExpr : service.attachedExprs) {
@@ -173,6 +174,7 @@ public class ServiceDesugar {
                 ASTBuilderUtil.defineVariable(listenerVar, env.enclPkg.symbol, names);
                 listenerVar.symbol.flags |= Flags.LISTENER;
                 env.enclPkg.globalVars.add(listenerVar);
+                env.enclPkg.topLevelNodes.add(listenerVar);
                 listenerVarRef = ASTBuilderUtil.createVariableRef(pos, listenerVar.symbol);
             }
 
@@ -187,6 +189,7 @@ public class ServiceDesugar {
                         null);
                 ASTBuilderUtil.defineVariable(listenerWithoutErrors, env.enclPkg.symbol, names);
                 env.enclPkg.globalVars.add(listenerWithoutErrors);
+                env.enclPkg.topLevelNodes.add(listenerWithoutErrors);
                 BLangSimpleVarRef checkedRef = ASTBuilderUtil.createVariableRef(pos, listenerWithoutErrors.symbol);
                 listenerVarRef = checkedRef;
             }
@@ -194,7 +197,7 @@ public class ServiceDesugar {
             //      (.<init>)              ->      y.__attach(x, {});
             // Find correct symbol.
             BTypeSymbol listenerTypeSymbol = getListenerType(listenerVarRef.getBType()).tsymbol;
-            final Name functionName = names
+            final Name functionName = Names
                     .fromString(Symbols.getAttachedFuncSymbolName(listenerTypeSymbol.name.value, ATTACH_METHOD));
             BInvokableSymbol methodRef = (BInvokableSymbol) symResolver
                     .lookupMemberSymbol(pos, listenerTypeSymbol.scope, env, functionName, SymTag.INVOKABLE);
@@ -234,7 +237,7 @@ public class ServiceDesugar {
     }
 
     private BType getListenerTypeWithoutError(BType type) {
-        if (Types.getReferredType(type).tag == TypeTags.UNION) {
+        if (Types.getImpliedType(type).tag == TypeTags.UNION) {
             LinkedHashSet<BType> members = new LinkedHashSet<>();
             for (BType memberType : ((BUnionType) type).getMemberTypes()) {
                 if (types.isAssignable(memberType, symTable.errorType)) {
@@ -242,14 +245,14 @@ public class ServiceDesugar {
                 }
                 members.add(memberType);
             }
-            return BUnionType.create(null, members);
+            return BUnionType.create(symTable.typeEnv(), null, members);
         }
         return type;
     }
 
     private BType getListenerType(BType type) {
-        if (Types.getReferredType(type).tag == TypeTags.UNION) {
-            for (BType memberType : ((BUnionType) Types.getReferredType(type)).getMemberTypes()) {
+        if (Types.getImpliedType(type).tag == TypeTags.UNION) {
+            for (BType memberType : ((BUnionType) Types.getImpliedType(type)).getMemberTypes()) {
                 if (types.checkListenerCompatibility(memberType)) {
                     return memberType;
                 }
@@ -269,7 +272,7 @@ public class ServiceDesugar {
         // call is generated in BIRGen. Casting to the first listener type should be fine as actual method invocation
         // is based on the value rather than the type.
         BType listenerType = getListenerType(varRef.getBType());
-        if (!types.isSameType(listenerType, varRef.getBType())) {
+        if (!types.isSameTypeIncludingTags(listenerType, varRef.getBType())) {
             BLangTypeConversionExpr castExpr = (BLangTypeConversionExpr) TreeBuilder.createTypeConversionNode();
             castExpr.expr = varRef;
             castExpr.setBType(listenerType);
@@ -288,8 +291,7 @@ public class ServiceDesugar {
     }
 
     void engageCustomServiceDesugar(BLangService service, SymbolEnv env) {
-        List<BType> expressionTypes = service.attachedExprs.stream().map(expression -> expression.getBType())
-                .collect(Collectors.toList());
+        List<BType> expressionTypes = service.attachedExprs.stream().map(expression -> expression.getBType()).toList();
         service.serviceClass.functions.stream()
                 .filter(fun -> Symbols.isResource(fun.symbol) || Symbols.isRemote(fun.symbol))
                 .forEach(func -> engageCustomResourceDesugar(func, env, expressionTypes));

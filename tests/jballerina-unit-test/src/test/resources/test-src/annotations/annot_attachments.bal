@@ -279,3 +279,90 @@ public const annotation map<int> v26 on type;
 @v26
 type MyType2 int[]|string;
 
+public annotation v27 on type;
+public const annotation v28 on source const;
+
+@v27
+public enum Color1 {
+    RED,
+    BLUE
+}
+
+@v27
+public enum Color2 {
+    @v28
+    RED,
+    BLUE
+}
+
+annotation v30 on field;
+
+type Tp [@v30 int, string];
+
+public const annotation record {| int increment = 1; |} v29 on source type;
+
+@v29 {
+    increment: -1
+}
+type Qux record {|
+    int x;
+|};
+
+const int x = 1;
+
+@v29 {
+    increment: +2
+}
+type F1 record {|
+    int x;
+|};
+
+@v29 {
+    increment: +x
+}
+type F2 record {|
+    int x;
+|};
+
+@v29 {
+    increment: -x
+}
+type F3 record {|
+    int x;
+|};
+
+@v29 {
+    increment: -2
+}
+type F4 record {|
+    int x;
+|};
+
+public annotation record {| int increment; |} v31 on service remote function;
+public const annotation record {| int increment; |} v32 on source type, source service remote function;
+
+service class ServiceClass {
+    @v31 {
+        increment: 1111
+    }
+    @v32 {
+        increment: 1112
+    }
+    remote function serviceRemoteFn1() {
+    }
+}
+
+type ServiceObject service object {
+    @v31 {
+        increment: 1113
+    }
+    remote function serviceRemoteFn2();
+};
+
+service /ser2 on new Listener() {
+    @v32 {
+        increment: 1114
+    }
+    remote function serviceRemoteFn3() {
+    }
+}

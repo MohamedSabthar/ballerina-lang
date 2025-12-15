@@ -18,14 +18,25 @@
 
 package io.ballerina.runtime.internal.types;
 
-import io.ballerina.runtime.api.TypeTags;
 import io.ballerina.runtime.api.flags.TypeFlags;
 import io.ballerina.runtime.api.types.FiniteType;
+import io.ballerina.runtime.api.types.TypeTags;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.Core;
+import io.ballerina.runtime.api.types.semtype.SemType;
+import io.ballerina.runtime.api.types.semtype.ShapeAnalyzer;
+import io.ballerina.runtime.api.types.semtype.TypeCheckCache;
+import io.ballerina.runtime.api.types.semtype.TypeCheckCacheFactory;
 import io.ballerina.runtime.internal.TypeChecker;
+import io.ballerina.runtime.internal.types.semtype.CacheFactory;
 import io.ballerina.runtime.internal.values.RefValue;
 
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 
@@ -40,16 +51,29 @@ public class BFiniteType extends BType implements FiniteType {
 
     public Set<Object> valueSpace;
     private int typeFlags;
+    private String originalName;
+    private BasicTypeBitSet basicType;
 
     public BFiniteType(String typeName) {
-        super(typeName, null, RefValue.class);
-        this.valueSpace = new LinkedHashSet<>();
+        this(typeName, new LinkedHashSet<>(), 0);
     }
 
     public BFiniteType(String typeName, Set<Object> values, int typeFlags) {
-        super(typeName, null, RefValue.class);
+        this(typeName, typeName, values, typeFlags);
+    }
+
+    public BFiniteType(String typeName, String originalName, Set<Object> values, int typeFlags) {
+        super(typeName, null, RefValue.class, false);
         this.valueSpace = values;
         this.typeFlags = typeFlags;
+        this.originalName = originalName;
+        if (this.originalName != null && !originalName.isEmpty()) {
+            var flyweight = TypeCheckCacheData.get(originalName);
+            this.typeId = flyweight.typeId;
+            this.typeCheckCache = flyweight.typeCheckCache;
+        } else {
+            initializeCache();
+        }
     }
 
     @Override
@@ -78,6 +102,11 @@ public class BFiniteType extends BType implements FiniteType {
         }
 
         return null;
+    }
+
+    @Override
+    public String getName() {
+        return this.originalName;
     }
 
     @Override
@@ -131,17 +160,28 @@ public class BFiniteType extends BType implements FiniteType {
         return true;
     }
 
+    @Override
+    public BasicTypeBitSet getBasicType() {
+        if (basicType == null) {
+            basicType = this.valueSpace.stream().map(TypeChecker::getBasicType)
+                    .reduce(Builder.getNeverType(), BasicTypeBitSet::union);
+        }
+        return basicType;
+    }
+
+    @Override
     public Set<Object> getValueSpace() {
         return valueSpace;
     }
 
+    @Override
     public int getTypeFlags() {
         return typeFlags;
     }
 
     @Override
     public String toString() {
-        if (typeName != null && !typeName.isEmpty()) {
+        if (typeName != null && !typeName.isEmpty() && !typeName.startsWith("$anonType$")) {
             return typeName;
         }
         StringJoiner joiner = new StringJoiner("|");
@@ -157,10 +197,63 @@ public class BFiniteType extends BType implements FiniteType {
                 case TypeTags.CHAR_STRING_TAG:
                     joiner.add("\"" + value + "\"");
                     break;
+                case TypeTags.NULL_TAG:
+                    joiner.add("()");
+                    break;
                 default:
                     joiner.add(value.toString());
             }
         }
         return valueSpace.size() == 1 ? joiner.toString() : "(" + joiner + ")";
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof BFiniteType that)) {
+            return false;
+        }
+        if (this.valueSpace.size() != that.valueSpace.size()) {
+            return false;
+        }
+        for (var each : this.valueSpace) {
+            try {
+                if (!that.valueSpace.contains(each)) {
+                    return false;
+                }
+            } catch (NullPointerException ex) {
+                // If one of the sets is an immutable collection this can happen
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @Override
+    public SemType createSemType(Context cx) {
+        return this.valueSpace.stream().map(each -> ShapeAnalyzer.inherentTypeOf(cx, each))
+                .map(Optional::orElseThrow)
+                .reduce(Builder.getNeverType(), Core::union);
+    }
+
+    private static class TypeCheckCacheData {
+
+        private static final Map<String, TypeCheckFlyweight> cache = CacheFactory.createCachingHashMap();
+
+        private record TypeCheckFlyweight(int typeId, TypeCheckCache typeCheckCache) {
+
+        }
+
+        private static TypeCheckFlyweight get(String originalName) {
+            return cache.computeIfAbsent(originalName, TypeCheckCacheData::create);
+        }
+
+        private static TypeCheckFlyweight create(String originalName) {
+            return new TypeCheckCacheData.TypeCheckFlyweight(TypeIdSupplier.getAnonId(),
+                    TypeCheckCacheFactory.create());
+        }
+    }
+
 }

@@ -44,12 +44,24 @@ public class BLangQueryExpr extends BLangExpression implements QueryExpressionNo
     // Parser Flags and Data
     public boolean isStream = false;
     public boolean isTable = false;
+    public boolean isMap = false;
 
     @Override
     public BLangSelectClause getSelectClause() {
         for (BLangNode clause : queryClauseList) {
             if (clause.getKind() == NodeKind.SELECT) {
                 return (BLangSelectClause) clause;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public BLangNode getFinalClause() {
+        for (BLangNode clause : queryClauseList) {
+            NodeKind kind = clause.getKind();
+            if (kind == NodeKind.SELECT || kind == NodeKind.COLLECT) {
+                return clause;
             }
         }
         return null;

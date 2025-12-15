@@ -19,7 +19,6 @@ package io.ballerina.projects.test.resolution.packages.internal;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 
 /**
@@ -32,28 +31,34 @@ public class TestCaseFilePaths {
     private final Path centralRepoPath;
     private final Path distRepoPath;
     private final Path localRepoDirPath;
+    private final Path workspaceRepoPath;
     private final Path appPath;
     private final Path dependenciesTomlPath;
     private final Path ballerinaTomlPath;
-    private final Path expectedGraphStickyPath;
-    private final Path expectedGraphNoStickyPath;
+    private final Path expectedGraphHardPath;
+    private final Path expectedGraphMediumPath;
+    private final Path expectedGraphSoftPath;
 
     TestCaseFilePaths(Path centralRepoPath,
                       Path distRepoPath,
                       Path localRepoDirPath,
+                      Path workspaceRepoPath,
                       Path appPath,
                       Path dependenciesTomlPath,
                       Path ballerinaTomlPath,
-                      Path expectedGraphStickyPath,
-                      Path expectedGraphNoStickyPath) {
+                      Path expectedGraphHardPath,
+                      Path expectedGraphMediumPath,
+                      Path expectedGraphSoftPath) {
         this.centralRepoPath = centralRepoPath;
         this.distRepoPath = distRepoPath;
         this.localRepoDirPath = localRepoDirPath;
+        this.workspaceRepoPath = workspaceRepoPath;
         this.appPath = appPath;
         this.dependenciesTomlPath = dependenciesTomlPath;
         this.ballerinaTomlPath = ballerinaTomlPath;
-        this.expectedGraphStickyPath = expectedGraphStickyPath;
-        this.expectedGraphNoStickyPath = expectedGraphNoStickyPath;
+        this.expectedGraphHardPath = expectedGraphHardPath;
+        this.expectedGraphMediumPath = expectedGraphMediumPath;
+        this.expectedGraphSoftPath = expectedGraphSoftPath;
     }
 
     public Optional<Path> centralRepoPath() {
@@ -68,6 +73,10 @@ public class TestCaseFilePaths {
         return Optional.ofNullable(localRepoDirPath);
     }
 
+    public Optional<Path> workspaceRepoPath() {
+        return Optional.ofNullable(workspaceRepoPath);
+    }
+
     public Path appPath() {
         return appPath;
     }
@@ -80,12 +89,16 @@ public class TestCaseFilePaths {
         return Optional.ofNullable(dependenciesTomlPath);
     }
 
-    public Optional<Path> expectedGraphStickyPath() {
-        return Optional.ofNullable(expectedGraphStickyPath);
+    public Optional<Path> expectedGraphHardPath() {
+        return Optional.ofNullable(expectedGraphHardPath);
     }
 
-    public Optional<Path> expectedGraphNoStickyPath() {
-        return Optional.ofNullable(expectedGraphNoStickyPath);
+    public Optional<Path> expectedGraphMediumPath() {
+        return Optional.ofNullable(expectedGraphMediumPath);
+    }
+
+    public Optional<Path> expectedGraphSoftPath() {
+        return Optional.ofNullable(expectedGraphSoftPath);
     }
 
     /**
@@ -96,10 +109,13 @@ public class TestCaseFilePaths {
      *
      * @since 2.0.0
      */
-    public static class TestCaseFilePathsBuilder {
+    public static final class TestCaseFilePathsBuilder {
+
+        private TestCaseFilePathsBuilder() {
+        }
 
         public static TestCaseFilePaths build(Path testSuitePath, Path testCasePath) {
-            Path appPath = getFilePath(testSuitePath, testCasePath, Paths.get(Constants.APP_FILE_NAME));
+            Path appPath = getFilePath(testSuitePath, testCasePath, Path.of(Constants.APP_FILE_NAME));
             if (appPath == null) {
                 throw new IllegalStateException(Constants.APP_FILE_NAME +
                         " cannot be found in neither testcase dir `" +
@@ -108,21 +124,26 @@ public class TestCaseFilePaths {
             }
 
             Path centralRepoPath = getFilePath(testSuitePath, testCasePath,
-                    Paths.get(Constants.REPO_DIR_NAME).resolve(Constants.CENTRAL_REPO_FILE_NAME));
+                    Path.of(Constants.REPO_DIR_NAME).resolve(Constants.CENTRAL_REPO_FILE_NAME));
             Path distRepoPath = getFilePath(testSuitePath, testCasePath,
-                    Paths.get(Constants.REPO_DIR_NAME).resolve(Constants.DIST_REPO_FILE_NAME));
+                    Path.of(Constants.REPO_DIR_NAME).resolve(Constants.DIST_REPO_FILE_NAME));
             Path localRepoDirPath = getFilePath(testSuitePath, testCasePath,
-                    Paths.get(Constants.REPO_DIR_NAME).resolve(Constants.LOCAL_REPO_DIR_NAME));
+                    Path.of(Constants.REPO_DIR_NAME).resolve(Constants.LOCAL_REPO_DIR_NAME));
+            Path workspaceRepoPath = getFilePath(testSuitePath, testCasePath,
+                    Path.of(Constants.REPO_DIR_NAME).resolve(Constants.WORKSPACE_REPO_FILE_NAME));
 
-            Path depsTomlPath = getFilePath(testSuitePath, testCasePath, Paths.get(Constants.DEPS_TOML_FILE_NAME));
-            Path balTomlPath = getFilePath(testSuitePath, testCasePath, Paths.get(Constants.BAL_TOML_FILE_NAME));
-            Path expGraphStickyPath = getFilePath(testSuitePath, testCasePath,
-                    Paths.get(Constants.EXP_GRAPH_STICKY_FILE_NAME));
-            Path expGraphNoStickyPath = getFilePath(testSuitePath, testCasePath,
-                    Paths.get(Constants.EXP_GRAPH_NO_STICKY_FILE_NAME));
+            Path depsTomlPath = getFilePath(testSuitePath, testCasePath, Path.of(Constants.DEPS_TOML_FILE_NAME));
+            Path balTomlPath = getFilePath(testSuitePath, testCasePath, Path.of(Constants.BAL_TOML_FILE_NAME));
+            Path expGraphHardPath = getFilePath(testSuitePath, testCasePath,
+                    Path.of(Constants.EXP_GRAPH_HARD_FILE_NAME));
+            Path expGraphMediumPath = getFilePath(testSuitePath, testCasePath,
+                    Path.of(Constants.EXP_GRAPH_MEDIUM_FILE_NAME));
+            Path expGraphSoftPath = getFilePath(testSuitePath, testCasePath,
+                    Path.of(Constants.EXP_GRAPH_SOFT_FILE_NAME));
 
-            return new TestCaseFilePaths(centralRepoPath, distRepoPath, localRepoDirPath,
-                    appPath, depsTomlPath, balTomlPath, expGraphStickyPath, expGraphNoStickyPath);
+            return new TestCaseFilePaths(centralRepoPath, distRepoPath, localRepoDirPath, workspaceRepoPath,
+                    appPath, depsTomlPath, balTomlPath, expGraphHardPath,
+                    expGraphMediumPath, expGraphSoftPath);
         }
 
         private static Path getFilePath(Path testSuitePath, Path testCasePath, Path relativeFilePath) {

@@ -14,13 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
-import configUnionTypes.type_defs;
+import ballerina/test;
 import configUnionTypes.imported_unions;
+import configUnionTypes.jsonType;
+import configUnionTypes.type_defs;
+import configUnionTypes.union_ambiguity;
 import testOrg/configLib.mod1 as configLib;
 import testOrg/configLib.util;
-import configUnionTypes.union_ambiguity;
-import ballerina/test;
 
 configurable configLib:HttpVersion & readonly httpVersion = ?;
 configurable type_defs:CountryCodes & readonly countryCode = ?;
@@ -30,12 +30,33 @@ type HttpResponse record {|
     configLib:HttpVersion httpVersion;
 |};
 
+type Colors "Green" | "Red" | "Blue";
+enum Fruits {
+    Apple,
+    Banana,
+    Mango
+};
+
+type A int | "stringA" | "stringB";
+type B boolean | "stringB" | "stringC";
+type C A | B;
+
+type RecordWithRef record {
+    Colors color;
+    Fruits fruit;
+};
+
 type Person record {
     readonly string name;
     int age?;
 };
 
 configurable HttpResponse httpResponse = ?;
+configurable Colors color = ?;
+configurable Fruits fruit = ?;
+configurable Colors? color2 = ();
+configurable Fruits? fruit2 = ();
+configurable C cValue = ?;
 configurable type_defs:Country country = ?;
 
 configurable anydata anydataVar = ?;
@@ -54,18 +75,74 @@ configurable map<configLib:ClientCredentialsGrantConfig>|map<configLib:RefreshTo
 configurable map<configLib:ClientCredentialsGrantConfig|configLib:PasswordGrantConfig> configMap2 = ?;
 
 configurable int|Person recordUnionVar = ?;
+configurable RecordWithRef|Fruits recordWithRefUnionEnum = ?;
 configurable float|table<Person> key(name) tableUnionVar = ?;
+
+configurable ConnectionConfig config = ?;
 
 public function main() {
     testEnumValues();
     imported_unions:testEnumValues();
     union_ambiguity:test_ambiguous_union_type();
     union_ambiguity:test_union_type_arrays();
+    jsonType:testJsonValues();
+    testUnionRecordField();
     util:print("Tests passed");
+}
+
+function testUnionRecordField() {
+    test:assertEquals(config.toString(), "{\"auth\":{\"clientId\":\"ABC\",\"defaultTokenExpTime\":3600," +
+    "\"clockSkew\":0,\"credentialBearer\":\"AUTH_HEADER_BEARER\",\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"}}}");
+    test:assertTrue(config.auth is OAuth2RefreshTokenGrantConfig);
+
+    OAuth2RefreshTokenGrantConfig authConfig = <OAuth2RefreshTokenGrantConfig>config.auth;
+
+    test:assertEquals(authConfig.clientId, "ABC");
+    test:assertEquals(authConfig.defaultTokenExpTime, 3600d);
+    test:assertEquals(authConfig.clockSkew, 0d);
+    test:assertEquals(authConfig.credentialBearer, AUTH_HEADER_BEARER);
+    test:assertEquals(authConfig.clientConfig, {"httpVersion": "HTTP_1_1"});
+    test:assertEquals(authConfig.clientConfig.httpVersion, HTTP_1_1);
+}
+
+type ConnectionConfig record {|
+    BearerTokenConfig|OAuth2RefreshTokenGrantConfig auth;
+|};
+
+type BearerTokenConfig record {|
+    string token;
+|};
+
+public type OAuth2RefreshTokenGrantConfig record {|
+    string clientId;
+    decimal defaultTokenExpTime = 3600;
+    decimal clockSkew = 0;
+    CredentialBearer credentialBearer = AUTH_HEADER_BEARER;
+    ClientConfiguration clientConfig = {};
+|};
+
+public enum CredentialBearer {
+    AUTH_HEADER_BEARER,
+    POST_BODY_BEARER
+}
+
+public type ClientConfiguration record {|
+    Oauth2HttpVersion httpVersion = HTTP_1_1;
+    map<string> customHeaders?;
+    string customPayload?;
+|};
+
+public enum Oauth2HttpVersion {
+    HTTP_1_1,
+    HTTP_2
 }
 
 function testEnumValues() {
     test:assertEquals(httpVersion, configLib:HTTP_1_1);
+    test:assertEquals(color, "Green");
+    test:assertEquals(fruit, Apple);
+    test:assertEquals(color2, ());
+    test:assertEquals(fruit2, ());
     test:assertEquals(countryCode, type_defs:SL);
     test:assertEquals(httpResponse.httpVersion, configLib:HTTP_2);
     test:assertEquals(country.countryCode, type_defs:US);
@@ -77,30 +154,31 @@ function testEnumValues() {
     test:assertEquals(anydataArray.toString(), "[\"hello\",1,2,3.4,false]");
     test:assertEquals(anydataMap.toString(), "{\"username\":\"waruna\",\"age\":14,\"marks\":85.67,\"isAdmin\":true}");
     test:assertEquals(anydataTable.toString(), "[{\"username\":\"manu\",\"age\":12,\"marks\":123.456," +
-                                               "\"isAdmin\":false},{\"username\":\"hinduja\",\"age\":16,\"marks\":98" +
-                                               ".76,\"isAdmin\":true}]");
+                                                "\"isAdmin\":false},{\"username\":\"hinduja\",\"age\":16,\"marks\":98" +
+                                                ".76,\"isAdmin\":true}]");
     test:assertEquals(number.toString(), "three");
     test:assertEquals(config1.toString(), "{\"clientId\":123456,\"clientSecret\":\"hello\"," +
-                                          "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
-                                          "\"customHeaders\":{\"header1\":\"header1\",\"header2\":\"header2\"}}}");
+                                        "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
+                                        "\"customHeaders\":{\"header1\":\"header1\",\"header2\":\"header2\"}}}");
     test:assertEquals(config2.toString(), "{\"token\":\"123456\",\"timeLimit\":12.5," +
-                                          "\"clientConfig\":{\"httpVersion\":\"HTTP_2\"," +
-                                          "\"customHeaders\":{\"header3\":\"header3\",\"header4\":\"header4\"}}}");
+                                        "\"clientConfig\":{\"httpVersion\":\"HTTP_2\"," +
+                                        "\"customHeaders\":{\"header3\":\"header3\",\"header4\":\"header4\"}}}");
     test:assertEquals(config3.toString(), "{\"password\":[\"1\",2,3]}");
 
     test:assertEquals(configMap1.toString(), "{\"config1\":{\"clientId\":123456,\"clientSecret\":\"hello\"," +
-                                             "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
-                                             "\"customHeaders\":{\"header1\":\"header1\"," +
-                                             "\"header2\":\"header2\"}}},\"config2\":{\"clientId\":654321," +
-                                             "\"clientSecret\":\"hello\"," +
-                                             "\"clientConfig\":{\"httpVersion\":\"HTTP_2\"," +
-                                             "\"customHeaders\":{\"header3\":\"header3\"," +
-                                             "\"header4\":\"header4\"}}}}");
+                                            "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
+                                            "\"customHeaders\":{\"header1\":\"header1\"," +
+                                            "\"header2\":\"header2\"}}},\"config2\":{\"clientId\":654321," +
+                                            "\"clientSecret\":\"hello\"," +
+                                            "\"clientConfig\":{\"httpVersion\":\"HTTP_2\"," +
+                                            "\"customHeaders\":{\"header3\":\"header3\"," +
+                                            "\"header4\":\"header4\"}}}}");
     test:assertEquals(configMap2.toString(), "{\"config1\":{\"clientId\":123456,\"clientSecret\":\"hello\"," +
-                                             "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
-                                             "\"customHeaders\":{\"header1\":\"header1\"," +
-                                             "\"header2\":\"header2\"}}},\"config2\":{\"password\":[\"1\",2,3]}}");
+                                            "\"clientConfig\":{\"httpVersion\":\"HTTP_1_1\"," +
+                                            "\"customHeaders\":{\"header1\":\"header1\"," +
+                                            "\"header2\":\"header2\"}}},\"config2\":{\"password\":[\"1\",2,3]}}");
     test:assertEquals(recordUnionVar.toString(), "{\"name\":\"Manu\",\"age\":12}");
+    test:assertEquals(recordWithRefUnionEnum.toString(), "{\"color\":\"Red\",\"fruit\":\"Banana\"}");
     test:assertEquals(tableUnionVar.toString(), "[{\"name\":\"Nadeeshan\",\"age\":11},{\"name\":\"Gabilan\"}," +
     "{\"name\":\"Hinduja\",\"age\":15}]");
 }

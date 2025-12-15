@@ -38,9 +38,13 @@ import org.ballerinalang.langserver.extensions.ballerina.document.SyntaxTreeNode
 import org.ballerinalang.langserver.extensions.ballerina.packages.PackageComponentsRequest;
 import org.ballerinalang.langserver.extensions.ballerina.packages.PackageConfigSchemaRequest;
 import org.ballerinalang.langserver.extensions.ballerina.packages.PackageMetadataRequest;
+import org.ballerinalang.langserver.extensions.ballerina.runner.MainFunctionParamsRequest;
+import org.ballerinalang.langserver.extensions.ballerina.runner.ProjectDiagnosticsRequest;
 import org.eclipse.lsp4j.ClientCapabilities;
+import org.eclipse.lsp4j.CodeActionCapabilities;
 import org.eclipse.lsp4j.CodeActionContext;
 import org.eclipse.lsp4j.CodeActionParams;
+import org.eclipse.lsp4j.CodeActionResolveSupportCapabilities;
 import org.eclipse.lsp4j.CodeLensParams;
 import org.eclipse.lsp4j.CompletionCapabilities;
 import org.eclipse.lsp4j.CompletionContext;
@@ -63,6 +67,7 @@ import org.eclipse.lsp4j.FoldingRangeRequestParams;
 import org.eclipse.lsp4j.HoverParams;
 import org.eclipse.lsp4j.InitializeParams;
 import org.eclipse.lsp4j.InitializedParams;
+import org.eclipse.lsp4j.InlayHintParams;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.PrepareRenameParams;
 import org.eclipse.lsp4j.Range;
@@ -98,7 +103,6 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -112,7 +116,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * Common utils that are reused within test suits.
  */
-public class TestUtil {
+public final class TestUtil {
 
     private static final String HOVER = "textDocument/hover";
 
@@ -133,6 +137,10 @@ public class TestUtil {
     private static final String EXECUTE_COMMAND = "workspace/executeCommand";
 
     private static final String CODE_ACTION = "textDocument/codeAction";
+
+    private static final String CODE_ACTION_RESOLVE = "codeAction/resolve";
+
+    private static final String INLAY_HINT = "textDocument/inlayHint";
 
     private static final String FORMATTING = "textDocument/formatting";
 
@@ -157,6 +165,9 @@ public class TestUtil {
     private static final String DOCUMENT_EXEC_POSITIONS = "ballerinaDocument/executorPositions";
 
     private static final String SEMANTIC_TOKENS_FULL = "textDocument/semanticTokens/full";
+
+    private static final String RUNNER_DIAGNOSTICS = "ballerinaRunner/diagnostics";
+    private static final String RUNNER_MAIN_FUNC_PARAMS = "ballerinaRunner/mainFunctionParams";
 
     private static final Gson GSON = new Gson();
 
@@ -322,8 +333,32 @@ public class TestUtil {
     public static String getCodeActionResponse(Endpoint serviceEndpoint, String filePath, Range range,
                                                CodeActionContext context) {
         TextDocumentIdentifier identifier = getTextDocumentIdentifier(filePath);
-        CodeActionParams codeActionParams = new CodeActionParams(identifier, range, context);
+        return getCodeActionResponse(serviceEndpoint, identifier, range, context);
+    }
+
+    public static String getCodeActionResponse(Endpoint serviceEndpoint, TextDocumentIdentifier textDocument,
+                                               Range range, CodeActionContext context) {
+        CodeActionParams codeActionParams = new CodeActionParams(textDocument, range, context);
         CompletableFuture<?> result = serviceEndpoint.request(CODE_ACTION, codeActionParams);
+        return getResponseString(result);
+    }
+
+    /**
+     * Get the resolvable code action response.
+     *
+     * @param serviceEndpoint Language server service endpoint
+     * @param codeAction      Code action data
+     * @return {@link String} Response as a string
+     */
+    public static String getCodeActionResolveResponse(Endpoint serviceEndpoint, Object codeAction) {
+        CompletableFuture<?> result = serviceEndpoint.request(CODE_ACTION_RESOLVE, codeAction);
+        return getResponseString(result);
+    }
+
+    public static String getInlayHintsResponse(Endpoint serviceEndpoint, String filePath, Range range) {
+        TextDocumentIdentifier identifier = getTextDocumentIdentifier(filePath);
+        InlayHintParams inlayHintsParams = new InlayHintParams(identifier, range);
+        CompletableFuture<?> result = serviceEndpoint.request(INLAY_HINT, inlayHintsParams);
         return getResponseString(result);
     }
 
@@ -426,11 +461,35 @@ public class TestUtil {
     public static String getPackageComponentsResponse(Endpoint serviceEndpoint, Iterator<String> filePaths) {
         PackageComponentsRequest packageComponentsRequest = new PackageComponentsRequest();
         List<TextDocumentIdentifier> documentIdentifiers = new ArrayList<>();
-        filePaths.forEachRemaining(filePath -> {
-            documentIdentifiers.add(getTextDocumentIdentifier(filePath));
-        });
+        filePaths.forEachRemaining(filePath -> documentIdentifiers.add(getTextDocumentIdentifier(filePath)));
         packageComponentsRequest.setDocumentIdentifiers(documentIdentifiers.toArray(new TextDocumentIdentifier[0]));
         return getResponseString(serviceEndpoint.request(PACKAGE_COMPONENTS, packageComponentsRequest));
+    }
+
+    /**
+     * Get runner service's diagnostics response.
+     *
+     * @param serviceEndpoint Language Server Service endpoint
+     * @param projectDir root directory of the project
+     * @return {@link String} Runner diagnostics response
+     */
+    public static String getRunnerDiagnosticsResponse(Endpoint serviceEndpoint, String projectDir) {
+        ProjectDiagnosticsRequest projectDiagnosticsRequest = new ProjectDiagnosticsRequest();
+        projectDiagnosticsRequest.setDocumentIdentifier(getTextDocumentIdentifier(projectDir));
+        return getResponseString(serviceEndpoint.request(RUNNER_DIAGNOSTICS, projectDiagnosticsRequest));
+    }
+
+    /**
+     * Get runner service's main function params response.
+     *
+     * @param serviceEndpoint Language Server Service endpoint
+     * @param projectDir root directory of the project
+     * @return {@link String} Runner diagnostics response
+     */
+    public static String getRunnerMainFuncParamsResponse(Endpoint serviceEndpoint, String projectDir) {
+        MainFunctionParamsRequest mainFunctionParamsRequest = new MainFunctionParamsRequest();
+        mainFunctionParamsRequest.setDocumentIdentifier(getTextDocumentIdentifier(projectDir));
+        return getResponseString(serviceEndpoint.request(RUNNER_MAIN_FUNC_PARAMS, mainFunctionParamsRequest));
     }
 
     /**
@@ -504,9 +563,8 @@ public class TestUtil {
      * @param serviceEndpoint Language Server Service Endpoint
      * @param fileUri         uri of the document to open
      * @param content         File content
-     * @throws IOException Exception while reading the file content
      */
-    public static void openDocument(Endpoint serviceEndpoint, String fileUri, String content) throws IOException {
+    public static void openDocument(Endpoint serviceEndpoint, String fileUri, String content) {
         DidOpenTextDocumentParams documentParams = new DidOpenTextDocumentParams();
         TextDocumentItem textDocumentItem = new TextDocumentItem();
 
@@ -639,7 +697,7 @@ public class TestUtil {
     @Deprecated
     public static TextDocumentIdentifier getTextDocumentIdentifier(String filePath) {
         TextDocumentIdentifier identifier = new TextDocumentIdentifier();
-        identifier.setUri(Paths.get(filePath).toUri().toString());
+        identifier.setUri(Path.of(filePath).toUri().toString());
 
         return identifier;
     }
@@ -657,7 +715,7 @@ public class TestUtil {
         return identifier;
     }
 
-    private static TextDocumentPositionParams getTextDocumentPositionParams(String filePath, Position position) {
+    public static TextDocumentPositionParams getTextDocumentPositionParams(String filePath, Position position) {
         TextDocumentPositionParams positionParams = new TextDocumentPositionParams();
         positionParams.setTextDocument(getTextDocumentIdentifier(filePath));
         positionParams.setPosition(new Position(position.getLine(), position.getCharacter()));
@@ -801,6 +859,7 @@ public class TestUtil {
         private OutputStream outputStream;
         private InitializeParams initializeParams;
         private final Map<String, Object> initOptions = new HashMap<>();
+        private ExtendedLanguageClient client;
 
         public LanguageServerBuilder withLanguageServer(BallerinaLanguageServer languageServer) {
             this.languageServer = languageServer;
@@ -822,6 +881,11 @@ public class TestUtil {
             return this;
         }
 
+        public LanguageServerBuilder withClient(ExtendedLanguageClient client) {
+            this.client = client;
+            return this;
+        }
+
         public Endpoint build() {
             if (languageServer == null) {
                 languageServer = new BallerinaLanguageServer();
@@ -835,9 +899,12 @@ public class TestUtil {
                 outputStream = OutputStream.nullOutputStream();
             }
 
-            Launcher<ExtendedLanguageClient> launcher = Launcher.createLauncher(this.languageServer,
-                    ExtendedLanguageClient.class, inputStream, outputStream);
-            ExtendedLanguageClient client = launcher.getRemoteProxy();
+            if (client == null) {
+                Launcher<ExtendedLanguageClient> launcher = Launcher.createLauncher(this.languageServer,
+                        ExtendedLanguageClient.class, inputStream, outputStream);
+                this.client = launcher.getRemoteProxy();
+            }
+
             languageServer.connect(client);
 
             if (initializeParams == null) {
@@ -854,9 +921,17 @@ public class TestUtil {
 
                 textDocumentClientCapabilities.setCompletion(completionCapabilities);
                 textDocumentClientCapabilities.setSignatureHelp(signatureHelpCapabilities);
+                // Code action capabilities
+                CodeActionResolveSupportCapabilities resolveSupportCapabilities = 
+                        new CodeActionResolveSupportCapabilities(List.of("edit"));
+                CodeActionCapabilities codeActionCapabilities = new CodeActionCapabilities();
+                codeActionCapabilities.setResolveSupport(resolveSupportCapabilities);
+                textDocumentClientCapabilities.setCodeAction(codeActionCapabilities);
+                // Folding range capabilities
                 FoldingRangeCapabilities foldingRangeCapabilities = new FoldingRangeCapabilities();
                 foldingRangeCapabilities.setLineFoldingOnly(true);
                 textDocumentClientCapabilities.setFoldingRange(foldingRangeCapabilities);
+                // Rename capabilities
                 RenameCapabilities renameCapabilities = new RenameCapabilities();
                 renameCapabilities.setPrepareSupport(true);
                 renameCapabilities.setHonorsChangeAnnotations(true);
@@ -880,9 +955,12 @@ public class TestUtil {
 
             Map<String, Object> initializationOptions = new HashMap<>();
             initializationOptions.put(InitializationOptions.KEY_ENABLE_SEMANTIC_TOKENS, true);
+            initializationOptions.put(InitializationOptions.KEY_ENABLE_INLAY_HINTS, true);
             initializationOptions.put(InitializationOptions.KEY_BALA_SCHEME_SUPPORT, true);
             if (!initOptions.isEmpty()) {
                 initializationOptions.putAll(initOptions);
+            } else {
+                initializationOptions.put(InitializationOptions.KEY_ENABLE_INDEX_PACKAGES, false);
             }
             initializeParams.setInitializationOptions(GSON.toJsonTree(initializationOptions));
 

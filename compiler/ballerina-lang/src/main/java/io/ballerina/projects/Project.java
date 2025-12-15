@@ -17,15 +17,17 @@
  */
 package io.ballerina.projects;
 
+import io.ballerina.projects.buildtools.ToolContext;
+import io.ballerina.projects.directory.WorkspaceProject;
 import io.ballerina.projects.environment.ProjectEnvironment;
-import org.wso2.ballerinalang.compiler.PackageCache;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.CompilerOptions;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-
-import static org.ballerinalang.compiler.CompilerOptionName.PROJECT_DIR;
 
 /**
  * The class {code Project} provides an abstract representation of a Ballerina project.
@@ -36,25 +38,28 @@ public abstract class Project {
     protected final Path sourceRoot;
     private Package currentPackage;
     private BuildOptions buildOptions;
-    private final ProjectEnvironment projectEnvironment;
+    protected ProjectEnvironment projectEnvironment;
     private final ProjectKind projectKind;
+    private Map<PackageManifest.Tool.Field, ToolContext> toolContextMap;
+    private final List<CompilerPluginContextIml> compilerPluginContexts;
+    protected WorkspaceProject workspaceProject;
 
-    protected Project(ProjectKind projectKind,
-                      Path projectPath,
-                      ProjectEnvironmentBuilder projectEnvironmentBuilder, BuildOptions buildOptions) {
+    protected Project(ProjectKind projectKind, Path projectPath,
+                      ProjectEnvironmentBuilder projectEnvironmentBuilder, BuildOptions buildOptions,
+                      WorkspaceProject workspaceProject) {
         this.projectKind = projectKind;
-        this.sourceRoot = projectPath;
+        this.sourceRoot = projectPath.toAbsolutePath().normalize();
         this.buildOptions = buildOptions;
         this.projectEnvironment = projectEnvironmentBuilder.build(this);
+        this.compilerPluginContexts = new ArrayList<>();
+        this.workspaceProject = workspaceProject;
     }
 
-    protected Project(ProjectKind projectKind,
-                      Path projectPath,
-                      ProjectEnvironmentBuilder projectEnvironmentBuilder) {
+    protected Project(ProjectKind projectKind, Path projectPath, BuildOptions buildOptions) {
         this.projectKind = projectKind;
-        this.sourceRoot = projectPath;
-        this.projectEnvironment = projectEnvironmentBuilder.build(this);
-        this.buildOptions = BuildOptions.builder().build();
+        this.sourceRoot = projectPath.toAbsolutePath().normalize();
+        this.buildOptions = buildOptions;
+        this.compilerPluginContexts = new ArrayList<>();
     }
 
     void setBuildOptions(BuildOptions buildOptions) {
@@ -81,8 +86,9 @@ public abstract class Project {
 
     public abstract Path targetDir();
 
+    public abstract Path generatedResourcesDir();
+
     protected void setCurrentPackage(Package currentPackage) {
-        // TODO Handle concurrent read/write to the currentPackage variable
         this.currentPackage = currentPackage;
     }
 
@@ -94,13 +100,30 @@ public abstract class Project {
         return buildOptions;
     }
 
+    /**
+     * Returns a map of build tools.
+     *
+     * @return map of {@code ToolContext}
+     */
+    public Map<PackageManifest.Tool.Field, ToolContext> getToolContextMap() {
+        return toolContextMap;
+    }
+
+    /**
+     * Assigns a map of build tools.
+     * @param toolContextMap map of {@code ToolContext}
+     */
+    public void setToolContextMap(Map<PackageManifest.Tool.Field, ToolContext> toolContextMap) {
+        this.toolContextMap = toolContextMap;
+    }
+
     // Following project path was added to support old compiler extensions.
     // Currently this method is only called from Build and Single File projects
     // todo remove after introducing extension model
     protected void populateCompilerContext() {
         CompilerContext compilerContext = this.projectEnvironmentContext().getService(CompilerContext.class);
         CompilerOptions options = CompilerOptions.getInstance(compilerContext);
-        options.put(PROJECT_DIR, this.sourceRoot().toAbsolutePath().toString());
+//        options.put(PROJECT_DIR, this.sourceRoot().toAbsolutePath().toString());
     }
 
     /**
@@ -110,13 +133,7 @@ public abstract class Project {
      * (i.e. package resolution caches, compilation caches)
      * generated during project compilation will be discarded.
      */
-    public void clearCaches() {
-        cloneProject(this);
-        CompilerContext compilerContext = this.projectEnvironmentContext()
-                .getService(CompilerContext.class);
-        PackageCache packageCache = PackageCache.getInstance(compilerContext);
-        packageCache.flush();
-    }
+    public abstract void clearCaches();
 
     /**
      * Creates a new Project instance which has the same structure as this Project.
@@ -128,7 +145,7 @@ public abstract class Project {
      */
     public abstract Project duplicate();
 
-    protected Project cloneProject(Project project) {
+    protected Project resetPackage(Project project) {
         Package clone = this.currentPackage.duplicate(project);
         project.setCurrentPackage(clone);
         return project;
@@ -139,4 +156,12 @@ public abstract class Project {
     public abstract Optional<Path> documentPath(DocumentId documentId);
 
     public abstract void save();
+
+    List<CompilerPluginContextIml> compilerPluginContexts() {
+        return this.compilerPluginContexts;
+    }
+
+    public Optional<WorkspaceProject> workspaceProject () {
+        return Optional.ofNullable(this.workspaceProject);
+    }
 }

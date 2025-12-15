@@ -17,7 +17,7 @@
  */
 package org.wso2.ballerinalang.compiler.bir.emit;
 
-import org.wso2.ballerinalang.compiler.bir.codegen.JvmCodeGenUtil;
+import org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmCodeGenUtil;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BAttachedFunction;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BObjectTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
@@ -35,6 +35,7 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BParameterizedType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BRecordType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BStreamType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleMember;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
@@ -59,100 +60,61 @@ import static org.wso2.ballerinalang.compiler.bir.emit.EmitterUtils.getTypeName;
  *
  * @since 1.2.0
  */
-class TypeEmitter {
+final class TypeEmitter {
 
     static final Map<String, BType> B_TYPES = new HashMap<>();
 
+    private TypeEmitter() {
+    }
+
     static String emitType(BType bType, int tabs) {
 
-        switch (bType.tag) {
-            case TypeTags.INT:
-                return "int";
-            case TypeTags.SIGNED32_INT:
-                return "int:Signed32";
-            case TypeTags.SIGNED16_INT:
-                return "int:Signed16";
-            case TypeTags.SIGNED8_INT:
-                return "int:Signed8";
-            case TypeTags.UNSIGNED32_INT:
-                return "int:Unsigned32";
-            case TypeTags.UNSIGNED16_INT:
-                return "int:Unsigned16";
-            case TypeTags.UNSIGNED8_INT:
-                return "int:Unsigned8";
-            case TypeTags.BOOLEAN:
-                return "boolean";
-            case TypeTags.ANY:
-                return "any";
-            case TypeTags.NIL:
-                return "()";
-            case TypeTags.NEVER:
-                return "never";
-            case TypeTags.BYTE:
-                return "byte";
-            case TypeTags.FLOAT:
-                return "float";
-            case TypeTags.STRING:
-                return "string";
-            case TypeTags.ANYDATA:
-                return "anydata";
-            case TypeTags.READONLY:
-                return "readonly";
-            case TypeTags.NONE:
-                return "none";
-            case TypeTags.JSON:
-                return "json";
-            case TypeTags.XML:
-                return "xml";
-            case TypeTags.XML_TEXT:
-                return "xml:Text";
-            case TypeTags.XML_ELEMENT:
-                return "xml:Element";
-            case TypeTags.XML_COMMENT:
-                return "xml:Comment";
-            case TypeTags.XML_PI:
-                return "xml:ProcessingInstruction";
-            case TypeTags.DECIMAL:
-                return "decimal";
-            case TypeTags.CHAR_STRING:
-                return "string:Char";
-            case TypeTags.UNION:
-                return emitBUnionType((BUnionType) bType, tabs);
-            case TypeTags.INTERSECTION:
-                return emitBIntersectionType((BIntersectionType) bType, tabs);
-            case TypeTags.TUPLE:
-                return emitBTupleType((BTupleType) bType, tabs);
-            case TypeTags.INVOKABLE:
-                return emitBInvokableType((BInvokableType) bType, tabs);
-            case TypeTags.ARRAY:
-                return emitBArrayType((BArrayType) bType, tabs);
-            case TypeTags.RECORD:
-                return emitBRecordType((BRecordType) bType, tabs);
-            case TypeTags.OBJECT:
-                return emitBObjectType((BObjectType) bType, tabs);
-            case TypeTags.MAP:
-                return emitBMapType((BMapType) bType, tabs);
-            case TypeTags.TABLE:
-                return emitTableType((BTableType) bType, tabs);
-            case TypeTags.ERROR:
-                return emitBErrorType((BErrorType) bType, tabs);
-            case TypeTags.FUTURE:
-                return emitBFutureType((BFutureType) bType, tabs);
-            case TypeTags.TYPEDESC:
-                return emitBTypeDesc((BTypedescType) bType, tabs);
-            case TypeTags.FINITE:
-                return emitBFiniteType((BFiniteType) bType, tabs);
-            case TypeTags.HANDLE:
-                return emitBTypeHandle((BHandleType) bType, tabs);
-            case TypeTags.STREAM:
-                return emitBStreamType((BStreamType) bType, tabs);
-            case TypeTags.TYPEREFDESC:
-                return emitTypeRefDesc((BTypeReferenceType) bType, tabs);
-            case TypeTags.PARAMETERIZED_TYPE:
-                return emitParameterizedType((BParameterizedType) bType, tabs);
-            default:
-                throw new IllegalStateException("Invalid type");
-        }
+        return switch (bType.tag) {
+            case TypeTags.INT -> "int";
+            case TypeTags.SIGNED32_INT -> "int:Signed32";
+            case TypeTags.SIGNED16_INT -> "int:Signed16";
+            case TypeTags.SIGNED8_INT -> "int:Signed8";
+            case TypeTags.UNSIGNED32_INT -> "int:Unsigned32";
+            case TypeTags.UNSIGNED16_INT -> "int:Unsigned16";
+            case TypeTags.UNSIGNED8_INT -> "int:Unsigned8";
+            case TypeTags.BOOLEAN -> "boolean";
+            case TypeTags.ANY -> "any";
+            case TypeTags.NIL -> "()";
+            case TypeTags.NEVER -> "never";
+            case TypeTags.BYTE -> "byte";
+            case TypeTags.FLOAT -> "float";
+            case TypeTags.STRING -> "string";
+            case TypeTags.ANYDATA -> "anydata";
+            case TypeTags.READONLY -> "readonly";
+            case TypeTags.NONE -> "none";
+            case TypeTags.JSON -> "json";
+            case TypeTags.XML -> "xml";
+            case TypeTags.XML_TEXT -> "xml:Text";
+            case TypeTags.XML_ELEMENT -> "xml:Element";
+            case TypeTags.XML_COMMENT -> "xml:Comment";
+            case TypeTags.XML_PI -> "xml:ProcessingInstruction";
+            case TypeTags.DECIMAL -> "decimal";
+            case TypeTags.CHAR_STRING -> "string:Char";
+            case TypeTags.REGEXP -> "regexp:RegExp";
+            case TypeTags.UNION -> emitBUnionType((BUnionType) bType, tabs);
+            case TypeTags.INTERSECTION -> emitBIntersectionType((BIntersectionType) bType, tabs);
+            case TypeTags.TUPLE -> emitBTupleType((BTupleType) bType, tabs);
+            case TypeTags.INVOKABLE -> emitBInvokableType((BInvokableType) bType, tabs);
+            case TypeTags.ARRAY -> emitBArrayType((BArrayType) bType, tabs);
+            case TypeTags.RECORD -> emitBRecordType((BRecordType) bType, tabs);
+            case TypeTags.OBJECT -> emitBObjectType((BObjectType) bType, tabs);
+            case TypeTags.MAP -> emitBMapType((BMapType) bType, tabs);
+            case TypeTags.TABLE -> emitTableType((BTableType) bType, tabs);
+            case TypeTags.ERROR -> emitBErrorType((BErrorType) bType, tabs);
+            case TypeTags.FUTURE -> emitBFutureType((BFutureType) bType, tabs);
+            case TypeTags.TYPEDESC -> emitBTypeDesc((BTypedescType) bType, tabs);
+            case TypeTags.FINITE -> emitBFiniteType((BFiniteType) bType, tabs);
+            case TypeTags.HANDLE -> emitBTypeHandle((BHandleType) bType, tabs);
+            case TypeTags.STREAM -> emitBStreamType((BStreamType) bType, tabs);
+            case TypeTags.TYPEREFDESC -> emitTypeRefDesc((BTypeReferenceType) bType, tabs);
+            case TypeTags.PARAMETERIZED_TYPE -> emitParameterizedType((BParameterizedType) bType, tabs);
+            default -> throw new IllegalStateException("Invalid type");
+        };
     }
 
     private static String emitParameterizedType(BParameterizedType type, int tabs) {
@@ -164,7 +126,7 @@ class TypeEmitter {
     }
 
     private static String emitTableType(BTableType bType, int tabs) {
-        boolean readonly = Symbols.isFlagOn(bType.flags, Flags.READONLY);
+        boolean readonly = Symbols.isFlagOn(bType.getFlags(), Flags.READONLY);
         if (bType.constraint == null) {
             return readonly ? bType.toString().concat(" & readonly") : bType.toString();
         }
@@ -173,7 +135,7 @@ class TypeEmitter {
         String stringRep;
         if (!bType.fieldNameList.isEmpty()) {
             for (String fieldName : bType.fieldNameList) {
-                if (!keyStringBuilder.toString().equals("")) {
+                if (!keyStringBuilder.toString().isEmpty()) {
                     keyStringBuilder.append(", ");
                 }
                 keyStringBuilder.append(fieldName);
@@ -212,7 +174,7 @@ class TypeEmitter {
     private static String emitTypeRefDesc(BTypeReferenceType bType, int tabs) {
         String str = "typeRefDesc";
         str += "<";
-        str += emitTypeRef(bType.referredType, 0);
+        str += getTypeName(bType);
         str += ">";
         return str;
     }
@@ -231,11 +193,11 @@ class TypeEmitter {
             return bType.toString();
         }
         StringBuilder tupleStr = new StringBuilder("(");
-        int length = bType.tupleTypes.size();
+        int length = bType.getMembers().size();
         int i = 0;
-        for (BType mType : bType.tupleTypes) {
-            if (mType != null) {
-                tupleStr.append(emitTypeRef(mType, tabs));
+        for (BTupleMember tupleMember : bType.getMembers()) {
+            if (tupleMember != null) {
+                tupleStr.append(emitTypeRef(tupleMember.type, tabs));
                 i += 1;
                 if (i < length) {
                     tupleStr.append(",");
@@ -250,15 +212,17 @@ class TypeEmitter {
     private static String emitBInvokableType(BInvokableType bType, int tabs) {
 
         StringBuilder invString = new StringBuilder("function(");
-        int pLength = bType.paramTypes.size();
         int i = 0;
-        for (BType pType : bType.paramTypes) {
-            if (pType != null) {
-                invString.append(emitTypeRef(pType, tabs));
-                i += 1;
-                if (i < pLength) {
-                    invString.append(",");
-                    invString.append(emitSpaces(1));
+        if (bType.paramTypes != null) {
+            int pLength = bType.paramTypes.size();
+            for (BType pType : bType.paramTypes) {
+                if (pType != null) {
+                    invString.append(emitTypeRef(pType, tabs));
+                    i += 1;
+                    if (i < pLength) {
+                        invString.append(",");
+                        invString.append(emitSpaces(1));
+                    }
                 }
             }
         }
@@ -276,8 +240,8 @@ class TypeEmitter {
     private static String emitBArrayType(BArrayType bType, int tabs) {
         String arrStr = emitTypeRef(bType.eType, 0);
         arrStr += "[";
-        if (bType.size > 0) {
-            arrStr += bType.size;
+        if (bType.getSize() > 0) {
+            arrStr += bType.getSize();
         }
         arrStr += "]";
         return arrStr;
@@ -292,9 +256,9 @@ class TypeEmitter {
         for (BField bField : bType.fields.values()) {
             if (bField != null) {
                 recordStr.append(emitTabs(tabs + 1));
-                String flags = emitFlags(bField.type.flags);
+                String flags = emitFlags(bField.type.getFlags());
                 recordStr.append(flags);
-                if (!flags.equals("")) {
+                if (!flags.isEmpty()) {
                     recordStr.append(emitSpaces(1));
                 }
                 recordStr.append(emitTypeRef(bField.type, tabs + 1));
@@ -309,7 +273,7 @@ class TypeEmitter {
     }
 
     private static String emitBObjectType(BObjectType bType, int tabs) {
-        boolean isService = (bType.flags & Flags.SERVICE) == Flags.SERVICE;
+        boolean isService = Symbols.isFlagOn(bType.getFlags(), Flags.SERVICE);
 
         StringBuilder str = new StringBuilder();
         str.append(isService ? "service object" : "object");
@@ -319,9 +283,9 @@ class TypeEmitter {
         for (BField bField : bType.fields.values()) {
             if (bField != null) {
                 str.append(emitTabs(tabs + 1));
-                String flags = emitFlags(bField.type.flags);
+                String flags = emitFlags(bField.type.getFlags());
                 str.append(flags);
-                if (!flags.equals("")) {
+                if (!flags.isEmpty()) {
                     str.append(emitSpaces(1));
                 }
                 str.append(emitTypeRef(bField.type, tabs + 1));
@@ -402,21 +366,7 @@ class TypeEmitter {
     }
 
     private static String emitBFiniteType(BFiniteType bType, int tabs) {
-
-        StringBuilder str = new StringBuilder();
-        str.append("[");
-        int i = 0;
-        int length = bType.getValueSpace().size();
-        for (Object v : bType.getValueSpace()) {
-            str.append(v.toString());
-            i += 1;
-            if (i < length) {
-                str.append(",");
-                str.append(emitSpaces(1));
-            }
-        }
-        str.append("]");
-        return str.toString();
+        return "[" + bType.toString() + "]";
     }
 
     private static String emitBTypeHandle(BHandleType bType, int tabs) {
@@ -444,7 +394,7 @@ class TypeEmitter {
 
     /////////////////////// Emitting type reference ///////////////////////////
     static String emitTypeRef(BType type, int tabs) {
-        BType bType = JvmCodeGenUtil.getReferredType(type);
+        BType bType = JvmCodeGenUtil.getImpliedType(type);
         String tName = getTypeName(bType);
         if (!("".equals(tName))) {
             return tName;
@@ -455,7 +405,7 @@ class TypeEmitter {
         if (bType.tag == TypeTags.RECORD || bType.tag == TypeTags.OBJECT) {
             return bType.tsymbol.toString();
         }
-        return emitType(bType, tabs);
+        return emitType(type, tabs);
     }
 }
 

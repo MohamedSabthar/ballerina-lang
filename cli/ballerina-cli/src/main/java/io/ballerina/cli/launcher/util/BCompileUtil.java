@@ -21,27 +21,30 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Utility methods for compile Ballerina files.
  *
  * @since 0.94
  */
-public class BCompileUtil {
+public final class BCompileUtil {
 
-    //TODO find a way to remove below line.
-    private static Path resourceDir = Paths.get("src/test/resources").toAbsolutePath();
+    private BCompileUtil() {
+    }
 
+    /**
+     * Reads the content of a file from the system class loader.
+     *
+     * @param path        the path to the file
+     * @return the content of the file as a string
+     * @throws IOException if an I/O error occurs
+     */
     public static String readFileAsString(String path) throws IOException {
-        InputStream is = ClassLoader.getSystemResourceAsStream(path);
-        InputStreamReader inputStreamREader = null;
-        BufferedReader br = null;
         StringBuilder sb = new StringBuilder();
-        try {
-            inputStreamREader = new InputStreamReader(is, StandardCharsets.UTF_8);
-            br = new BufferedReader(inputStreamREader);
+        try (BufferedReader br = new BufferedReader(
+                new InputStreamReader(ClassLoader.getSystemResourceAsStream(path), StandardCharsets.UTF_8))) {
             String content = br.readLine();
             if (content == null) {
                 return sb.toString();
@@ -52,20 +55,24 @@ public class BCompileUtil {
             while ((content = br.readLine()) != null) {
                 sb.append('\n').append(content);
             }
-        } finally {
-            if (inputStreamREader != null) {
-                try {
-                    inputStreamREader.close();
-                } catch (IOException ignore) {
-                }
-            }
-            if (br != null) {
-                try {
-                    br.close();
-                } catch (IOException ignore) {
-                }
-            }
         }
         return sb.toString();
     }
+
+    /**
+     * Reads the content of a file as a string from the specified class loader.
+     *
+     * @param path        the path to the file
+     * @param classLoader the class loader to use for loading the file
+     * @return the content of the file as a string
+     * @throws IOException if an I/O error occurs
+     */
+    public static String readFileAsString(String path, ClassLoader classLoader) throws IOException {
+        try (InputStream inputStream = classLoader.getResourceAsStream(path);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(
+                     Objects.requireNonNull(inputStream), StandardCharsets.UTF_8))) {
+            return reader.lines().collect(Collectors.joining("\n"));
+        }
+    }
+
 }

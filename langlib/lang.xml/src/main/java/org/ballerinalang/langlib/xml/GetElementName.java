@@ -19,29 +19,26 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 import io.ballerina.runtime.internal.scheduling.Strand;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
 
 /**
  * Get the fully qualified name of the element as a string.
  * 
  * @since 0.88
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "getElementName",
-//        returnType = {@ReturnType(type = TypeKind.STRING)},
-//        isPublic = true
-//)
 public class GetElementName {
 
     private static final String OPERATION = "get element name in xml";
+
+    private GetElementName() {
+    }
 
     public static String getElementName(Strand strand, BXml xml) {
         try {
             return xml.getElementName();
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
 
         return null;

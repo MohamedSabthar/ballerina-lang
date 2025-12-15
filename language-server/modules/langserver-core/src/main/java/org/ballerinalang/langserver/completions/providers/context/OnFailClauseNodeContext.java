@@ -24,18 +24,17 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link OnFailClauseNode} context.
@@ -62,14 +61,14 @@ public class OnFailClauseNodeContext extends AbstractCompletionProvider<OnFailCl
             Predicate<Symbol> errorPredicate = SymbolUtil::isError;
             if (symbolAtCursor.kind() == SyntaxKind.QUALIFIED_NAME_REFERENCE) {
                 QualifiedNameReferenceNode qRef = (QualifiedNameReferenceNode) symbolAtCursor;
-                List<Symbol> moduleContent = QNameReferenceUtil.getModuleContent(context, qRef, errorPredicate);
+                List<Symbol> moduleContent = QNameRefCompletionUtil.getModuleContent(context, qRef, errorPredicate);
                 completionItems.addAll(this.getCompletionItemList(moduleContent, context));
             } else {
                 completionItems.addAll(this.getModuleCompletionItems(context));
                 List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
                 List<Symbol> errEntries = visibleSymbols.stream()
                         .filter(errorPredicate)
-                        .collect(Collectors.toList());
+                        .toList();
                 completionItems.addAll(this.getCompletionItemList(errEntries, context));
 
                 // Add 'var' completion item

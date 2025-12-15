@@ -15,9 +15,11 @@
  */
 package org.ballerinalang.langserver.workspace;
 
+import io.ballerina.projects.BuildOptions;
 import io.ballerina.projects.Project;
 import org.ballerinalang.langserver.LSContextOperation;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceDocumentException;
 import org.ballerinalang.langserver.commons.workspace.WorkspaceManager;
@@ -60,7 +62,7 @@ public class BallerinaWorkspaceManagerProxyImpl implements BallerinaWorkspaceMan
     @Override
     public void didOpen(DidOpenTextDocumentParams params) throws WorkspaceDocumentException {
         String uri = params.getTextDocument().getUri();
-        Optional<Path> path = CommonUtil.getPathFromURI(uri);
+        Optional<Path> path = PathUtil.getPathFromURI(uri);
         if (path.isEmpty()) {
             return;
         }
@@ -74,21 +76,20 @@ public class BallerinaWorkspaceManagerProxyImpl implements BallerinaWorkspaceMan
     @Override
     public void didChange(DidChangeTextDocumentParams params) throws WorkspaceDocumentException {
         String uri = params.getTextDocument().getUri();
-        Optional<Path> path = CommonUtil.getPathFromURI(uri);
+        Optional<Path> path = PathUtil.getPathFromURI(uri);
         if (path.isEmpty()) {
             return;
         }
-        if (this.isExprScheme(uri)) {
-            this.clonedWorkspaceManager.didChange(path.get(), params);
-            return;
+        if (!this.isExprScheme(uri)) {
+            this.baseWorkspaceManager.didChange(path.get(), params);
         }
-        this.baseWorkspaceManager.didChange(path.get(), params);
+        this.clonedWorkspaceManager.didChange(path.get(), params);
     }
 
     @Override
-    public void didClose(DidCloseTextDocumentParams params) throws WorkspaceDocumentException {
+    public void didClose(DidCloseTextDocumentParams params) {
         String uri = params.getTextDocument().getUri();
-        Optional<Path> path = CommonUtil.getPathFromURI(uri);
+        Optional<Path> path = PathUtil.getPathFromURI(uri);
         if (path.isEmpty()) {
             return;
         }
@@ -105,7 +106,7 @@ public class BallerinaWorkspaceManagerProxyImpl implements BallerinaWorkspaceMan
         }
 
         public void open(Project project) {
-            this.sourceRootToProject.put(project.sourceRoot(), ProjectPair.from(project.duplicate()));
+            this.sourceRootToProject.put(project.sourceRoot(), ProjectContext.from(project.duplicate()));
         }
 
         @Override
@@ -126,6 +127,16 @@ public class BallerinaWorkspaceManagerProxyImpl implements BallerinaWorkspaceMan
         public String uriScheme() {
             return CommonUtil.EXPR_SCHEME;
         }
+    }
+
+    /**
+     * Sets the build options for both base and cloned workspace managers.
+     *
+     * @param buildOptions The build options to be set
+     */
+    public void setBuildOptions(BuildOptions buildOptions) {
+        ((BallerinaWorkspaceManager) this.baseWorkspaceManager).setBuildOptions(buildOptions);
+        this.clonedWorkspaceManager.setBuildOptions(buildOptions);
     }
 
     private boolean isExprScheme(String uri) {

@@ -26,18 +26,17 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
 import org.ballerinalang.langserver.completions.util.CompletionUtil;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link ObjectFieldNode} context.
@@ -81,14 +80,14 @@ public class ObjectFieldNodeContext extends AbstractCompletionProvider<ObjectFie
         NonTerminalNode nodeAtCursor = ctx.getNodeAtCursor();
         if (nodeAtCursor.kind() == SyntaxKind.QUALIFIED_NAME_REFERENCE) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            return this.getCompletionItemList(QNameReferenceUtil.getExpressionContextEntries(ctx, qNameRef), ctx);
+            return this.getCompletionItemList(QNameRefCompletionUtil.getExpressionContextEntries(ctx, qNameRef), ctx);
         }
         List<LSCompletionItem> completionItems = new ArrayList<>(this.expressionCompletions(ctx));
 
         // Specifically add the class fields as the completion items
         List<Symbol> classFields = ctx.visibleSymbols(ctx.getCursorPosition()).stream()
                 .filter(symbol -> symbol.kind() == SymbolKind.CLASS_FIELD)
-                .collect(Collectors.toList());
+                .toList();
         completionItems.addAll(this.getCompletionItemList(classFields, ctx));
         
         Optional<TypeSymbol> contextType = ctx.getContextType();

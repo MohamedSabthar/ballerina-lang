@@ -1,9 +1,13 @@
 package io.ballerina.projects;
 
+import io.ballerina.projects.directory.BuildProject;
+import io.ballerina.projects.environment.PackageLockingMode;
+import io.ballerina.projects.environment.ResolutionOptions;
 import io.ballerina.projects.internal.DefaultDiagnosticResult;
 import io.ballerina.projects.internal.DependencyManifestBuilder;
 import io.ballerina.projects.internal.ManifestBuilder;
 import io.ballerina.projects.internal.model.CompilerPluginDescriptor;
+import io.ballerina.projects.util.ProjectUtils;
 import io.ballerina.tools.diagnostics.Diagnostic;
 import org.ballerinalang.model.elements.PackageID;
 import org.wso2.ballerinalang.compiler.PackageCache;
@@ -15,6 +19,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,11 +39,16 @@ public class Package {
     private final Map<ModuleId, Module> moduleMap;
     private final Function<ModuleId, Module> populateModuleFunc;
     // Following are not final since they will be lazy loaded
-    private Optional<PackageMd> packageMd = null;
-    private Optional<BallerinaToml> ballerinaToml = null;
-    private Optional<DependenciesToml> dependenciesToml = null;
-    private Optional<CloudToml> cloudToml = null;
-    private Optional<CompilerPluginToml> compilerPluginToml = null;
+    private Optional<PackageMd> packageMd = Optional.empty();
+    private Optional<PackageReadmeMd> readmeMd = Optional.empty();
+    private Optional<BallerinaToml> ballerinaToml = Optional.empty();
+    private Optional<DependenciesToml> dependenciesToml = Optional.empty();
+    private Optional<CloudToml> cloudToml = Optional.empty();
+    private Optional<CompilerPluginToml> compilerPluginToml = Optional.empty();
+    private Optional<BalToolToml> balToolToml = Optional.empty();
+    private final Map<DocumentId, Resource> resources;
+    private final Map<DocumentId, Resource> testResources;
+    private final Function<DocumentId, Resource> populateResourceFunc;
 
     private Package(PackageContext packageContext, Project project) {
         this.packageContext = packageContext;
@@ -46,6 +56,10 @@ public class Package {
         this.moduleMap = new ConcurrentHashMap<>();
         this.populateModuleFunc = moduleId -> Module.from(
                 this.packageContext.moduleContext(moduleId), this);
+        this.resources = new ConcurrentHashMap<>();
+        this.testResources = new ConcurrentHashMap<>();
+        this.populateResourceFunc = documentId -> new Resource(
+                this.packageContext.resourceContext(documentId), this);
     }
 
     static Package from(Project project, PackageConfig packageConfig, CompilationOptions compilationOptions) {
@@ -151,11 +165,19 @@ public class Package {
         return this.packageContext.getResolution();
     }
 
+    public BuildToolResolution getBuildToolResolution() {
+        return this.packageContext.getBuildToolResolution();
+    }
+
+    public BuildToolResolution getBuildToolResolution(CompilationOptions compilationOptions) {
+        return this.packageContext.getBuildToolResolution(compilationOptions);
+    }
+
     public PackageResolution getResolution(CompilationOptions compilationOptions) {
         return this.packageContext.getResolution(compilationOptions);
     }
 
-    public DependencyGraph<ModuleId> moduleDependencyGraph() {
+    public DependencyGraph<ModuleDescriptor> moduleDependencyGraph() {
         // Each Package should know the packages that it depends on and packages that depends on it
         // Each Module should know the modules that it depends on and modules that depends on it
         return this.packageContext.moduleDependencyGraph();
@@ -170,7 +192,7 @@ public class Package {
     }
 
     public Optional<BallerinaToml> ballerinaToml() {
-        if (null == this.ballerinaToml) {
+        if (this.ballerinaToml.isEmpty()) {
             this.ballerinaToml = this.packageContext.ballerinaTomlContext().map(c ->
                     BallerinaToml.from(c, this)
             );
@@ -179,7 +201,7 @@ public class Package {
     }
 
     public Optional<DependenciesToml> dependenciesToml() {
-        if (null == this.dependenciesToml) {
+        if (this.dependenciesToml.isEmpty()) {
             this.dependenciesToml = this.packageContext.dependenciesTomlContext().map(c ->
                     DependenciesToml.from(c, this)
             );
@@ -188,7 +210,7 @@ public class Package {
     }
 
     public Optional<CloudToml> cloudToml() {
-        if (null == this.cloudToml) {
+        if (this.cloudToml.isEmpty()) {
             this.cloudToml = this.packageContext.cloudTomlContext().map(c ->
                     CloudToml.from(c, this));
         }
@@ -196,21 +218,63 @@ public class Package {
     }
 
     public Optional<CompilerPluginToml> compilerPluginToml() {
-        if (null == this.compilerPluginToml) {
+        if (this.compilerPluginToml.isEmpty()) {
             this.compilerPluginToml = this.packageContext.compilerPluginTomlContext()
                     .map(c -> CompilerPluginToml.from(c, this));
         }
         return this.compilerPluginToml;
     }
 
+    public Optional<BalToolToml> balToolToml() {
+        if (this.balToolToml.isEmpty()) {
+            this.balToolToml = this.packageContext.balToolTomlContext()
+                    .map(c -> BalToolToml.from(c, this));
+        }
+        return this.balToolToml;
+    }
+
+    /**
+     * Returns the PackageMd document.
+     *
+     * @return PackageMd
+     * @deprecated use {@link #readmeMd()} instead.
+     */
+    @Deprecated (forRemoval = true, since = "2.11.0")
     public Optional<PackageMd> packageMd() {
-        if (null == this.packageMd) {
+        if (this.packageMd.isEmpty()) {
             this.packageMd = this.packageContext.packageMdContext().map(c ->
                     PackageMd.from(c, this)
             );
         }
         return this.packageMd;
     }
+
+    public Optional<PackageReadmeMd> readmeMd() {
+        if (this.readmeMd.isEmpty()) {
+            this.readmeMd = this.packageContext.readmeMdContext().map(c ->
+                    PackageReadmeMd.from(c, this)
+            );
+        }
+        return this.readmeMd;
+    }
+
+    public Collection<DocumentId> resourceIds() {
+        return this.packageContext.resourceIds();
+    }
+
+    public Collection<DocumentId> testResourceIds() {
+        return this.packageContext.testResourceIds();
+    }
+
+    public Resource resource(DocumentId documentId) {
+        // TODO Should we throw an error if the documentId is not present
+        if (resourceIds().contains(documentId)) {
+            return this.resources.computeIfAbsent(documentId, this.populateResourceFunc);
+        } else {
+            return this.testResources.computeIfAbsent(documentId, this.populateResourceFunc);
+        }
+    }
+
 
     Package duplicate(Project project) {
         return new Package(packageContext.duplicate(project), project);
@@ -223,7 +287,7 @@ public class Package {
      * in form of a {@code DiagnosticResult} instance.
      * <p>
      * Here is a sample usage of this API: <pre>
-     *   Project project = BuildProject.load(Paths.get(...));
+     *   Project project = BuildProject.load(Path.of(...));
      *   Package currentPackage = project.currentPackage();
      *   DiagnosticResult diagnosticsResult = currentPackage.runCodeGenAndModifyPlugins();
      *
@@ -236,6 +300,7 @@ public class Package {
      * @return a {@code DiagnosticResult} instance
      */
     public DiagnosticResult runCodeGenAndModifyPlugins() {
+        Package pkg = this;
         PackageCompilation cachedCompilation = this.packageContext.cachedCompilation();
         if (cachedCompilation != null) {
             // Check whether there are engaged code modifiers, if not return
@@ -247,21 +312,26 @@ public class Package {
         }
 
         // There are engaged compiler plugins or there is no cached compilation. We have to compile anyway
-        CompilationOptions compOptions = CompilationOptions.builder()
+        CompilationOptions compilationOptions = CompilationOptions.builder()
                 .withCodeGenerators(true)
                 .withCodeModifiers(true)
                 .build();
+        CompilationOptions compOptions = compilationOptions.acceptTheirs(project.currentPackage().compilationOptions());
         CompilerPluginManager compilerPluginManager = this.getCompilation(compOptions).compilerPluginManager();
         List<Diagnostic> diagnostics = new ArrayList<>();
         if (compilerPluginManager.engagedCodeGeneratorCount() > 0) {
             CodeGeneratorManager codeGeneratorManager = compilerPluginManager.getCodeGeneratorManager();
-            CodeGeneratorResult codeGeneratorResult = codeGeneratorManager.runCodeGenerators(this);
+            CodeGeneratorResult codeGeneratorResult = codeGeneratorManager.runCodeGenerators(pkg);
             diagnostics.addAll(codeGeneratorResult.reportedDiagnostics().allDiagnostics);
+            if (codeGeneratorResult.updatedPackage().isPresent()) {
+                pkg = codeGeneratorResult.updatedPackage().get();
+            }
         }
 
         if (compilerPluginManager.engagedCodeModifierCount() > 0) {
+            compilerPluginManager = pkg.getCompilation(compOptions).compilerPluginManager();
             CodeModifierManager codeModifierManager = compilerPluginManager.getCodeModifierManager();
-            CodeModifierResult codeModifierResult = codeModifierManager.runCodeModifiers(this);
+            CodeModifierResult codeModifierResult = codeModifierManager.runCodeModifiers(pkg);
             diagnostics.addAll(codeModifierResult.reportedDiagnostics().allDiagnostics);
         }
         return new DefaultDiagnosticResult(diagnostics);
@@ -274,7 +344,7 @@ public class Package {
      * reported by the code generator tasks in form of a {@code CodeGeneratorResult} instance.
      * <p>
      * Here is a sample usage of this API: <pre>
-     *   Project project = BuildProject.load(Paths.get(...));
+     *   Project project = BuildProject.load(Path.of(...));
      *   Package currentPackage = project.currentPackage();
      *   Package packageWithGenFiles = currentPackage.runCodeGeneratorPlugins();
      *
@@ -297,7 +367,8 @@ public class Package {
         }
 
         // There are engaged code generators or there is no cached compilation. We have to compile anyway
-        CompilationOptions compOptions = CompilationOptions.builder().withCodeGenerators(true).build();
+        CompilationOptions compilationOptions = CompilationOptions.builder().withCodeGenerators(true).build();
+        CompilationOptions compOptions = compilationOptions.acceptTheirs(project.currentPackage().compilationOptions());
         // TODO We can avoid this compilation. Move CompilerPluginManagers out of the PackageCompilation
         // TODO How about PackageResolution
         CompilerPluginManager compilerPluginManager = this.getCompilation(compOptions).compilerPluginManager();
@@ -316,7 +387,7 @@ public class Package {
      * reported by the code modifier tasks in form of a {@code CodeModifierResult} instance.
      * <p>
      * Here is a sample usage of this API: <pre>
-     *   Project project = BuildProject.load(Paths.get(...));
+     *   Project project = BuildProject.load(Path.of(...));
      *   Package currentPackage = project.currentPackage();
      *   Package packageWithGenFiles = currentPackage.runCodeModifierPlugins();
      *
@@ -339,7 +410,8 @@ public class Package {
         }
 
         // There are engaged code modifiers or there is no cached compilation. We have to compile anyway
-        CompilationOptions compOptions = CompilationOptions.builder().withCodeModifiers(true).build();
+        CompilationOptions compilationOptions = CompilationOptions.builder().withCodeModifiers(true).build();
+        CompilationOptions compOptions = compilationOptions.acceptTheirs(project.currentPackage().compilationOptions());
         // TODO We can avoid this compilation. Move CompilerPluginManagers out of the PackageCompilation
         // TODO How about PackageResolution
         CompilerPluginManager compilerPluginManager = this.getCompilation(compOptions).compilerPluginManager();
@@ -360,7 +432,18 @@ public class Package {
         return new Modifier(this);
     }
 
-    private static class ModuleIterable implements Iterable {
+    public PackageResolution getResolution(ResolutionOptions resolutionOptions) {
+        boolean offline = resolutionOptions.offline();
+        PackageLockingMode packageLockingMode = resolutionOptions.packageLockingMode();
+        CompilationOptions newCompOptions = CompilationOptions.builder()
+                .setOffline(offline)
+                .setLockingMode(packageLockingMode)
+                .build();
+        newCompOptions = newCompOptions.acceptTheirs(project.currentPackage().compilationOptions());
+        return this.packageContext.getResolution(newCompOptions, true);
+    }
+
+    private static class ModuleIterable implements Iterable<Module> {
 
         private final Collection<Module> moduleList;
 
@@ -374,7 +457,7 @@ public class Package {
         }
 
         @Override
-        public Spliterator spliterator() {
+        public Spliterator<Module> spliterator() {
             return this.moduleList.spliterator();
         }
     }
@@ -383,18 +466,21 @@ public class Package {
      * Inner class that handles package modifications.
      */
     public static class Modifier {
-        private PackageId packageId;
+        private final PackageId packageId;
         private PackageManifest packageManifest;
         private DependencyManifest dependencyManifest;
-        private Map<ModuleId, ModuleContext> moduleContextMap;
-        private Project project;
+        private final Map<ModuleId, ModuleContext> moduleContextMap;
+        private final Project project;
         private final DependencyGraph<ResolvedPackageDependency> dependencyGraph;
-        private CompilationOptions compilationOptions;
+        private final CompilationOptions compilationOptions;
         private TomlDocumentContext ballerinaTomlContext;
         private TomlDocumentContext dependenciesTomlContext;
         private TomlDocumentContext cloudTomlContext;
         private TomlDocumentContext compilerPluginTomlContext;
-        private MdDocumentContext packageMdContext;
+        private TomlDocumentContext balToolTomlContext;
+        private MdDocumentContext readmeMdContext;
+        private final Map<DocumentId, ResourceContext> resourceContextMap;
+        private final Map<DocumentId, ResourceContext> testResourceContextMap;
 
         public Modifier(Package oldPackage) {
             this.packageId = oldPackage.packageId();
@@ -408,7 +494,10 @@ public class Package {
             this.dependenciesTomlContext = oldPackage.packageContext.dependenciesTomlContext().orElse(null);
             this.cloudTomlContext = oldPackage.packageContext.cloudTomlContext().orElse(null);
             this.compilerPluginTomlContext = oldPackage.packageContext.compilerPluginTomlContext().orElse(null);
-            this.packageMdContext = oldPackage.packageContext.packageMdContext().orElse(null);
+            this.balToolTomlContext = oldPackage.packageContext.balToolTomlContext().orElse(null);
+            this.readmeMdContext = oldPackage.packageContext.readmeMdContext().orElse(null);
+            this.resourceContextMap = copyResources(oldPackage, oldPackage.packageContext.resourceIds());
+            this.testResourceContextMap = copyResources(oldPackage, oldPackage.packageContext.testResourceIds());
         }
 
         Modifier updateModules(Set<ModuleContext> newModuleContexts) {
@@ -425,7 +514,7 @@ public class Package {
          * @return Package.Modifier which contains the updated package
          */
         public Modifier addModule(ModuleConfig moduleConfig) {
-            ModuleContext newModuleContext = ModuleContext.from(this.project, moduleConfig);
+            ModuleContext newModuleContext = ModuleContext.from(this.project, moduleConfig, false);
             this.moduleContextMap.put(newModuleContext.moduleId(), newModuleContext);
             return this;
         }
@@ -437,8 +526,8 @@ public class Package {
          * @return Package.Modifier which contains the updated package
          */
         public Modifier addDependenciesToml(DocumentConfig documentConfig) {
-            TomlDocumentContext tomlDocumentContext = TomlDocumentContext.from(documentConfig);
-            this.dependenciesTomlContext = tomlDocumentContext;
+            this.dependenciesTomlContext = TomlDocumentContext.from(documentConfig);
+            updateDependencyManifest();
             return this;
         }
 
@@ -460,8 +549,7 @@ public class Package {
          * @return Package.Modifier which contains the updated package
          */
         public Modifier addCloudToml(DocumentConfig documentConfig) {
-            TomlDocumentContext tomlDocumentContext = TomlDocumentContext.from(documentConfig);
-            this.cloudTomlContext = tomlDocumentContext;
+            this.cloudTomlContext = TomlDocumentContext.from(documentConfig);
             updatePackageManifest();
             return this;
         }
@@ -483,8 +571,19 @@ public class Package {
          * @return Package.Modifier which contains the updated package
          */
         public Modifier addCompilerPluginToml(DocumentConfig documentConfig) {
-            TomlDocumentContext tomlDocumentContext = TomlDocumentContext.from(documentConfig);
-            this.compilerPluginTomlContext = tomlDocumentContext;
+            this.compilerPluginTomlContext = TomlDocumentContext.from(documentConfig);
+            updatePackageManifest();
+            return this;
+        }
+
+        /**
+         * Adds a Bal tool toml.
+         *
+         * @param documentConfig configuration of the toml document
+         * @return Package.Modifier which contains the updated package
+         */
+        public Modifier addBalToolToml(DocumentConfig documentConfig) {
+            this.balToolTomlContext = TomlDocumentContext.from(documentConfig);
             updatePackageManifest();
             return this;
         }
@@ -500,14 +599,23 @@ public class Package {
         }
 
         /**
+         * Remove Bal tool toml.
+         *
+         * @return Package.Modifier which contains the updated package
+         */
+        public Modifier removeBalToolToml() {
+            this.balToolTomlContext = null;
+            return this;
+        }
+
+        /**
          * Adds a package md.
          *
          * @param documentConfig configuration of the toml document
          * @return Package.Modifier which contains the updated package
          */
         public Modifier addPackageMd(DocumentConfig documentConfig) {
-            MdDocumentContext tomlDocumentContext = MdDocumentContext.from(documentConfig);
-            this.packageMdContext = tomlDocumentContext;
+            this.readmeMdContext = MdDocumentContext.from(documentConfig);
             return this;
         }
 
@@ -517,10 +625,9 @@ public class Package {
          * @return Package.Modifier which contains the updated package
          */
         public Modifier removePackageMd() {
-            this.packageMdContext = null;
+            this.readmeMdContext = null;
             return this;
         }
-
 
 
         Modifier updateBallerinaToml(BallerinaToml ballerinaToml) {
@@ -547,8 +654,13 @@ public class Package {
             return this;
         }
 
+        Modifier updateBalToolToml(BalToolToml balToolToml) {
+            this.balToolTomlContext = balToolToml.balToolTomlContext();
+            return this;
+        }
+
         Modifier updatePackageMd(MdDocumentContext packageMd) {
-            this.packageMdContext = packageMd;
+            this.readmeMdContext = packageMd;
             return this;
         }
 
@@ -570,16 +682,50 @@ public class Package {
         }
 
         private Package createNewPackage() {
+            Package oldPackage = this.project.currentPackage();
+            PackageResolution oldResolution = oldPackage.getResolution();
             PackageContext newPackageContext = new PackageContext(this.project, this.packageId, this.packageManifest,
                     this.dependencyManifest, this.ballerinaTomlContext, this.dependenciesTomlContext,
-                    this.cloudTomlContext, this.compilerPluginTomlContext, this.packageMdContext,
-                    this.compilationOptions, this.moduleContextMap, DependencyGraph.emptyGraph());
+                    this.cloudTomlContext, this.compilerPluginTomlContext, this.balToolTomlContext,
+                    this.readmeMdContext, this.compilationOptions, this.moduleContextMap,
+                    DependencyGraph.emptyGraph(), this.resourceContextMap,
+                    this.testResourceContextMap);
             this.project.setCurrentPackage(new Package(newPackageContext, this.project));
-
-            DependencyGraph<ResolvedPackageDependency> newDepGraph = this.project.currentPackage().getResolution()
-                    .dependencyGraph();
+            if (isOldDependencyGraphValid(oldPackage, this.project.currentPackage())) {
+                this.project.currentPackage().packageContext().getResolution(oldResolution);
+            } else {
+                this.project.compilerPluginContexts().clear();
+            }
+            CompilationOptions offlineCompOptions = CompilationOptions.builder().setOffline(true).build();
+            offlineCompOptions = offlineCompOptions.acceptTheirs(project.currentPackage().compilationOptions());
+            DependencyGraph<ResolvedPackageDependency> newDepGraph = this.project.currentPackage().packageContext()
+                    .getResolution(offlineCompOptions, true).dependencyGraph();
             cleanPackageCache(this.dependencyGraph, newDepGraph);
+            if (this.project.kind() == ProjectKind.BUILD_PROJECT && this.project.workspaceProject().isPresent()) {
+                Collection<BuildProject> wpDependents = this.project.workspaceProject().get().getResolution()
+                        .dependencyGraph().getDirectDependents((BuildProject) this.project);
+                for (BuildProject dependent : wpDependents) {
+                    dependent.resetPackage(dependent);
+                }
+            }
+
             return this.project.currentPackage();
+        }
+
+        private static boolean isOldDependencyGraphValid(Package oldPackage, Package currentPackage) {
+            Set<String> oldPackageImports = ProjectUtils.getPackageImports(oldPackage);
+            Set<String> currentPackageImports = ProjectUtils.getPackageImports(currentPackage);
+            String oldDependencyTomlContent = oldPackage.packageContext.dependenciesTomlContext()
+                    .map(d -> d.tomlDocument().textDocument().toString()).orElse("");
+            String currentDependencyTomlContent = currentPackage.packageContext.dependenciesTomlContext()
+                    .map(d -> d.tomlDocument().textDocument().toString()).orElse("");
+            String oldBallerinaTomlContent = oldPackage.packageContext.ballerinaTomlContext()
+                    .map(d -> d.tomlDocument().textDocument().toString()).orElse("");
+            String currentBallerinaTomlContent = currentPackage.packageContext.ballerinaTomlContext()
+                    .map(d -> d.tomlDocument().textDocument().toString()).orElse("");
+            return oldPackageImports.equals(currentPackageImports) &&
+                    oldDependencyTomlContent.equals(currentDependencyTomlContent) &&
+                    oldBallerinaTomlContent.equals(currentBallerinaTomlContent);
         }
 
         private void cleanPackageCache(DependencyGraph<ResolvedPackageDependency> oldGraph,
@@ -636,7 +782,10 @@ public class Package {
 
         private void updatePackageManifest() {
             ManifestBuilder manifestBuilder = ManifestBuilder.from(this.ballerinaTomlContext.tomlDocument(),
-                    Optional.ofNullable(this.compilerPluginTomlContext).map(d -> d.tomlDocument()).orElse(null),
+                    Optional.ofNullable(this.compilerPluginTomlContext)
+                            .map(TomlDocumentContext::tomlDocument).orElse(null),
+                    Optional.ofNullable(this.balToolTomlContext)
+                            .map(TomlDocumentContext::tomlDocument).orElse(null),
                     this.project.sourceRoot());
             this.packageManifest = manifestBuilder.packageManifest();
             BuildOptions newBuildOptions;
@@ -651,8 +800,9 @@ public class Package {
 
         private void updateDependencyManifest() {
             DependencyManifestBuilder manifestBuilder = DependencyManifestBuilder.from(
-                     Optional.ofNullable(this.dependenciesTomlContext).map(d -> d.tomlDocument()).orElse(null),
-                     project.currentPackage().descriptor());
+                    Optional.ofNullable(this.dependenciesTomlContext)
+                            .map(TomlDocumentContext::tomlDocument).orElse(null),
+                    project.currentPackage().descriptor());
             this.dependencyManifest = manifestBuilder.dependencyManifest();
         }
 
@@ -667,32 +817,74 @@ public class Package {
                         packageDescriptor.name(), oldModuleContext.moduleName().moduleNamePart());
                 ModuleDescriptor moduleDescriptor = ModuleDescriptor.from(moduleName, packageDescriptor);
 
-                Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>();
+                Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
                 for (DocumentId documentId : oldModuleContext.srcDocumentIds()) {
                     srcDocContextMap.put(documentId, oldModuleContext.documentContext(documentId));
                 }
 
-                Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>();
+                Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
                 for (DocumentId documentId : oldModuleContext.testSrcDocumentIds()) {
                     testDocContextMap.put(documentId, oldModuleContext.documentContext(documentId));
                 }
 
-                Map<DocumentId, ResourceContext> resourceMap = new HashMap<>();
-                for (DocumentId documentId : oldModuleContext.resourceIds()) {
-                    resourceMap.put(documentId, oldModuleContext.resourceContext(documentId));
-                }
-
-                Map<DocumentId, ResourceContext> testResourceMap = new HashMap<>();
-                for (DocumentId documentId : oldModuleContext.testResourceIds()) {
-                    testResourceMap.put(documentId, oldModuleContext.resourceContext(documentId));
-                }
-
                 moduleContextSet.add(new ModuleContext(this.project, moduleId, moduleDescriptor,
                         oldModuleContext.isDefaultModule(), srcDocContextMap, testDocContextMap,
-                        oldModuleContext.moduleMdContext().orElse(null),
-                        oldModuleContext.moduleDescDependencies(), resourceMap, testResourceMap));
+                        oldModuleContext.readmeMdContext().orElse(null),
+                        oldModuleContext.moduleDescDependencies()));
+                // Remove the module with old PackageID from the compilation cache
+                PackageCache.getInstance(project.projectEnvironmentContext().getService(CompilerContext.class)).
+                        remove(oldModuleContext.descriptor().moduleCompilationId());
             }
             updateModules(moduleContextSet);
         }
+
+        private Map<DocumentId, ResourceContext> copyResources(Package oldPackage, Collection<DocumentId> documentIds) {
+            Map<DocumentId, ResourceContext> resourceContextMap = new HashMap<>();
+            for (DocumentId documentId : documentIds) {
+                resourceContextMap.put(documentId, oldPackage.packageContext.resourceContext(documentId));
+            }
+            return resourceContextMap;
+        }
+
+        /**
+         * Creates a copy of the existing module and adds a new resource to the new module.
+         *
+         * @param resourceConfig configurations to create the resource
+         * @return an instance of the Module.Modifier
+         */
+        public Package.Modifier addResource(ResourceConfig resourceConfig) {
+            ResourceContext newResourceContext = ResourceContext.from(resourceConfig);
+            this.resourceContextMap.put(newResourceContext.documentId(), newResourceContext);
+            return this;
+        }
+
+        /**
+         * Creates a copy of the existing module and adds a new test resource to the new module.
+         *
+         * @param resourceConfig configurations to create the test resource
+         * @return an instance of the Module.Modifier
+         */
+        public Package.Modifier addTestResource(ResourceConfig resourceConfig) {
+            ResourceContext newResourceContext = ResourceContext.from(resourceConfig);
+            this.testResourceContextMap.put(newResourceContext.documentId(), newResourceContext);
+            return this;
+        }
+
+        /**
+         * Creates a copy of the existing module and removes the specified resource from the new module.
+         *
+         * @param documentId documentId of the resource to remove
+         * @return an instance of the Module.Modifier
+         */
+        public Package.Modifier removeResource(DocumentId documentId) {
+
+            if (this.resourceContextMap.containsKey(documentId)) {
+                this.resourceContextMap.remove(documentId);
+            } else {
+                this.testResourceContextMap.remove(documentId);
+            }
+            return this;
+        }
+
     }
 }

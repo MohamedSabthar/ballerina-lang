@@ -22,11 +22,11 @@ import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BString;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -65,19 +65,9 @@ public class LangLibStringTest {
     }
 
     @Test
-    public void testLength() {
-        BRunUtil.invoke(compileResult, "testLength");
-    }
-
-    @Test
     public void testSubString() {
         Object returns = BRunUtil.invoke(compileResult, "testSubString");
         assertEquals(returns.toString(), "[\"Bal\",\"Ballerina!\",\"Ballerina!\"]");
-    }
-
-    @Test
-    public void testIterator() {
-        BRunUtil.invoke(compileResult, "testIterator");
     }
 
     @Test
@@ -121,11 +111,6 @@ public class LangLibStringTest {
         }
     }
 
-    @Test(description = "Test the lastIndexOf() method.")
-    public void testLastIndexOf() {
-        BRunUtil.invoke(compileResult, "testLastIndexOf");
-    }
-
     @Test(dataProvider = "codePointCompareProvider")
     public void testCodePointCompare(String st1, String st2, long expected) {
         Object[] args = {StringUtils.fromString(st1), StringUtils.fromString(st2)};
@@ -140,7 +125,7 @@ public class LangLibStringTest {
         assertEquals(returns, expected);
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
         expectedExceptionsMessageRegExp = ".*IndexOutOfRange \\{\"message\":\"string codepoint index out of range: " +
                 "1\"\\}.*")
     public void testGetCodepointNegative() {
@@ -232,7 +217,7 @@ public class LangLibStringTest {
         };
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: \\{ballerina/lang.string\\}StringOperationError " +
                     "\\{\"message\":\"string index out of range. Length:'6' requested: '7' to '9'\"\\}.*")
     public void testSubstringOutRange() {
@@ -246,11 +231,6 @@ public class LangLibStringTest {
         Object returns = BRunUtil.invoke(compileResult, "testSubstring", args);
         Assert.assertEquals(returns.toString(),
                 "error(\"{ballerina/lang.string}StringOperationError\",message=\"" + result + "\")");
-    }
-
-    @Test
-    public void testEqualsIgnoreCaseAscii() {
-        BRunUtil.invoke(compileResult, "testEqualsIgnoreCaseAscii");
     }
 
     @DataProvider(name = "testSubstringDataProvider")
@@ -274,16 +254,6 @@ public class LangLibStringTest {
     public void testChainedStringFunctions() {
         Object returns = BRunUtil.invoke(compileResult, "testChainedStringFunctions");
         assertEquals(returns.toString(), "foo1foo2foo3foo4");
-    }
-
-    @Test
-    public void testLangLibCallOnStringSubTypes() {
-        BRunUtil.invoke(compileResult, "testLangLibCallOnStringSubTypes");
-    }
-
-    @Test
-    public void testLangLibCallOnFiniteType() {
-        BRunUtil.invoke(compileResult, "testLangLibCallOnFiniteType");
     }
 
     @Test(dataProvider = "unicodeCharProvider")
@@ -330,21 +300,6 @@ public class LangLibStringTest {
     }
 
     @Test
-    public void testPadStart() {
-        BRunUtil.invoke(compileResult, "testPadStart");
-    }
-
-    @Test
-    public void testPadEnd() {
-        BRunUtil.invoke(compileResult, "testPadEnd");
-    }
-
-    @Test
-    public void testPadZero() {
-        BRunUtil.invoke(compileResult, "testPadZero");
-    }
-
-    @Test
     public void stringlibNegativeTest() {
         int err = 0;
         BAssertUtil.validateError(negativeResult, err++, "missing required parameter 'len' in call to 'padStart()'",
@@ -363,8 +318,8 @@ public class LangLibStringTest {
                 40, 21);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
                 41, 21);
-        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
-                41, 45);
+        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', " +
+                        "found '(string & readonly)'", 41, 45);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'float'",
                 43, 31);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'decimal'",
@@ -391,8 +346,8 @@ public class LangLibStringTest {
                 59, 21);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
                 60, 21);
-        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
-                60, 43);
+        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', " +
+                        "found '(string & readonly)'", 60, 43);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'float'",
                 62, 29);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'decimal'",
@@ -419,8 +374,8 @@ public class LangLibStringTest {
                 78, 21);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
                 79, 21);
-        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', found 'string'",
-                79, 44);
+        BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'string:Char', " +
+                        "found '(string & readonly)'", 79, 44);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'float'",
                 81, 30);
         BAssertUtil.validateError(negativeResult, err++, "incompatible types: expected 'int', found 'decimal'",
@@ -470,4 +425,31 @@ public class LangLibStringTest {
         Assert.assertEquals(returns.toString(), "error(\"{ballerina/lang.string}length greater that '2147483647' not" +
                 " yet supported\")");
     }
+
+    @Test(dataProvider = "stringFunctionProvider")
+    public void testStringLibFunctions(String functionName) {
+        BRunUtil.invoke(compileResult, functionName);
+    }
+
+    @DataProvider(name = "stringFunctionProvider")
+    public Object[] testStringFunctionProvider() {
+
+        return new String[]{
+                "testLength",
+                "testIterator",
+                "testFromBytesInvalidValues",
+                "testLastIndexOf",
+                "testEqualsIgnoreCaseAscii",
+                "testLangLibCallOnStringSubTypes",
+                "testLangLibCallOnFiniteType",
+                "testPadStart",
+                "testPadEnd",
+                "testPadZero",
+                "testMatches",
+                "testIncludesMatch",
+                "testFromBytesAsync",
+                "testEqualsIgnoreCaseAsciiAsync"
+        };
+    }
+
 }

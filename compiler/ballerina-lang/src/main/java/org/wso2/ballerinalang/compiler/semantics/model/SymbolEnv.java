@@ -31,7 +31,6 @@ import org.wso2.ballerinalang.compiler.tree.BLangNode;
 import org.wso2.ballerinalang.compiler.tree.BLangPackage;
 import org.wso2.ballerinalang.compiler.tree.BLangService;
 import org.wso2.ballerinalang.compiler.tree.BLangVariable;
-import org.wso2.ballerinalang.compiler.tree.clauses.BLangOnFailClause;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangArrowFunction;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLAttribute;
@@ -43,9 +42,11 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangRetry;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangTransaction;
 import org.wso2.ballerinalang.compiler.tree.types.BLangObjectTypeNode;
 import org.wso2.ballerinalang.compiler.tree.types.BLangType;
+import org.wso2.ballerinalang.compiler.util.Name;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @since 0.94
@@ -178,7 +179,7 @@ public class SymbolEnv {
     }
 
     public static SymbolEnv createClassMethodsEnv(BLangClassDefinition node, BObjectTypeSymbol objSymbol,
-                                                   SymbolEnv env) {
+                                                  SymbolEnv env) {
         SymbolEnv symbolEnv = createPkgLevelSymbolEnv(node, objSymbol.scope, env);
         symbolEnv.envCount = env.envCount + 1;
         env.copyTo(symbolEnv);
@@ -240,19 +241,6 @@ public class SymbolEnv {
         symbolEnv.enclInvokable = env.enclInvokable;
         symbolEnv.node = node;
         symbolEnv.enclPkg = env.enclPkg;
-        return symbolEnv;
-    }
-
-    public static SymbolEnv createOnFailEnv(BLangOnFailClause node, SymbolEnv env) {
-        Scope scope = node.body.scope;
-        if (scope == null) {
-            scope = new Scope(env.scope.owner);
-            node.body.scope = scope;
-        }
-        SymbolEnv symbolEnv = new SymbolEnv(node, scope);
-        env.copyTo(symbolEnv);
-        symbolEnv.envCount = env.envCount + 1;
-        symbolEnv.relativeEnvCount = env.relativeEnvCount + 1;
         return symbolEnv;
     }
 
@@ -389,11 +377,13 @@ public class SymbolEnv {
 
     private static SymbolEnv cloneSymbolEnvForClosure(BLangNode node, SymbolEnv env) {
         Scope scope = new Scope(env.scope.owner);
-        env.scope.entries.entrySet().stream()
-                // skip the type narrowed symbols when taking the snapshot for closures.
-                .filter(entry -> (entry.getValue().symbol.tag & SymTag.VARIABLE) != SymTag.VARIABLE ||
-                        ((BVarSymbol) entry.getValue().symbol).originalSymbol == null)
-                .forEach(entry -> scope.entries.put(entry.getKey(), entry.getValue()));
+        // skip the type narrowed symbols when taking the snapshot for closures.
+        for (Map.Entry<Name, Scope.ScopeEntry> entry : env.scope.entries.entrySet()) {
+            if ((entry.getValue().symbol.tag & SymTag.VARIABLE) != SymTag.VARIABLE ||
+                    ((BVarSymbol) entry.getValue().symbol).originalSymbol == null) {
+                scope.entries.put(entry.getKey(), entry.getValue());
+            }
+        }
         return new SymbolEnv(node, scope);
     }
 

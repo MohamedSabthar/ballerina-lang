@@ -39,7 +39,8 @@ import java.util.Optional;
  *
  * @since 2.0.0
  */
-public class TypeCompletionItemBuilder {
+public final class TypeCompletionItemBuilder {
+
     private TypeCompletionItemBuilder() {
     }
 
@@ -53,7 +54,7 @@ public class TypeCompletionItemBuilder {
     public static CompletionItem build(Symbol bSymbol, String label) {
         CompletionItem item = new CompletionItem();
         item.setLabel(label);
-        String insertText = CommonUtil.escapeEscapeCharsInIdentifier(label);
+        String insertText = CommonUtil.escapeSpecialCharsInInsertText(label);
         item.setInsertText(insertText);
         setMeta(item, bSymbol);
         return item;
@@ -79,7 +80,8 @@ public class TypeCompletionItemBuilder {
         typeDescriptor = (typeDescriptor.isPresent() && typeDescriptor.get().typeKind() == TypeDescKind.TYPE_REFERENCE)
                 ? Optional.of(((TypeReferenceTypeSymbol) typeDescriptor.get()).typeDescriptor()) : typeDescriptor;
 
-        if (typeDescriptor.isEmpty() || typeDescriptor.get().typeKind() == null) {
+        if (typeDescriptor.isEmpty() || typeDescriptor.get().typeKind() == null || typeDescriptor.get().typeKind() ==
+                TypeDescKind.COMPILATION_ERROR) {
             item.setKind(CompletionItemKind.Unit);
             item.setDetail("type");
             return;

@@ -418,18 +418,18 @@ public function testInvalidInputType() {
 }
 
 function testIncompatibleSelectType(stream<string, error?> clientStream) returns error? {
-    return from string num in clientStream select {a: 1};
+    return stream from string num in clientStream select {a: 1};
 }
 
 function testMapBindingPatternsAnydataType() {
     map<anydata> keyValsMap = {foo:"sss", bar:"ffff"};
-    var x = from var {k} in keyValsMap
+    var x = map from var {k} in keyValsMap
                  select k;
 }
 
 function testMapBindingPatternsAnyType() {
     map<any> keyValsMap = {foo:"sss", bar:"ffff"};
-    var x = from var {k} in keyValsMap
+    var x = map from var {k} in keyValsMap
                  select k;
 }
 
@@ -505,4 +505,86 @@ public function testVariableOfUndefinedTypeUsedInJoin() {
         join UndefinedType item in undefinedTypeList
         on 1 equals 1
         select 1;
+}
+
+function testInvalidTypeInOnConflictClauseWithQueryConstructingTable() {
+    User[] users = [];
+    error|int msg = error("Error");
+
+    var result1 = table key(id) from var user in users
+                    where user.age > 21 && user.age < 60
+                    select {user} on conflict 1;
+
+    var result2 = table key(id) from var user in users
+                    where user.age > 21 && user.age < 60
+                    select {user} on conflict msg;
+}
+
+function testQueryUsedAsFuncArg() {
+    int len = getLength(from string s in ["A", "B"]
+        select s);
+
+    string[][] ar = [];
+    int[][] newAr = from var c in ar
+        select foo(from var s in c
+            select s.trim());
+}
+
+function getLength(int[] arr) returns int {
+    return arr.length();
+}
+
+function foo(int[] s) returns int[] {
+    return s;
+}
+
+function testInvalidCheckExpressionInQueryAction() returns string|error {
+    from int _ in [1, 3, 5]
+    do {
+        check returnNil();
+        return "string 1";
+    };
+    return "string 2";
+}
+
+function testInvalidCheckExpressionInQueryAction2() returns error? {
+    from int _ in [1, 3, 5]
+    do {
+        check returnNil();
+        return;
+    };
+    return;
+}
+
+function returnNil() {
+}
+
+type PersonA record {|
+    string firstName;
+    string lastName;
+    int age;
+|};
+
+type Persons PersonA[];
+
+function testInvalidContextuallyExpectedTypes() {
+
+    PersonA[] personList = [];
+    int outputPersonList =
+            from var person in personList
+    let int newAge = 20
+    where person.age == 33
+    select person.firstName;
+
+    Persons outputPersons =
+                from var person in personList
+    let int newAge = 20
+    where person.age == 33
+    select person.firstName;
+
+    PersonA outputPerson =
+                from var person in personList
+    let int newAge = 20
+    where person.age == 33
+    select person.firstName;
 }

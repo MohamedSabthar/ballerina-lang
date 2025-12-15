@@ -17,7 +17,9 @@
  */
 package io.ballerina.runtime.internal.types;
 
+import io.ballerina.runtime.api.Module;
 import io.ballerina.runtime.api.types.MethodType;
+import io.ballerina.runtime.api.types.Parameter;
 import io.ballerina.runtime.api.types.ResourceMethodType;
 import io.ballerina.runtime.api.types.Type;
 
@@ -32,12 +34,12 @@ public class BResourceMethodType extends BMethodType implements ResourceMethodTy
 
     public final String accessor;
     public final String[] resourcePath;
+    public Type[] pathSegmentTypes;
 
-    public BResourceMethodType(String funcName, BObjectType parent, BFunctionType type, long flags, String accessor,
-                               String[] resourcePath) {
-        super(funcName, parent, type, flags);
-        this.type = type;
-        this.flags = flags;
+    public BResourceMethodType(String funcName, Module pkg, BObjectType parent, BFunctionType type,
+                               Type[] pathSegmentTypes, long flags, String accessor, String[] resourcePath) {
+        super(funcName, pkg, parent, type, flags);
+        this.pathSegmentTypes = pathSegmentTypes;
         this.accessor = accessor;
         this.resourcePath = resourcePath;
     }
@@ -49,10 +51,10 @@ public class BResourceMethodType extends BMethodType implements ResourceMethodTy
             rp.add(p);
         }
         StringJoiner sj = new StringJoiner(",", "resource function " + accessor + " " + rp.toString() +
-                "(", ") returns (" + type.retType + ")");
-        for (int i = 0; i < parameters.length; i++) {
-            Type type = parameters[i].type;
-            sj.add(type.getName() + " " + parameters[i].name);
+                "(", ") returns (" + this.retType + ")");
+        for (Parameter parameter : parameters) {
+            Type type = parameter.type;
+            sj.add(type.getName() + " " + parameter.name);
         }
         return sj.toString();
     }
@@ -79,7 +81,8 @@ public class BResourceMethodType extends BMethodType implements ResourceMethodTy
 
     @Override
     public <T extends MethodType> MethodType duplicate() {
-        return new BResourceMethodType(funcName, parentObjectType, type, flags, accessor, resourcePath);
+        return new BResourceMethodType(funcName, pkg, parentObjectType, this, pathSegmentTypes, flags, accessor,
+                resourcePath);
     }
 
     @Deprecated

@@ -23,10 +23,10 @@ function testRefTypes(){
 
     [typedesc<any>, typedesc<any>, typedesc<any>, typedesc<any>] tupleValue = [a, b, c, d];
 
-    assertEquality("typedesc xml<(lang.xml:Element|lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>", tupleValue[0].toString());
+    assertEquality("typedesc XmlType", tupleValue[0].toString());
     assertEquality("typedesc json", b.toString());
-    assertEquality("typedesc map", c.toString());
-    assertEquality("typedesc table<Employee>", d.toString());
+    assertEquality("typedesc mapOfAny", c.toString());
+    assertEquality("typedesc tableOfEmployee", d.toString());
 }
 
 class Pet { public string name = ""; }
@@ -153,7 +153,7 @@ function testArrayTypesWithoutTypedescConstraint() {
     typedesc a = intArray;
     typedesc b = intArrayArray;
 
-    assertEquality("typedesc int[]", a.toString());
+    assertEquality("typedesc intArray", a.toString());
 }
 
 function testRecordTypesWithoutTypedescConstraint() {
@@ -296,8 +296,27 @@ function testTypeDefWithFunctionTypeDescAsTypedesc() {
     typedesc d = typeof c;
 
     assertEquality(false, a.toString() == b.toString());
-    assertEquality(true, b.toString() == d.toString());
+    assertEquality("typedesc FunctionTypeTwo", b.toString());
+    assertEquality("typedesc function () returns (string)", d.toString());
 }
+
+type TD1 record {
+    readonly int foo;
+    readonly typedesc<int> entity;
+};
+
+type TD2 record {
+    10 foo;
+    typedesc<10> entity;
+};
+
+function testRecordWithTypedescField() {
+    int foo = 10;
+    typedesc<int> typeOfFoo = typeof foo;
+    TD1 td1 = {foo, entity: typeOfFoo};
+    assertEquality(td1 is TD2, true);
+}
+
 
 const ASSERTION_ERROR_REASON = "AssertionError";
 

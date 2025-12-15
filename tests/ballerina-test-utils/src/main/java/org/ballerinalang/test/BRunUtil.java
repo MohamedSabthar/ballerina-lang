@@ -21,15 +21,16 @@ package org.ballerinalang.test;
 import io.ballerina.projects.JarLibrary;
 import io.ballerina.projects.JarResolver;
 import io.ballerina.projects.PackageManifest;
-import io.ballerina.runtime.api.PredefinedTypes;
-import io.ballerina.runtime.api.async.StrandMetadata;
 import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.utils.StringUtils;
-import io.ballerina.runtime.internal.configurable.providers.toml.TomlDetails;
+import io.ballerina.runtime.api.values.BError;
+import io.ballerina.runtime.internal.BalRuntime;
+import io.ballerina.runtime.internal.configurable.providers.ConfigDetails;
 import io.ballerina.runtime.internal.launch.LaunchUtils;
+import io.ballerina.runtime.internal.scheduling.AsyncUtils;
 import io.ballerina.runtime.internal.scheduling.Scheduler;
 import io.ballerina.runtime.internal.scheduling.Strand;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import io.ballerina.runtime.internal.values.ArrayValue;
 import io.ballerina.runtime.internal.values.BmpStringValue;
 import io.ballerina.runtime.internal.values.DecimalValue;
@@ -41,13 +42,15 @@ import io.ballerina.runtime.internal.values.NonBmpStringValue;
 import io.ballerina.runtime.internal.values.ObjectValue;
 import io.ballerina.runtime.internal.values.XmlValue;
 import io.ballerina.tools.diagnostics.Diagnostic;
-import org.wso2.ballerinalang.compiler.bir.codegen.JvmCodeGenUtil;
+import org.ballerinalang.test.exceptions.BLangTestException;
+import org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmCodeGenUtil;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.desugar.ASTBuilderUtil;
 import org.wso2.ballerinalang.compiler.tree.BLangIdentifier;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -59,21 +62,23 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.StringJoiner;
 import java.util.function.Function;
 
-import static io.ballerina.runtime.api.constants.RuntimeConstants.ANON_ORG;
-import static io.ballerina.runtime.api.constants.RuntimeConstants.DOT;
 import static org.ballerinalang.test.util.TestConstant.CONFIGURATION_CLASS_NAME;
 import static org.ballerinalang.test.util.TestConstant.MODULE_INIT_CLASS_NAME;
-import static org.wso2.ballerinalang.compiler.util.Names.DEFAULT_MAJOR_VERSION;
 
 /**
  * Utility methods for run Ballerina functions with JVM arguments and return values.
  *
  * @since 2.0.0
  */
-public class BRunUtil {
+public final class BRunUtil {
+
+    private static final Boolean IS_WINDOWS = System.getProperty("os.name").toLowerCase(Locale.getDefault())
+            .contains("win");
 
     /**
      * Invoke a ballerina function.
@@ -91,41 +96,26 @@ public class BRunUtil {
         Class<?>[] paramTypes = new Class<?>[args.length];
         for (int i = 0; i < args.length; i++) {
             Object arg = args[i];
-            if (arg == null) {
-                paramTypes[i] = null;
-            } else if (arg instanceof ObjectValue) {
-                paramTypes[i] = ObjectValue.class;
-            } else if (arg instanceof XmlValue) {
-                paramTypes[i] = XmlValue.class;
-            } else if (arg instanceof BmpStringValue) {
-                paramTypes[i] = BmpStringValue.class;
-            } else if (arg instanceof NonBmpStringValue) {
-                paramTypes[i] = NonBmpStringValue.class;
-            } else if (arg instanceof ArrayValue) {
-                paramTypes[i] = ArrayValue.class;
-            } else if (arg instanceof Integer) {
-                paramTypes[i] = Long.class;
-            } else if (arg instanceof Float) {
-                paramTypes[i] = Double.class;
-            } else if (arg instanceof Double) {
-                paramTypes[i] = Double.class;
-            } else if (arg instanceof Long) {
-                paramTypes[i] = Long.class;
-            } else if (arg instanceof Boolean) {
-                paramTypes[i] = Boolean.class;
-            } else if (arg instanceof MapValue) {
-                paramTypes[i] = MapValue.class;
-            } else if (arg instanceof ErrorValue) {
-                paramTypes[i] = ErrorValue.class;
-            } else if (arg instanceof DecimalValue) {
-                paramTypes[i] = DecimalValue.class;
-            } else if (arg instanceof HandleValue) {
-                paramTypes[i] = HandleValue.class;
-            } else if (arg instanceof Byte) {
-                paramTypes[i] = Integer.class;
-            } else {
-                // This is done temporarily, until blocks are added here for all possible cases.
-                throw new RuntimeException("unknown param type: " + arg.getClass());
+            switch (arg) {
+                case null -> paramTypes[i] = null;
+                case ObjectValue ignored -> paramTypes[i] = ObjectValue.class;
+                case XmlValue ignored -> paramTypes[i] = XmlValue.class;
+                case BmpStringValue ignored -> paramTypes[i] = BmpStringValue.class;
+                case NonBmpStringValue ignored -> paramTypes[i] = NonBmpStringValue.class;
+                case ArrayValue ignored1 -> paramTypes[i] = ArrayValue.class;
+                case Integer ignored -> paramTypes[i] = Long.class;
+                case Float ignored -> paramTypes[i] = Double.class;
+                case Double ignored -> paramTypes[i] = Double.class;
+                case Long ignored -> paramTypes[i] = Long.class;
+                case Boolean ignored -> paramTypes[i] = Boolean.class;
+                case MapValue<?, ?> ignored -> paramTypes[i] = MapValue.class;
+                case ErrorValue ignored -> paramTypes[i] = ErrorValue.class;
+                case DecimalValue ignored -> paramTypes[i] = DecimalValue.class;
+                case HandleValue ignored -> paramTypes[i] = HandleValue.class;
+                case Byte ignored -> paramTypes[i] = Integer.class;
+                default ->
+                    // This is done temporarily, until blocks are added here for all possible cases.
+                        throw new RuntimeException("unknown param type: " + arg.getClass());
             }
         }
         return paramTypes;
@@ -145,27 +135,7 @@ public class BRunUtil {
     private static Object invokeOnJBallerina(CompileResult compileResult, String functionName, Object[] args,
                                              Class<?>[] paramTypes) {
         BIRNode.BIRFunction function = getInvokedFunction(compileResult, functionName);
-        args = addDefaultableBoolean(args);
-        paramTypes = addDefaultableBooleanType(paramTypes);
         return invoke(compileResult, function, functionName, args, paramTypes);
-    }
-
-    private static Object[] addDefaultableBoolean(Object[] args) {
-        Object[] result = new Object[args.length * 2];
-        for (int j = 0, i = 0; i < args.length; i++, j += 2) {
-            result[j] = args[i];
-            result[j + 1] = true;
-        }
-        return result;
-    }
-
-    private static Class<?>[] addDefaultableBooleanType(Class<?>[] paramTypes) {
-        Class<?>[] result = new Class<?>[paramTypes.length * 2];
-        for (int j = 0, i = 0; i < paramTypes.length; i++, j += 2) {
-            result[j] = paramTypes[i];
-            result[j + 1] = boolean.class;
-        }
-        return result;
     }
 
     /**
@@ -181,16 +151,11 @@ public class BRunUtil {
     private static Object invoke(CompileResult compileResult, BIRNode.BIRFunction function, String functionName,
                                  Object[] args, Class<?>[] paramTypes) {
         assert args.length == paramTypes.length;
-
-        Object[] jvmArgs = populateJvmArgumentArrays(args);
-
-        Object jvmResult;
         PackageManifest packageManifest = compileResult.packageManifest();
         String funcClassName = JarResolver.getQualifiedClassName(packageManifest.org().toString(),
                 packageManifest.name().toString(),
                 packageManifest.version().toString(),
-                getClassName(function.pos.lineRange().filePath()));
-
+                getClassName(function.pos.lineRange().fileName()));
         try {
             Class<?> funcClass = compileResult.getClassLoader().loadClass(funcClassName);
             Method method = getMethod(functionName, funcClass);
@@ -201,43 +166,32 @@ public class BRunUtil {
                     throw new RuntimeException("Error while invoking function '" + functionName + "'", e);
                 } catch (InvocationTargetException e) {
                     Throwable t = e.getTargetException();
-                    if (t instanceof BLangRuntimeException) {
+                    if (t instanceof BLangTestException) {
                         throw ErrorCreator.createError(StringUtils.fromString(t.getMessage()));
                     }
-                    if (t instanceof io.ballerina.runtime.api.values.BError) {
+                    if (t instanceof BError bError) {
                         throw ErrorCreator.createError(StringUtils.fromString(
-                                "error: " + ((io.ballerina.runtime.api.values.BError) t).getPrintableStackTrace()));
+                                "error: " + bError.getPrintableStackTrace()));
                     }
                     if (t instanceof StackOverflowError) {
                         throw ErrorCreator.createError(StringUtils.fromString("error: " +
                                 "{ballerina}StackOverflow {\"message\":\"stack overflow\"}"));
                     }
                     throw ErrorCreator.createError(StringUtils.fromString("Error while invoking function '" +
-                            functionName + "'"), e);
+                            functionName + "'"), t);
                 }
             };
+            BalRuntime runtime = compileResult.getRuntime();
 
-            Scheduler scheduler = new Scheduler(false);
-            FutureValue futureValue = scheduler.schedule(jvmArgs, func, null, null, new HashMap<>(),
-                    PredefinedTypes.TYPE_ANY, "test",
-                    new StrandMetadata(ANON_ORG, DOT, DEFAULT_MAJOR_VERSION.value, functionName));
-            scheduler.start();
-            if (futureValue.panic instanceof RuntimeException) {
-                throw new BLangRuntimeException(futureValue.panic.getMessage(),
-                        futureValue.panic);
-            }
-            jvmResult = futureValue.result;
+            runtime.moduleInitialized = true;
+            final FutureValue future = runtime.scheduler.startNonIsolatedWorker(func, null,
+                    PredefinedTypes.TYPE_ANY, "test", null, args);
+            return AsyncUtils.getFutureResult(future.completableFuture);
         } catch (ClassNotFoundException | NoSuchMethodException e) {
             throw new RuntimeException("Error while invoking function '" + functionName + "'", e);
+        } catch (BError e) {
+            throw new BLangTestException(e.getMessage(), e);
         }
-
-        return jvmResult;
-    }
-
-    private static Object[] populateJvmArgumentArrays(Object[] args) {
-        Object[] jvmArgs = new Object[args.length + 1];
-        System.arraycopy(args, 0, jvmArgs, 1, args.length);
-        return jvmArgs;
     }
 
     private static Method getMethod(String functionName, Class<?> funcClass) throws NoSuchMethodException {
@@ -257,11 +211,21 @@ public class BRunUtil {
         if (!balFileName.endsWith(".bal")) {
             return balFileName;
         }
-
         return balFileName.substring(0, balFileName.length() - 4);
     }
 
     private static BIRNode.BIRFunction getInvokedFunction(CompileResult compileResult, String functionName) {
+        checkAndNotifyCompilationErrors(compileResult);
+        BIRNode.BIRPackage birPackage = compileResult.defaultModuleBIR();
+        for (BIRNode.BIRFunction function : birPackage.functions) {
+            if (functionName.equals(function.name.value)) {
+                return function;
+            }
+        }
+        throw new RuntimeException("Function '" + functionName + "' is not defined");
+    }
+
+    private static void checkAndNotifyCompilationErrors(CompileResult compileResult) {
         if (compileResult.getErrorCount() > 0) {
             StringJoiner stringJoiner = new StringJoiner("\n", "\n", "");
             for (Diagnostic diagnostic : compileResult.getDiagnostics()) {
@@ -269,12 +233,6 @@ public class BRunUtil {
             }
             throw new IllegalStateException("There were compilation errors: " + stringJoiner);
         }
-
-        BIRNode.BIRPackage birPackage = compileResult.defaultModuleBIR();
-        return birPackage.functions.stream()
-                .filter(function -> functionName.equals(function.name.value))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Function '" + functionName + "' is not defined"));
     }
 
     /**
@@ -311,6 +269,7 @@ public class BRunUtil {
     }
 
     public static ExitDetails run(CompileResult compileResult, List<String> javaOpts, String... args) {
+        checkAndNotifyCompilationErrors(compileResult);
         PackageManifest packageManifest = compileResult.packageManifest();
         String initClassName = JarResolver.getQualifiedClassName(packageManifest.org().toString(),
                 packageManifest.name().toString(),
@@ -322,19 +281,36 @@ public class BRunUtil {
             classPath.append(File.pathSeparator).append(jarLibrary.path());
         }
 
-        try {
-            final List<String> actualArgs = new ArrayList<>();
-            int index = 0;
-            actualArgs.add(index++, "java");
-            for (String javaOpt : javaOpts) {
-                actualArgs.add(index++, javaOpt);
-            }
-            actualArgs.add(index++, "-cp");
-            actualArgs.add(index++, System.getProperty("java.class.path") + classPath);
-            actualArgs.add(index, initClassName);
-            actualArgs.addAll(Arrays.asList(args));
+        final List<String> actualArgs = new ArrayList<>();
+        int index = 0;
+        actualArgs.add(index++, "java");
+        for (String javaOpt : javaOpts) {
+            actualArgs.add(index++, javaOpt);
+        }
+        actualArgs.add(index++, "-cp");
 
-            final Runtime runtime = Runtime.getRuntime();
+        String classPathString = System.getProperty("java.class.path") + classPath;
+        // Create an argument file for Windows to mitigate the long classpath issue.
+        if (IS_WINDOWS) {
+            classPathString = classPathString.replace(" ", "%20");
+            String classPathArgs = "classPathArgs";
+            try {
+                File classPathArgsFile = File.createTempFile(classPathArgs, ".txt");
+                FileWriter fileWriter = new FileWriter(classPathArgsFile);
+                fileWriter.write(classPathString);
+                fileWriter.close();
+                actualArgs.add(index++, "@" + classPathArgsFile.getAbsolutePath());
+            } catch (IOException e) {
+                throw new RuntimeException("Error while creating classpath arguments file: " + classPathArgs, e);
+            }
+        } else {
+            actualArgs.add(index++, classPathString);
+        }
+        actualArgs.add(index, initClassName);
+        actualArgs.addAll(Arrays.asList(args));
+
+        try {
+            final java.lang.Runtime runtime = java.lang.Runtime.getRuntime();
             final Process process = runtime.exec(actualArgs.toArray(new String[0]));
             String consoleError = getConsoleOutput(process.getErrorStream());
             String consoleInput = getConsoleOutput(process.getInputStream());
@@ -348,7 +324,7 @@ public class BRunUtil {
 
     private static String getConsoleOutput(InputStream inputStream) {
         final BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        StringJoiner sj = new StringJoiner(System.getProperty("line.separator"));
+        StringJoiner sj = new StringJoiner(System.lineSeparator());
         reader.lines().iterator().forEachRemaining(sj::add);
         return sj.toString();
     }
@@ -362,64 +338,112 @@ public class BRunUtil {
         String configClassName = JarResolver.getQualifiedClassName(org, module, version, CONFIGURATION_CLASS_NAME);
 
         Class<?> initClazz = compileResult.getClassLoader().loadClass(initClassName);
-        final Scheduler scheduler = new Scheduler(false);
-        TomlDetails configurationDetails = LaunchUtils.getConfigurationDetails();
-        directRun(compileResult.getClassLoader().loadClass(configClassName), "$configureInit",
-                new Class[]{String[].class, Path[].class, String.class}, new Object[]{new String[]{},
-                        configurationDetails.paths, configurationDetails.configContent});
-        runOnSchedule(initClazz, ASTBuilderUtil.createIdentifier(null, "$moduleInit"), scheduler);
-        runOnSchedule(initClazz, ASTBuilderUtil.createIdentifier(null, "$moduleStart"), scheduler);
-//        if (temp) {
-//            scheduler.immortal = true;
-//            new Thread(scheduler::start).start();
-//        }
+        final BalRuntime runtime = compileResult.getRuntime();
+        ConfigDetails configurationDetails = LaunchUtils.getConfigurationDetails();
+        callConfigInit(compileResult.getClassLoader().loadClass(configClassName),
+                new Class<?>[]{Map.class, String[].class, Path[].class, String.class, BalRuntime.class},
+                new Object[]{new HashMap<>(), new String[]{},
+                        configurationDetails.paths, configurationDetails.configContent, runtime});
+        FutureValue future = runOnSchedule(initClazz, "$moduleInit", runtime);
+        runtime.moduleInitialized = true;
+        Object result = AsyncUtils.getFutureResult(future.completableFuture);
+        if (result instanceof BError error) {
+            throw error;
+        }
+        AsyncUtils.getFutureResult(runOnSchedule(initClazz, "$moduleStart", runtime).completableFuture);
     }
 
-    private static void directRun(Class<?> initClazz, String functionName, Class[] paramTypes, Object[] args) {
-        String funcName = JvmCodeGenUtil.cleanupFunctionName(functionName);
+    private static void callConfigInit(Class<?> initClazz, Class<?>[] paramTypes, Object[] args) {
+        String funcName = JvmCodeGenUtil.cleanupFunctionName("$configureInit");
         String errorMsg = "Failed to invoke the function '%s' due to %s";
         Object response;
         try {
             final Method method = initClazz.getDeclaredMethod(funcName, paramTypes);
             response = method.invoke(null, args);
-            if (response instanceof Throwable) {
-                throw new BLangRuntimeException(String.format(errorMsg, funcName, response),
-                        (Throwable) response);
+            if (response instanceof Throwable throwable) {
+                throw new BLangTestException(String.format(errorMsg, funcName, response), throwable);
             }
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            throw new BLangRuntimeException(String.format(errorMsg, funcName, e.getMessage()), e);
+            throw new BLangTestException(String.format(errorMsg, funcName, e.getMessage()), e);
         }
     }
 
-    private static void runOnSchedule(Class<?> initClazz, BLangIdentifier name, Scheduler scheduler) {
+    private static FutureValue runOnSchedule(Class<?> initClazz, String name, BalRuntime runtime) {
+        return runOnSchedule(initClazz, ASTBuilderUtil.createIdentifier(null, name), runtime);
+    }
+
+    private static FutureValue runOnSchedule(Class<?> initClazz, BLangIdentifier name, BalRuntime runtime) {
+        String funcName = JvmCodeGenUtil.cleanupFunctionName(name.value);
+        try {
+            Function<Object[], Object> func = getFunction(initClazz, funcName);
+            return runtime.scheduler.startNonIsolatedWorker(func, null, PredefinedTypes.TYPE_ANY,
+                    funcName, null, new Object[1]);
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException("Error while invoking function '" + funcName + "'", e);
+        } catch (Throwable t) {
+            if (t instanceof ErrorValue errorValue) {
+                throw new BLangTestException("error: " + errorValue.getPrintableError());
+            }
+            throw new BLangTestException("error: " + Arrays.toString(t.getStackTrace()), t);
+        }
+    }
+
+    private static Function<Object[], Object> getFunction(Class<?> initClazz, String funcName)
+            throws NoSuchMethodException {
+        final Method method = initClazz.getDeclaredMethod(funcName, Strand.class);
+        return objects -> {
+            try {
+                return method.invoke(null, objects[0]);
+            } catch (InvocationTargetException e) {
+                Throwable targetException = e.getTargetException();
+                if (targetException instanceof RuntimeException) {
+                    throw (RuntimeException) targetException;
+                } else {
+                    throw new RuntimeException(targetException);
+                }
+            } catch (IllegalAccessException e) {
+                throw new BLangTestException("Method has private access", e);
+            }
+        };
+    }
+
+    public static void call(CompileResult compileResult, String functionName) {
+        BIRNode.BIRFunction function = getInvokedFunction(compileResult, functionName);
+        PackageManifest packageManifest = compileResult.packageManifest();
+        String funcClassName = JarResolver.getQualifiedClassName(packageManifest.org().toString(),
+                packageManifest.name().toString(),
+                packageManifest.version().toString(),
+                getClassName(function.pos.lineRange().fileName()));
+        Class<?> funcClass;
+        try {
+            funcClass = compileResult.getClassLoader().loadClass(funcClassName);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Error while invoking function '" + functionName + "'", e);
+        }
+        call(funcClass, functionName);
+    }
+
+    private static void call(Class<?> initClazz, String name) {
+        call(initClazz, ASTBuilderUtil.createIdentifier(null, name));
+    }
+
+    private static void call(Class<?> initClazz, BLangIdentifier name) {
         String funcName = JvmCodeGenUtil.cleanupFunctionName(name.value);
         try {
             final Method method = initClazz.getDeclaredMethod(funcName, Strand.class);
-            //TODO fix following method invoke to scheduler.schedule()
-            Function<Object[], Object> func = objects -> {
-                try {
-                    return method.invoke(null, objects[0]);
-                } catch (InvocationTargetException e) {
-                    Throwable targetException = e.getTargetException();
-                    if (targetException instanceof RuntimeException) {
-                        throw (RuntimeException) targetException;
-                    } else {
-                        throw new RuntimeException(targetException);
-                    }
-                } catch (IllegalAccessException e) {
-                    throw new BLangRuntimeException("Method has private access", e);
+            try {
+                method.invoke(null, Scheduler.getStrand());
+            } catch (InvocationTargetException e) {
+                Throwable targetException = e.getTargetException();
+                if (targetException instanceof RuntimeException) {
+                    throw (RuntimeException) targetException;
+                } else {
+                    throw new RuntimeException(targetException);
                 }
-            };
-            final FutureValue out = scheduler
-                    .schedule(new Object[1], func, null, null, null, PredefinedTypes.TYPE_ANY, null, null);
-            scheduler.start();
-            final Throwable t = out.panic;
-            if (t != null) {
-                if (t instanceof ErrorValue) {
-                    throw new BLangRuntimeException("error: " + ((ErrorValue) t).getPrintableStackTrace());
-                }
-                throw (RuntimeException) t;
+            } catch (IllegalAccessException e) {
+                throw new BLangTestException("Method has private access", e);
             }
+
         } catch (NoSuchMethodException e) {
             throw new RuntimeException("Error while invoking function '" + funcName + "'", e);
         }

@@ -27,10 +27,10 @@ import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 
@@ -38,7 +38,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link ObjectConstructorExpressionNode} context.
@@ -105,12 +104,12 @@ public class ObjectConstructorExpressionNodeContext
         
         if (nodeAtCursor.kind() == SyntaxKind.QUALIFIED_NAME_REFERENCE) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            return this.getCompletionItemList(QNameReferenceUtil.getModuleContent(ctx, qNameRef, predicate), ctx);
+            return this.getCompletionItemList(QNameRefCompletionUtil.getModuleContent(ctx, qNameRef, predicate), ctx);
         }
         List<Symbol> visibleSymbols = ctx.visibleSymbols(ctx.getCursorPosition());
         List<Symbol> objectEntries = visibleSymbols.stream()
                 .filter(predicate)
-                .collect(Collectors.toList());
+                .toList();
 
         List<LSCompletionItem> completionItems = this.getCompletionItemList(objectEntries, ctx);
         completionItems.addAll(this.getModuleCompletionItems(ctx));

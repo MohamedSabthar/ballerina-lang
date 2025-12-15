@@ -17,10 +17,15 @@
  */
 package org.wso2.ballerinalang.compiler.bir.codegen.interop;
 
+import io.ballerina.types.Env;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemTypes;
+import org.ballerinalang.model.symbols.SymbolKind;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JMethodKind;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableTypeSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BVarSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BInvokableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
-import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
-import org.wso2.ballerinalang.compiler.util.TypeTags;
 import org.wso2.ballerinalang.compiler.util.Unifier;
 
 import java.util.ArrayList;
@@ -39,20 +44,23 @@ class JMethodRequest {
     ParamTypeConstraint[] paramTypeConstraints = {};
     // Parameter count of the Ballerina function
     int bFuncParamCount;
+    int pathParamCount;
 
     BType[] bParamTypes = null;
+    List<BVarSymbol> paramSymbols = new ArrayList<>();
+    List<BVarSymbol> pathParamSymbols = new ArrayList<>();
     BType bReturnType = null;
     boolean returnsBErrorType = false;
     boolean restParamExist = false;
     BType receiverType = null;
 
-    private static Unifier unifier = new Unifier();
+    private static final Unifier unifier = new Unifier();
 
     private JMethodRequest() {
 
     }
 
-    static JMethodRequest build(InteropValidationRequest.MethodValidationRequest methodValidationRequest,
+    static JMethodRequest build(Env typeEnv, InteropValidationRequest.MethodValidationRequest methodValidationRequest,
                                 ClassLoader classLoader) {
 
         JMethodRequest jMethodReq = new JMethodRequest();
@@ -64,28 +72,32 @@ class JMethodRequest {
                 JInterop.buildParamTypeConstraints(methodValidationRequest.paramTypeConstraints, classLoader);
 
         BInvokableType bFuncType = methodValidationRequest.bFuncType;
-        List<BType> paramTypes = new ArrayList<>(bFuncType.paramTypes);
+        BInvokableTypeSymbol typeSymbol = (BInvokableTypeSymbol) bFuncType.tsymbol;
+        jMethodReq.paramSymbols.addAll(typeSymbol.params);
+        List<BVarSymbol> pathParams = new ArrayList<>();
+        List<BType> paramTypes = new ArrayList<>();
 
-        BType restType = bFuncType.restType;
-        if (restType != null) {
-            paramTypes.add(restType);
+        for (BVarSymbol param : typeSymbol.params) {
+            paramTypes.add(param.type);
+            if (param.kind == SymbolKind.PATH_PARAMETER || param.kind == SymbolKind.PATH_REST_PARAMETER) {
+                pathParams.add(param);
+            }
+        }
+
+        BVarSymbol restParam = typeSymbol.restParam;
+        if (restParam != null) {
+            jMethodReq.paramSymbols.add(restParam);
+            paramTypes.add(restParam.type);
         }
 
         jMethodReq.bFuncParamCount = paramTypes.size();
+        jMethodReq.pathParamCount = pathParams.size();
         jMethodReq.bParamTypes = paramTypes.toArray(new BType[0]);
+        jMethodReq.pathParamSymbols = pathParams;
 
-        BType returnType = unifier.build(bFuncType.retType);
+        BType returnType = unifier.build(typeEnv, bFuncType.retType);
         jMethodReq.bReturnType = returnType;
-        if (returnType.tag == TypeTags.UNION) {
-            for (BType bType : ((BUnionType) returnType).getMemberTypes()) {
-                if (bType.tag == TypeTags.ERROR) {
-                    jMethodReq.returnsBErrorType = true;
-                    break;
-                }
-            }
-        } else {
-            jMethodReq.returnsBErrorType = returnType.tag == TypeTags.ERROR;
-        }
+        jMethodReq.returnsBErrorType = SemTypes.containsBasicType(returnType.semType(), PredefinedType.ERROR);
         jMethodReq.restParamExist = methodValidationRequest.restParamExist;
         return jMethodReq;
     }

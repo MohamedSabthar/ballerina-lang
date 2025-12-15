@@ -22,21 +22,50 @@ package io.ballerina.cli.cmd;
  *
  * @since 2.0.0
  */
-public class Constants {
-    static final String BUILD_COMMAND = "build";
-    static final String RUN_COMMAND = "run";
-    static final String COMPILE_COMMAND = "compile";
-    static final String DOC_COMMAND = "doc";
-    static final String TEST_COMMAND = "test";
-    static final String INIT_COMMAND = "init";
-    static final String NEW_COMMAND = "new";
-    static final String ADD_COMMAND = "add";
-    static final String LIST_COMMAND = "list";
-    static final String PULL_COMMAND = "pull";
-    static final String PUSH_COMMAND = "push";
-    static final String SEARCH_COMMAND = "search";
-    static final String CLEAN_COMMAND = "clean";
-    static final String UNINSTALL_COMMAND = "uninstall";
-    static final String SHELL_COMMAND = "shell";
-    static final String PACK_COMMAND = "pack";
+public final class Constants {
+
+    public static final String BUILD_COMMAND = "build";
+    public static final String RUN_COMMAND = "run";
+    public static final String DOC_COMMAND = "doc";
+    public static final String TEST_COMMAND = "test";
+    public static final String INIT_COMMAND = "init";
+    public static final String NEW_COMMAND = "new";
+    public static final String ADD_COMMAND = "add";
+    public static final String PULL_COMMAND = "pull";
+    public static final String PUSH_COMMAND = "push";
+    public static final String SEARCH_COMMAND = "search";
+    public static final String CLEAN_COMMAND = "clean";
+    public static final String FORMAT_COMMAND = "format";
+    public static final String VERSION_COMMAND = "version";
+    public static final String BINDGEN_COMMAND = "bindgen";
+    public static final String SHELL_COMMAND = "shell";
+    public static final String PACK_COMMAND = "pack";
+    public static final String GRAPH_COMMAND = "graph";
+    public static final String DEPRECATE_COMMAND = "deprecate";
+    public static final String TOOL_COMMAND = "tool";
+    public static final String TOOL_PULL_COMMAND = "pull";
+    public static final String TOOL_LIST_COMMAND = "list";
+    public static final String TOOL_USE_COMMAND = "use";
+    public static final String TOOL_SEARCH_COMMAND = "search";
+    public static final String TOOL_REMOVE_COMMAND = "remove";
+    public static final String TOOL_UPDATE_COMMAND = "update";
+    public static final String TOOL_LOCATION_COMMAND = "location";
+    public static final String SEMVER_COMMAND = "semver";
+    public static final String DIST_COMMAND = "dist";
+    public static final String UPDATE_COMMAND = "update";
+    public static final String PROFILE_COMMAND = "profile";
+    public static final String START_LANG_SERVER_COMMAND = "start-language-server";
+    public static final String LANG_SERVER_SPEC = "language-server-spec";
+    public static final String START_DEBUG_ADAPTER_COMMAND =  "start-debugger-adapter";
+    public static final String HELP_COMMAND = "help";
+    public static final String HOME_COMMAND = "home";
+    public static final String GENCACHE_COMMAND = "gencache";
+    public static final String VERSION_OPTION = "--version";
+    public static final String HELP_OPTION = "--help";
+    public static final String DEBUG_OPTION = "--debug";
+    public static final String VERSION_SHORT_OPTION = "-v";
+    public static final String HELP_SHORT_OPTION = "-h";
+
+    private Constants() {
+    }
 }

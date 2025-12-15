@@ -18,6 +18,7 @@
 package io.ballerina.runtime.internal.types;
 
 import io.ballerina.identifier.Utils;
+import io.ballerina.runtime.api.Module;
 import io.ballerina.runtime.api.flags.SymbolFlags;
 import io.ballerina.runtime.api.types.FunctionType;
 import io.ballerina.runtime.api.types.MethodType;
@@ -34,20 +35,17 @@ import java.util.StringJoiner;
 public class BMethodType extends BFunctionType implements MethodType {
 
     public String funcName;
-    public BFunctionType type;
     public BObjectType parentObjectType;
 
-    public BMethodType(String funcName, BObjectType parent, BFunctionType type, long flags) {
+    public BMethodType(String funcName, Module pkg, BObjectType parent, BFunctionType type, long flags) {
+        super(pkg, type.getParameters(), type.getRestType(), type.getReturnType(), flags, type.getName());
         this.funcName = funcName;
-        this.type = type;
         this.parentObjectType = parent;
-        this.flags = flags;
-        this.parameters = type.parameters;
     }
 
     @Override
     public String toString() {
-        StringJoiner sj = new StringJoiner(",", "function " + funcName + "(", ") returns (" + type.retType + ")");
+        StringJoiner sj = new StringJoiner(",", "function " + funcName + "(", ") returns (" + this.retType + ")");
         for (Parameter parameter : parameters) {
             sj.add(parameter.type.getName());
         }
@@ -61,8 +59,7 @@ public class BMethodType extends BFunctionType implements MethodType {
 
     @Override
     public String getAnnotationKey() {
-        return Utils.decodeIdentifier(parentObjectType.getAnnotationKey()) + "." +
-                Utils.decodeIdentifier(funcName);
+        return Utils.decodeIdentifier(parentObjectType.getAnnotationKey()) + "." + Utils.decodeIdentifier(funcName);
     }
 
     @Override
@@ -70,16 +67,21 @@ public class BMethodType extends BFunctionType implements MethodType {
         return parentObjectType;
     }
 
+    @Override
     public FunctionType getType() {
-        return type;
+        return this;
     }
 
     public <T extends MethodType> MethodType duplicate() {
-        return new BMethodType(funcName, parentObjectType, type, flags);
+        return new BMethodType(funcName, pkg, parentObjectType, this, flags);
     }
 
     @Override
     public boolean isIsolated() {
         return SymbolFlags.isFlagOn(flags, SymbolFlags.ISOLATED);
+    }
+
+    public String name() {
+        return funcName;
     }
 }

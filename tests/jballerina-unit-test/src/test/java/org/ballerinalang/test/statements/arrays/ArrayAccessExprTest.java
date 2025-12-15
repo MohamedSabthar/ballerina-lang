@@ -17,15 +17,15 @@
 */
 package org.ballerinalang.test.statements.arrays;
 
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BArray;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -47,11 +47,19 @@ public class ArrayAccessExprTest {
 
     //TODO try to validate all the lines in the exception message
     @Test(description = "Test access an non-initialized arrays",
-            expectedExceptions = BLangRuntimeException.class,
+            expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: \\{ballerina/lang.array\\}IndexOutOfRange " +
                     "\\{\"message\":\"array index out of range: index: 5, size: 0.*")
     public void testNonInitArrayAccess() {
         BRunUtil.invoke(compileResult, "testNonInitArrayAccess");
+        Assert.fail("Test should fail at this point.");
+    }
+    @Test(description = "Test invalid index access",
+            expectedExceptions = BLangTestException.class,
+            expectedExceptionsMessageRegExp = "error: \\{ballerina/lang.array\\}IndexOutOfRange " +
+                    "\\{\"message\":\"array index out of range: index: -2, size: 2.*")
+    public void testUnaryConstExpressionInIndexAccess() {
+        BRunUtil.invoke(compileResult, "testUnaryConstExpressionInIndexAccess");
         Assert.fail("Test should fail at this point.");
     }
 
@@ -113,21 +121,21 @@ public class ArrayAccessExprTest {
     }
 
     @Test(description = "Test accessing an out of bound arrays-index",
-          expectedExceptions = { BLangRuntimeException.class },
+          expectedExceptions = { BLangTestException.class },
           expectedExceptionsMessageRegExp = ".*array index out of range: index: 5, size: 2.*")
     public void testArrayIndexOutOfBoundError() {
         BRunUtil.invoke(compileResult, "arrayIndexOutOfBoundTest");
     }
 
     @Test(description = "Test array index out of range with finite type",
-            expectedExceptions = { BLangRuntimeException.class },
+            expectedExceptions = { BLangTestException.class },
             expectedExceptionsMessageRegExp = ".*array index out of range: index: 3, size: 2.*")
     public void testArrayIndexOutOfRangeErrorWithFiniteTypeIndex() {
         BRunUtil.invoke(compileResult, "testArrayIndexOutOfRangeErrorWithFiniteTypeIndex");
     }
 
     @Test(description = "Test array index out of range with union with finite type",
-            expectedExceptions = { BLangRuntimeException.class },
+            expectedExceptions = { BLangTestException.class },
             expectedExceptionsMessageRegExp = ".*array index out of range: index: 4, size: 2.*")
     public void testArrayIndexOutOfRangeErrorWithUnionWithFiniteTypesIndex() {
         BRunUtil.invoke(compileResult, "testArrayIndexOutOfRangeErrorWithUnionWithFiniteTypesIndex");
@@ -142,6 +150,7 @@ public class ArrayAccessExprTest {
                                   12, 25);
         BAssertUtil.validateError(compileResult, i++, "list index out of range: index: '-1'", 19, 7);
         BAssertUtil.validateError(compileResult, i++, "list index out of range: index: '-2'", 20, 7);
+        BAssertUtil.validateError(compileResult, i++, "list index out of range: index: '-1'", 25, 15);
         Assert.assertEquals(compileResult.getErrorCount(), i);
     }
 

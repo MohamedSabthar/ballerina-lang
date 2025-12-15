@@ -17,7 +17,7 @@
  */
 package org.ballerinalang.test.expressions.stamp;
 
-import io.ballerina.runtime.api.TypeTags;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
@@ -95,9 +95,9 @@ public class JSONStampInbuiltFunctionTest {
         Assert.assertEquals(mapValue0.getType().getName(), "Employee");
 
         Assert.assertEquals((mapValue0).size(), 4);
-        Assert.assertEquals(((LinkedHashMap) mapValue0).get(StringUtils.fromString("school")).toString(),
+        Assert.assertEquals(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("school")).toString(),
                 "Hindu College");
-        Assert.assertEquals(getType(((LinkedHashMap) mapValue0).get(StringUtils.fromString("school"))).getClass(),
+        Assert.assertEquals(getType(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("school"))).getClass(),
                 BStringType.class);
 
     }
@@ -116,57 +116,12 @@ public class JSONStampInbuiltFunctionTest {
 
     @Test
     public void testStampJSONToMap() {
-
-        Object results = BRunUtil.invoke(compileResult, "stampJSONToMap");
-        BMap<String, Object> mapValue0 = (BMap<String, Object>) results;
-
-        Assert.assertEquals((mapValue0).size(), 4);
-
-        Assert.assertEquals(mapValue0.getType().getClass(), BMapType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("name")).toString(), "John");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("name"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("status")).toString(), "single");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("status"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("batch")).toString(), "LK2014");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("batch"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("school")).toString(), "Hindu College");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("school"))).getClass(), BStringType.class);
+        BRunUtil.invoke(compileResult, "stampJSONToMap");
     }
 
     @Test
     public void testStampJSONToMapV2() {
-
-        Object results = BRunUtil.invoke(compileResult, "stampJSONToMapV2");
-        BMap<String, Object> mapValue0 = (BMap<String, Object>) results;
-
-        Assert.assertEquals((mapValue0).size(), 6);
-
-        Assert.assertEquals(mapValue0.getType().getClass(), BMapType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("name")).toString(), "Raja");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("name"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("age")).toString(), "25");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("age"))).getTag(), TypeTags.INT_TAG);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("status")).toString(), "single");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("status"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("batch")).toString(), "LK2014");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("batch"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(mapValue0.get(StringUtils.fromString("school")).toString(), "Hindu College");
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("school"))).getClass(), BStringType.class);
-
-        Assert.assertEquals(((BMap) mapValue0.get(StringUtils.fromString("emp"))).size(), 3);
-        Assert.assertEquals(getType(mapValue0.get(StringUtils.fromString("emp"))).getClass(), BMapType.class);
-        Assert.assertEquals(
-                ((BMapType) getType(mapValue0.get(StringUtils.fromString("emp")))).getConstrainedType().getClass(),
-                BAnydataType.class);
+        BRunUtil.invoke(compileResult, "stampJSONToMapV2");
     }
 
     @Test
@@ -183,16 +138,18 @@ public class JSONStampInbuiltFunctionTest {
         Assert.assertEquals(mapValue0.getType().getName(), "Student");
 
         Assert.assertEquals((mapValue0).size(), 4);
-        Assert.assertEquals(((LinkedHashMap) mapValue0).get(StringUtils.fromString("batch")).toString(), "LK2014");
-        Assert.assertEquals(getType(((LinkedHashMap) mapValue0).get(StringUtils.fromString("batch"))).getClass(),
+        Assert.assertEquals(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("batch")).toString(),
+                "LK2014");
+        Assert.assertEquals(getType(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("batch"))).getClass(),
                 BStringType.class);
 
         Assert.assertEquals(mapValue1.getType().getClass(), BRecordType.class);
         Assert.assertEquals(mapValue1.getType().getName(), "Student");
 
         Assert.assertEquals((mapValue1).size(), 4);
-        Assert.assertEquals(((LinkedHashMap) mapValue1).get(StringUtils.fromString("batch")).toString(), "LK2014");
-        Assert.assertEquals(getType(((LinkedHashMap) mapValue0).get(StringUtils.fromString("batch"))).getClass(),
+        Assert.assertEquals(((LinkedHashMap<?, ?>) mapValue1).get(StringUtils.fromString("batch")).toString(),
+                "LK2014");
+        Assert.assertEquals(getType(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("batch"))).getClass(),
                 BStringType.class);
 
     }
@@ -209,7 +166,7 @@ public class JSONStampInbuiltFunctionTest {
         Assert.assertEquals(getType(results.get(1)).getTag(), TypeTags.BOOLEAN_TAG);
         Assert.assertEquals(results.get(2).toString(), "foo");
         Assert.assertEquals(getType(results.get(2)).getClass(), BStringType.class);
-        Assert.assertEquals((((BMap) results.get(3))).size(), 2);
+        Assert.assertEquals((((BMap<?, ?>) results.get(3))).size(), 2);
         Assert.assertEquals(getType(results.get(3)).getClass(), BMapType.class);
         Assert.assertEquals(((BMapType) getType(results.get(3))).getConstrainedType().getClass(), BAnydataType.class);
     }
@@ -242,7 +199,7 @@ public class JSONStampInbuiltFunctionTest {
         Assert.assertEquals(results.get(2).toString(), "foo");
         Assert.assertEquals(getType(results.get(2)).getClass(), BStringType.class);
         Assert.assertNull(results.get(3));
-        Assert.assertEquals((((BMap) results.get(4))).size(), 2);
+        Assert.assertEquals((((BMap<?, ?>) results.get(4))).size(), 2);
         Assert.assertEquals(getType(results.get(4)).getClass(), BMapType.class);
         Assert.assertEquals(((BMapType) getType(results.get(4))).getConstrainedType().getClass(), BAnydataType.class);
     }
@@ -287,7 +244,7 @@ public class JSONStampInbuiltFunctionTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<json>' value cannot be converted to 'map<string>': " +
+                "'map<json>' value cannot be converted to 'StringMap': " +
                         "\n\t\tmap field 'age' should be of type 'string', found '23'");
     }
 

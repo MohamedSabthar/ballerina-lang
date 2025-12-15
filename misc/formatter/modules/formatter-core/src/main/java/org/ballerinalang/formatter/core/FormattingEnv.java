@@ -17,6 +17,8 @@
  */
 package org.ballerinalang.formatter.core;
 
+import io.ballerina.compiler.syntax.tree.Node;
+
 /**
  * Environment that holds a set of properties related to the currently formatting node.
  *
@@ -28,6 +30,11 @@ public class FormattingEnv {
      * Number of of whitespace characters to be used as the indentation for the current line.
      */
     int currentIndentation = 0;
+
+    /**
+     * Number of whitespaces to be used as the indentation for the current context used when aligning statements.
+     */
+    int preservedIndentation = 0;
 
     /**
      * Number of leading newlines to be added to the currently processing node.
@@ -52,7 +59,7 @@ public class FormattingEnv {
     /**
      * Flag indicating whether the token that is currently being formatted has preserved a user defined new line.
      */
-    boolean hasPreservedNewline = false;
+    boolean hasPreservedNewline = true;
 
     /**
      * Length of the currently formatting line.
@@ -62,7 +69,7 @@ public class FormattingEnv {
     /**
      * Flag indicating whether the annotations should be inline.
      */
-    boolean inLineAnnotation = false;
+    boolean inlineAnnotation = false;
 
     /**
      * Previous token's trailing whitespaces.
@@ -75,7 +82,17 @@ public class FormattingEnv {
     int prevTokensTrailingNL = 0;
 
     /**
+     * Maximum length of the consecutive constant definitions.
+     */
+    int maxConstDefWidth = 1;
+
+    /**
      * Flag indicating whether the token that is currently being formatted should preserve its user defined indentation.
      */
     boolean preserveIndentation = false;
+
+    /**
+     * Reference to the next node that needs to be wrapped.
+     */
+    Node nodeToWrap = null;
 }

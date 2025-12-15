@@ -33,9 +33,9 @@ import org.testng.annotations.Test;
  */
 public class ListBindingPatternTest {
     private CompileResult result, restMatchPatternResult, resultNegative;
-    private String patternNotMatched = "pattern will not be matched";
-    private String unreachablePattern = "unreachable pattern";
-    private String unreachableCode = "unreachable code";
+    private final String patternNotMatched = "pattern will not be matched";
+    private final String unreachablePattern = "unreachable pattern";
+    private final String unreachableCode = "unreachable code";
 
     @BeforeClass
     public void setup() {
@@ -157,6 +157,11 @@ public class ListBindingPatternTest {
         BRunUtil.invoke(result, "testListBindingPattern22");
     }
 
+    @Test
+    public void testListBindingPattern23() {
+        BRunUtil.invoke(result, "testListBindingPattern23");
+    }
+    
     @Test
     public void testRestBindingPattern1() {
         BRunUtil.invoke(restMatchPatternResult, "testListBindingPatternWithRest1");

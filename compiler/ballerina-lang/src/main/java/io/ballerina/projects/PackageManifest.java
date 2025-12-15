@@ -18,7 +18,11 @@
 package io.ballerina.projects;
 
 import io.ballerina.projects.internal.DefaultDiagnosticResult;
+import io.ballerina.projects.internal.model.BalToolDescriptor;
 import io.ballerina.projects.internal.model.CompilerPluginDescriptor;
+import io.ballerina.toml.api.Toml;
+import io.ballerina.toml.semantic.ast.TomlTableNode;
+import io.ballerina.toml.semantic.diagnostics.TomlNodeLocation;
 import io.ballerina.tools.diagnostics.Location;
 
 import java.util.Collections;
@@ -34,7 +38,9 @@ import java.util.Optional;
 public class PackageManifest {
     private final PackageDescriptor packageDesc;
     private final CompilerPluginDescriptor compilerPluginDesc;
+    private final BalToolDescriptor balToolDesc;
     private final Map<String, Platform> platforms;
+    private final List<Tool> tools;
     private final List<Dependency> dependencies;
     private final DiagnosticResult diagnostics;
     private final List<String> license;
@@ -42,10 +48,15 @@ public class PackageManifest {
     private final List<String> keywords;
     private final String repository;
     private final List<String> exportedModules;
+    private final List<String> includes;
     private final String ballerinaVersion;
     private final String visibility;
+    private final BuildOptions buildOptions;
     private boolean template;
     private final String icon;
+    private final String readme;
+    private final String description;
+    private final List<Module> moduleList;
 
     // Other entries hold other key/value pairs available in the Ballerina.toml file.
     // These keys are not part of the Ballerina package specification.
@@ -53,12 +64,15 @@ public class PackageManifest {
 
     private PackageManifest(PackageDescriptor packageDesc,
                             CompilerPluginDescriptor compilerPluginDesc,
+                            BalToolDescriptor balToolDesc,
                             Map<String, Platform> platforms,
                             List<Dependency> dependencies,
                             Map<String, Object> otherEntries,
+                            List<Tool> tools,
                             DiagnosticResult diagnostics) {
         this.packageDesc = packageDesc;
         this.compilerPluginDesc = compilerPluginDesc;
+        this.balToolDesc = balToolDesc;
         this.platforms = Collections.unmodifiableMap(platforms);
         this.dependencies = Collections.unmodifiableList(dependencies);
         this.otherEntries = Collections.unmodifiableMap(otherEntries);
@@ -67,14 +81,21 @@ public class PackageManifest {
         this.authors = Collections.emptyList();
         this.keywords = Collections.emptyList();
         this.exportedModules = Collections.emptyList();
+        this.includes = Collections.emptyList();
         this.repository = "";
         this.ballerinaVersion = "";
         this.visibility = "";
         this.icon = "";
+        this.tools = Collections.unmodifiableList(tools);
+        this.readme = "";
+        this.description = "";
+        this.moduleList = Collections.emptyList();
+        this.buildOptions = BuildOptions.builder().build();
     }
 
     private PackageManifest(PackageDescriptor packageDesc,
                             CompilerPluginDescriptor compilerPluginDesc,
+                            BalToolDescriptor balToolDesc,
                             Map<String, Platform> platforms,
                             List<Dependency> dependencies,
                             Map<String, Object> otherEntries,
@@ -83,13 +104,18 @@ public class PackageManifest {
                             List<String> authors,
                             List<String> keywords,
                             List<String> exportedModules,
+                            List<String> includes,
                             String repository,
                             String ballerinaVersion,
                             String visibility,
                             boolean template,
-                            String icon) {
+                            String icon,
+                            String readme,
+                            String description,
+                            List<Module> moduleList) {
         this.packageDesc = packageDesc;
         this.compilerPluginDesc = compilerPluginDesc;
+        this.balToolDesc = balToolDesc;
         this.platforms = Collections.unmodifiableMap(platforms);
         this.dependencies = Collections.unmodifiableList(dependencies);
         this.otherEntries = Collections.unmodifiableMap(otherEntries);
@@ -98,28 +124,82 @@ public class PackageManifest {
         this.authors = authors;
         this.keywords = keywords;
         this.exportedModules = getExport(packageDesc, exportedModules);
+        this.includes = includes;
         this.repository = repository;
         this.ballerinaVersion = ballerinaVersion;
         this.visibility = visibility;
         this.template = template;
         this.icon = icon;
+        this.tools = Collections.emptyList();
+        this.readme = readme;
+        this.description = description;
+        this.moduleList = moduleList;
+        this.buildOptions = BuildOptions.builder().build();
     }
 
+    private PackageManifest(PackageDescriptor packageDesc,
+                            CompilerPluginDescriptor compilerPluginDesc,
+                            BalToolDescriptor balToolDesc,
+                            Map<String, Platform> platforms,
+                            List<Dependency> dependencies,
+                            Map<String, Object> otherEntries,
+                            DiagnosticResult diagnostics,
+                            List<String> license,
+                            List<String> authors,
+                            List<String> keywords,
+                            List<String> exportedModules,
+                            List<String> includes,
+                            String repository,
+                            String ballerinaVersion,
+                            String visibility,
+                            boolean template,
+                            String icon,
+                            List<Tool> tools,
+                            String readme,
+                            String description,
+                            List<Module> moduleList,
+                            BuildOptions buildOptions) {
+        this.packageDesc = packageDesc;
+        this.compilerPluginDesc = compilerPluginDesc;
+        this.balToolDesc = balToolDesc;
+        this.platforms = Collections.unmodifiableMap(platforms);
+        this.dependencies = Collections.unmodifiableList(dependencies);
+        this.otherEntries = Collections.unmodifiableMap(otherEntries);
+        this.diagnostics = diagnostics;
+        this.license = license;
+        this.authors = authors;
+        this.keywords = keywords;
+        this.exportedModules = getExport(packageDesc, exportedModules);
+        this.includes = includes;
+        this.repository = repository;
+        this.ballerinaVersion = ballerinaVersion;
+        this.visibility = visibility;
+        this.template = template;
+        this.icon = icon;
+        this.tools = tools;
+        this.readme = readme;
+        this.description = description;
+        this.moduleList = moduleList;
+        this.buildOptions = buildOptions;
+    }
     public static PackageManifest from(PackageDescriptor packageDesc) {
-        return new PackageManifest(packageDesc, null, Collections.emptyMap(), Collections.emptyList(),
-                                   Collections.emptyMap(), new DefaultDiagnosticResult(Collections.emptyList()));
+        return new PackageManifest(packageDesc, null, null, Collections.emptyMap(), Collections.emptyList(),
+                                   Collections.emptyMap(), Collections.emptyList(),
+                                    new DefaultDiagnosticResult(Collections.emptyList()));
     }
 
     public static PackageManifest from(PackageDescriptor packageDesc,
                                        CompilerPluginDescriptor compilerPluginDesc,
+                                       BalToolDescriptor balToolDesc,
                                        Map<String, Platform> platforms,
                                        List<Dependency> dependencies) {
-        return new PackageManifest(packageDesc, compilerPluginDesc, platforms, dependencies, Collections.emptyMap(),
-                new DefaultDiagnosticResult(Collections.emptyList()));
+        return new PackageManifest(packageDesc, compilerPluginDesc, balToolDesc, platforms, dependencies,
+                Collections.emptyMap(), Collections.emptyList(), new DefaultDiagnosticResult(Collections.emptyList()));
     }
 
     public static PackageManifest from(PackageDescriptor packageDesc,
                                        CompilerPluginDescriptor compilerPluginDesc,
+                                       BalToolDescriptor balToolDesc,
                                        Map<String, Platform> platforms,
                                        List<Dependency> dependencies,
                                        Map<String, Object> otherEntries,
@@ -128,30 +208,43 @@ public class PackageManifest {
                                        List<String> authors,
                                        List<String> keywords,
                                        List<String> export,
+                                       List<String> include,
                                        String repository,
                                        String ballerinaVersion,
                                        String visibility,
                                        boolean template,
-                                       String icon) {
-        return new PackageManifest(packageDesc, compilerPluginDesc, platforms, dependencies, otherEntries, diagnostics,
-                license, authors, keywords, export, repository, ballerinaVersion, visibility, template, icon);
+                                       String icon,
+                                       List<Tool> tools,
+                                       String readme,
+                                       String description,
+                                       List<Module> moduleList,
+                                       BuildOptions buildOptions) {
+        return new PackageManifest(packageDesc, compilerPluginDesc, balToolDesc, platforms, dependencies, otherEntries,
+                diagnostics, license, authors, keywords, export, include, repository, ballerinaVersion, visibility,
+                template, icon, tools, readme, description, moduleList, buildOptions);
     }
 
     public static PackageManifest from(PackageDescriptor packageDesc,
                                        CompilerPluginDescriptor compilerPluginDesc,
+                                       BalToolDescriptor balToolDescriptor,
                                        Map<String, Platform> platforms,
                                        List<Dependency> dependencies,
                                        List<String> license,
                                        List<String> authors,
                                        List<String> keywords,
                                        List<String> export,
+                                       List<String> include,
                                        String repository,
                                        String ballerinaVersion,
                                        String visibility,
-                                       boolean template) {
-        return new PackageManifest(packageDesc, compilerPluginDesc, platforms, dependencies, Collections.emptyMap(),
-                new DefaultDiagnosticResult(Collections.emptyList()), license, authors, keywords,
-                export, repository, ballerinaVersion, visibility, template, "");
+                                       boolean template,
+                                       String readme,
+                                       String description,
+                                       List<Module> moduleList) {
+        return new PackageManifest(packageDesc, compilerPluginDesc, balToolDescriptor, platforms, dependencies,
+                Collections.emptyMap(), new DefaultDiagnosticResult(Collections.emptyList()), license, authors,
+                keywords, export, include, repository, ballerinaVersion, visibility, template, "",
+                readme, description, moduleList);
     }
 
     public PackageName name() {
@@ -174,9 +267,21 @@ public class PackageManifest {
         return Optional.ofNullable(compilerPluginDesc);
     }
 
+    public Optional<BalToolDescriptor> balToolDescriptor() {
+        return Optional.ofNullable(balToolDesc);
+    }
+
     public Platform platform(String platformCode) {
         return platforms.get(platformCode);
     }
+
+    public Map<String, Platform> platforms() {
+        return platforms;
+    }
+    public List<Tool> tools() {
+        return tools;
+    }
+
 
     // TODO Do we need to custom key/value par mapping here
     public Object getValue(String key) {
@@ -197,6 +302,10 @@ public class PackageManifest {
 
     public List<String> exportedModules() {
         return exportedModules;
+    }
+
+    public List<String> includes() {
+        return includes;
     }
 
     public String repository() {
@@ -227,21 +336,40 @@ public class PackageManifest {
         return template;
     }
 
+    public String readme() {
+        return readme;
+    }
+
+    public List<Module> modules() {
+        return moduleList;
+    }
+
+    public String description() {
+        return description;
+    }
+
+    public BuildOptions buildOptions() {
+        return buildOptions;
+    }
+
     /**
      * Represents the platform section in Ballerina.toml file.
      *
      * @since 2.0.0
      */
     public static class Platform {
+        public static final String GRAALVM_COMPATIBLE = "graalvmCompatible";
         // We could eventually add more things to the platform
         private final List<Map<String, Object>> dependencies;
         private final List<Map<String, Object>> repositories;
+        private final Boolean graalvmCompatible;
 
         public Platform(List<Map<String, Object>> dependencies) {
-            this(dependencies, Collections.emptyList());
+            this(dependencies, Collections.emptyList(), null);
         }
 
-        public Platform(List<Map<String, Object>> dependencies, List<Map<String, Object>> repositories) {
+        public Platform(List<Map<String, Object>> dependencies, List<Map<String, Object>> repositories,
+                        Boolean graalvmCompatible) {
             if (dependencies != null) {
                 this.dependencies = Collections.unmodifiableList(dependencies);
             } else {
@@ -252,6 +380,7 @@ public class PackageManifest {
             } else {
                 this.repositories = Collections.emptyList();
             }
+            this.graalvmCompatible = graalvmCompatible;
         }
 
         public List<Map<String, Object>> dependencies() {
@@ -260,6 +389,23 @@ public class PackageManifest {
 
         public List<Map<String, Object>> repositories() {
             return repositories;
+        }
+
+        public Boolean graalvmCompatible() {
+                return graalvmCompatible;
+        }
+
+        public Boolean isPlatfromDepsGraalvmCompatible() {
+            Boolean overallGraalvmCompatibility = true;
+            for (Map<String, Object> dependency : dependencies) {
+                Boolean dependencyGraalvmCompatibility = (Boolean) dependency.get(GRAALVM_COMPATIBLE);
+                if (dependencyGraalvmCompatibility == null) {
+                    overallGraalvmCompatibility = null;
+                } else if (!dependencyGraalvmCompatibility) {
+                    return false;
+                }
+            }
+            return overallGraalvmCompatibility;
         }
     }
 
@@ -274,6 +420,7 @@ public class PackageManifest {
         private final PackageVersion version;
         private final String repository;
         private final Location location;
+        private final boolean skipWorkspace;
 
         public Dependency(PackageName packageName, PackageOrg packageOrg, PackageVersion version) {
             this.packageName = packageName;
@@ -281,6 +428,7 @@ public class PackageManifest {
             this.version = version;
             this.location = null;
             this.repository = null;
+            this.skipWorkspace = false;
         }
 
         public Dependency(PackageName packageName, PackageOrg packageOrg, PackageVersion version,
@@ -290,6 +438,7 @@ public class PackageManifest {
             this.version = version;
             this.repository = repository;
             this.location = null;
+            this.skipWorkspace = false;
         }
 
         public Dependency(PackageName packageName, PackageOrg packageOrg, PackageVersion version,
@@ -299,6 +448,17 @@ public class PackageManifest {
             this.version = version;
             this.repository = repository;
             this.location = location;
+            this.skipWorkspace = false;
+        }
+
+        public Dependency(PackageName packageName, PackageOrg packageOrg, PackageVersion version,
+                          String repository, Location location, boolean skipWorkspace) {
+            this.packageName = packageName;
+            this.packageOrg = packageOrg;
+            this.version = version;
+            this.repository = repository;
+            this.location = location;
+            this.skipWorkspace = skipWorkspace;
         }
 
         public PackageName name() {
@@ -319,6 +479,111 @@ public class PackageManifest {
 
         public Optional<Location> location() {
             return Optional.ofNullable(location);
+        }
+
+        public boolean skipWorkspace() {
+            return skipWorkspace;
+        }
+    }
+
+    /**
+     * Represents the build tool configurations in Ballerina.toml file.
+     *
+     * @since 2201.9.0
+     */
+    public static class Tool {
+        private final Field id;
+        private final TomlTableNode optionsTable;
+        private final Field filePath;
+        private final Field targetModule;
+        private final Field type;
+        private final Toml optionsToml;
+        private final boolean hasErrorDiagnostic;
+
+        public Tool(Field type, Field id, Field filePath, Field targetModule, Toml optionsToml,
+                    TomlTableNode optionsTable, boolean hasErrorDiagnostic) {
+            this.type = type;
+            this.id = id;
+            this.filePath = filePath;
+            this.targetModule = targetModule;
+            this.optionsTable = optionsTable;
+            this.optionsToml = optionsToml;
+            this.hasErrorDiagnostic = hasErrorDiagnostic;
+        }
+
+        /**
+         * Returns the tool id.
+         *
+         * @return the tool id.
+         */
+        public Field id() {
+            return id;
+        }
+
+        /**
+         * Returns the filepath.
+         *
+         * @return the filepath.
+         */
+        public Field filePath() {
+            return this.filePath;
+        }
+
+        /**
+         * Returns the target module.
+         *
+         * @return the tool's target module.
+         */
+        public Field targetModule() {
+            return this.targetModule;
+        }
+
+        /**
+         * Returns the tool-specific options as a TomlTableNode.
+         *
+         * @return the tool options table.
+         */
+        public TomlTableNode optionsTable() {
+            return this.optionsTable;
+        }
+
+        /**
+         * Returns the type of the tool.
+         *
+         * @return the tool type.
+         */
+        public Field type() {
+            return type;
+        }
+
+        /**
+         * Returns the tool-specific options as a Toml.
+         *
+         * @return the options toml.
+         */
+        public Toml optionsToml() {
+            return optionsToml;
+        }
+
+        /**
+         * Returns a flag indicating whether the tool has error diagnostics.
+         *
+         * @return whether the tool has error diagnostics.
+         */
+        public boolean hasErrorDiagnostic() {
+            return hasErrorDiagnostic;
+        }
+
+        public record Field(String value, TomlNodeLocation location) {
+        }
+    }
+
+    public record Module(String name, boolean export, String description, String readme) {
+        public Module(String name, boolean export, String description, String readme) {
+            this.name = name;
+            this.export = export;
+            this.description = description;
+            this.readme = readme != null ? readme : "";
         }
     }
 

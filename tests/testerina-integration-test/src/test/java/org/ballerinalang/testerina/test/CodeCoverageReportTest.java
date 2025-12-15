@@ -56,7 +56,7 @@ public class CodeCoverageReportTest extends BaseTestCase {
     private String singleModuleTestRoot;
 
     @BeforeClass
-    public void setup() throws BallerinaTestException {
+    public void setup() {
         balClient = new BMainInstance(balServer);
         singleModuleTestRoot = "single-module-codecov";
         multiModuleTestRoot = "test-report-tests";
@@ -78,21 +78,26 @@ public class CodeCoverageReportTest extends BaseTestCase {
         //Validate Package names in XML File
         List<String> expectedPackageNames = Arrays.asList(
                 "report/codecov$test/0/types",
+                "report/codecov/0/constants/function_types",
                 "single-module-codecov",
                 "report/codecov/0/creators",
                 "report/codecov$test/0",
-                "report/codecov/0/types",
-                "report/codecov$test/0/constants",
+                "report/codecov/0/constants/strings",
                 "report/codecov$test/0/creators",
+                "report/codecov$test/0/constants/union_types",
+                "report/codecov$test/0/constants/function_types",
+                "report/codecov/0/constants/union_types",
+                "report/codecov$test/0/constants/strings",
+                "report/codecov/0/types",
                 "report/codecov/0",
-                "report/codecov$test/0/annotations",
-                "report/codecov/0/annotations",
-                "report/codecov/0/constants"
-        );
+                "report/codecov$test/0/constants/modules",
+                "report/codecov$test/0/identifiers/global_vars",
+                "report/codecov/0/constants/modules",
+                "report/codecov/0/identifiers/global_vars");
         if (validatePackageNames(expectedPackageNames)) {
             Assert.assertTrue(true);
         } else {
-            Assert.fail("Package Name Validation for coverage XML falied for single module project");
+            Assert.fail("Package Name Validation for coverage XML failed for single module project");
         }
     }
 
@@ -111,45 +116,103 @@ public class CodeCoverageReportTest extends BaseTestCase {
         copyReportDTDFile(reportRoot);
         ArrayList<String> expectedPackageNames = new ArrayList<>();
         Collections.addAll(expectedPackageNames,
-                "testerina_report/foo$0046math$test/0/constants",
-                "testerina_report/foo$test/0/types",
-                "testerina_report/foo$0046bar/0/creators",
-                "testerina_report/foo$0046bar$0046tests/0",
-                "testerina_report/foo$0046math$test/0",
-                "testerina_report/foo/0/creators",
-                "testerina_report/foo$0046bar$0046tests/0/creators",
-                "testerina_report/foo$0046bar$0046tests/0/types",
-                "testerina_report/foo$0046math/0/constants",
-                "testerina_report/foo$0046bar$0046tests$test/0/constants",
-                "testerina_report/foo$0046math/0/types",
-                "testerina_report/foo$0046bar/0/annotations",
-                "test-report-tests/modules/math",
-                "testerina_report/foo$0046math$test/0/creators",
-                "testerina_report/foo$0046math/0/creators",
-                "testerina_report/foo$0046bar$0046tests$test/0/types",
+                "testerina_report/foo&0046bar&0046tests$test/0/constants/function_types",
+                "testerina_report/foo/0/constants/modules",
+                "testerina_report/foo&0046math/0",
+                "testerina_report/foo/0/identifiers/constants",
+                "testerina_report/foo/0/constants/function_types",
                 "test-report-tests",
+                "testerina_report/foo&0046math$test/0/constants/modules",
+                "testerina_report/foo&0046math/0/types",
+                "testerina_report/foo&0046annot$test/0/constants/strings",
+                "testerina_report/foo&0046annot/0/identifiers/global_vars",
+                "testerina_report/foo/0/identifiers/global_vars",
+                "testerina_report/foo$test/0/constants/array_types",
+                "test-report-tests/global_vars",
+                "testerina_report/foo&0046bar&0046tests/0",
+                "testerina_report/foo/0/constants/union_types",
+                "testerina_report/foo&0046math$test/0/creators",
+                "testerina_report/foo/0/types/object_types",
+                "testerina_report/foo&0046bar/0/types",
+                "testerina_report/foo/0/constants/type_ref_types",
+                "testerina_report/foo&0046math$test/0/constants/union_types",
+                "testerina_report/foo&0046annot/0/identifiers/constants",
+                "testerina_report/foo&0046bar&0046tests$test/0/constants/strings",
+                "test-report-tests/modules/annot",
+                "testerina_report/foo$test/0/identifiers/global_vars",
+                "testerina_report/foo&0046bar&0046tests/0/identifiers/global_vars",
+                "testerina_report/foo&0046bar&0046tests$test/0/types",
+                "testerina_report/foo&0046annot$test/0/creators",
+                "testerina_report/foo/0/creators",
+                "test-report-tests/modules/math",
+                "testerina_report/foo&0046annot$test/0/constants/union_types",
                 "testerina_report/foo/0/types",
-                "testerina_report/foo$0046bar/0/types",
-                "testerina_report/foo$0046bar$0046tests/0/constants",
-                "testerina_report/foo$test/0",
+                "testerina_report/foo&0046math/0/creators",
+                "testerina_report/foo&0046annot/0/constants/modules",
+                "testerina_report/foo&0046bar&0046tests/0/constants/union_types",
                 "testerina_report/foo/0",
-                "testerina_report/foo$0046bar/0",
-                "testerina_report/foo/0/annotations",
-                "testerina_report/foo/0/constants",
-                "testerina_report/foo$0046math$test/0/types",
-                "testerina_report/foo$0046math/0/annotations",
-                "testerina_report/foo$0046bar$0046tests$test/0/creators",
-                "testerina_report/foo$0046bar$0046tests$test/0",
-                "testerina_report/foo$0046bar$0046tests/0/annotations",
-                "testerina_report/foo$0046bar$0046tests$test/0/annotations",
-                "testerina_report/foo$0046math$test/0/annotations",
-                "testerina_report/foo$test/0/annotations",
-                "testerina_report/foo$test/0/constants",
-                "testerina_report/foo$0046math/0",
-                "testerina_report/foo$0046bar/0/constants",
-                "test-report-tests/modules/bar",
-                "testerina_report/foo$test/0/creators"
-        );
+                "testerina_report/foo&0046bar&0046tests/0/creators",
+                "test-report-tests/modules/annot/lambdas",
+                "testerina_report/foo&0046math/0/identifiers/global_vars",
+                "testerina_report/foo$test/0/constants/union_types",
+                "testerina_report/foo&0046bar&0046tests/0/types",
+                "testerina_report/foo&0046bar/0/constants/union_types",
+                "testerina_report/foo&0046math$test/0",
+                "testerina_report/foo&0046annot/0/constants/function_types",
+                "testerina_report/foo&0046bar/0/creators",
+                "testerina_report/foo&0046annot$test/0/identifiers/global_vars",
+                "testerina_report/foo&0046math/0/constants/function_types",
+                "test-report-tests/values",
+                "testerina_report/foo$test/0/constants/strings",
+                "test-report-tests/modules/annot/values",
+                "testerina_report/foo&0046annot/0/types/object_types",
+                "testerina_report/foo&0046math/0/constants/strings",
+                "testerina_report/foo&0046bar/0/identifiers/global_vars",
+                "testerina_report/foo&0046bar/0/constants/function_types",
+                "testerina_report/foo&0046bar&0046tests$test/0/constants/union_types",
+                "testerina_report/foo/0/lambdas",
+                "testerina_report/foo&0046annot/0/types/record_types",
+                "testerina_report/foo&0046bar&0046tests$test/0",
+                "testerina_report/foo$test/0",
+                "testerina_report/foo/0/values",
+                "testerina_report/foo&0046math/0/constants/modules",
+                "testerina_report/foo$test/0/constants/function_types",
+                "testerina_report/foo/0/functions",
+                "testerina_report/foo/0/constants/strings",
+                "testerina_report/foo&0046annot/0/constants/strings",
+                "testerina_report/foo&0046annot/0/constants/union_types",
+                "testerina_report/foo&0046math$test/0/constants/function_types",
+                "testerina_report/foo&0046annot/0/types",
+                "testerina_report/foo&0046annot/0/creators",
+                "testerina_report/foo$test/0/creators",
+                "testerina_report/foo&0046bar/0",
+                "testerina_report/foo$test/0/types",
+                "testerina_report/foo/0/typedescs",
+                "testerina_report/foo&0046annot$test/0/types",
+                "testerina_report/foo&0046annot/0/lambdas/$2functions",
+                "testerina_report/foo&0046math$test/0/constants/strings",
+                "testerina_report/foo&0046annot/0",
+                "testerina_report/foo&0046math$test/0/types",
+                "test-report-tests/modules/annot/global_vars",
+                "testerina_report/foo&0046annot$test/0",
+                "testerina_report/foo&0046math/0/constants/union_types",
+                "testerina_report/foo&0046bar/0/constants/modules",
+                "testerina_report/foo&0046math$test/0/identifiers/global_vars",
+                "testerina_report/foo$test/0/constants/modules",
+                "test-report-tests/typedescs",
+                "testerina_report/foo&0046bar&0046tests$test/0/constants/modules",
+                "testerina_report/foo&0046bar&0046tests/0/constants/function_types",
+                "test-report-tests/modules/annot/typedescs",
+                "testerina_report/foo&0046annot/0/constants/type_ref_types",
+                "testerina_report/foo&0046bar&0046tests$test/0/identifiers/global_vars",
+                "testerina_report/foo&0046annot/0/functions",
+                "testerina_report/foo&0046annot$test/0/constants/modules",
+                "testerina_report/foo&0046annot$test/0/constants/function_types",
+                "test-report-tests/constants",
+                "testerina_report/foo&0046bar&0046tests/0/constants/modules",
+                "testerina_report/foo&0046bar&0046tests$test/0/creators",
+                "testerina_report/foo/0/types/record_types",
+                "test-report-tests/modules/bar");
         // Validate Package names in XML File
         if (validatePackageNames(expectedPackageNames)) {
             Assert.assertTrue(true);
@@ -174,21 +237,26 @@ public class CodeCoverageReportTest extends BaseTestCase {
     }
 
     /**
-     * Get the expected class elements per each package element in covergae XML.
+     * Get the expected class elements per each package element in coverage XML.
      *
-     * @return HashMap<String, List < String>>
+     * @return HashMap<String, List<String>>
      */
     private HashMap<String, List<String>> getExpectedCoverageClasses() {
         HashMap<String, List<String>> coverageClassMap = new HashMap<>();
         coverageClassMap.put(multiModuleTestRoot,
-                Arrays.asList(new String[]{multiModuleTestRoot + "/main", multiModuleTestRoot + "/foo"}));
+                Arrays.asList(multiModuleTestRoot + "/main", multiModuleTestRoot + "/foo",
+                        multiModuleTestRoot + "/values/$Record", multiModuleTestRoot + "/typedescs/$Record",
+                        multiModuleTestRoot + "/values/$ABC"));
         coverageClassMap.put(multiModuleTestRoot + "/modules/bar",
-                Arrays.asList(new String[]{multiModuleTestRoot + "/modules/bar/main"}));
+                List.of(multiModuleTestRoot + "/modules/bar/main"));
         coverageClassMap.put(multiModuleTestRoot + "/modules/math",
-                Arrays.asList(new String[]{multiModuleTestRoot + "/modules/math/add", multiModuleTestRoot +
-                        "/modules/math/divide", multiModuleTestRoot + "/modules/math/foo$$$math"}));
+                Arrays.asList(multiModuleTestRoot + "/modules/math/add", multiModuleTestRoot +
+                        "/modules/math/divide", multiModuleTestRoot + "/modules/math/foo$$$math"));
         coverageClassMap.put(multiModuleTestRoot + "/modules/bar.tests",
-                Arrays.asList(new String[]{multiModuleTestRoot + "/modules/bar.tests/foo$$$bar$$$tests"}));
+                List.of(multiModuleTestRoot + "/modules/bar.tests/foo$$$bar$$$tests"));
+        coverageClassMap.put(multiModuleTestRoot + "modules/annot",
+                Arrays.asList(multiModuleTestRoot + "/modules/annot/main",
+                        multiModuleTestRoot + "/modules/annot/values/$ZeroDiffAnnot"));
         return coverageClassMap;
     }
 
@@ -203,7 +271,7 @@ public class CodeCoverageReportTest extends BaseTestCase {
                 resolve("report.dtd").toString());
         File reportDTDFileCopy = new File(reportRoot.resolve("report.dtd").toString());
         try (FileOutputStream outputStream = new FileOutputStream(reportDTDFileCopy);
-             FileInputStream inputStream = new FileInputStream(reportDTDFile);) {
+             FileInputStream inputStream = new FileInputStream(reportDTDFile)) {
             byte[] buffer = new byte[1024];
             int length;
             while ((length = inputStream.read(buffer)) > 0) {

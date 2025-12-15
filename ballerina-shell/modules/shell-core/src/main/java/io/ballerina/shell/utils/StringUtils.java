@@ -20,11 +20,14 @@ package io.ballerina.shell.utils;
 
 import io.ballerina.identifier.Utils;
 import io.ballerina.runtime.api.values.BError;
+import io.ballerina.tools.diagnostics.Diagnostic;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
 import io.ballerina.tools.text.TextDocument;
 
 import java.util.StringJoiner;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Utility functions required by invokers.
@@ -32,12 +35,16 @@ import java.util.StringJoiner;
  *
  * @since 2.0.0
  */
-public class StringUtils {
+public final class StringUtils {
+
     private static final int MAX_VAR_STRING_LENGTH = 78;
     private static final String QUOTE = "'";
     private static final String SPACE = " ";
     private static final String CARET = "^";
     private static final String DASH = "-";
+
+    private StringUtils() {
+    }
 
     /**
      * Creates an quoted identifier to use for variable names.
@@ -60,7 +67,7 @@ public class StringUtils {
      */
     public static String shortenedString(Object input) {
         String value = String.valueOf(input);
-        value = value.replaceAll("\n", "");
+        value = value.replace("\n", "");
         if (value.length() > MAX_VAR_STRING_LENGTH) {
             int subStrLength = MAX_VAR_STRING_LENGTH / 2;
             return value.substring(0, subStrLength)
@@ -83,8 +90,7 @@ public class StringUtils {
      * @param diagnostic   Diagnostic to show.
      * @return The string with position highlighted.
      */
-    public static String highlightDiagnostic(TextDocument textDocument,
-                                             io.ballerina.tools.diagnostics.Diagnostic diagnostic) {
+    public static String highlightDiagnostic(TextDocument textDocument, Diagnostic diagnostic) {
         LineRange lineRange = diagnostic.location().lineRange();
         LinePosition startLine = lineRange.startLine();
         LinePosition endLine = lineRange.endLine();
@@ -147,7 +153,7 @@ public class StringUtils {
      * @return Converted string.
      */
     public static String getExpressionStringValue(Object object) {
-        return io.ballerina.runtime.api.utils.StringUtils.getExpressionStringValue(object, null);
+        return io.ballerina.runtime.api.utils.StringUtils.getExpressionStringValue(object);
     }
 
     /**
@@ -157,8 +163,8 @@ public class StringUtils {
      * @return Converted string.
      */
     public static String getErrorStringValue(Throwable error) {
-        if (error instanceof BError) {
-            return ((BError) error).getErrorMessage() + " " + ((BError) error).getDetails();
+        if (error instanceof BError bError) {
+            return bError.getErrorMessage() + " " + bError.getDetails();
         }
         return error.getMessage();
     }
@@ -170,6 +176,28 @@ public class StringUtils {
      * @return Reformatted unicode string.
      */
     public static String convertUnicode(char character) {
-        return "\\u{" + Integer.toHexString((int) character) + "}";
+        return "\\u{" + Integer.toHexString(character) + "}";
+    }
+
+    /**
+     * Replace ballerina unicode format codes with their unicode character
+     * for a given string.
+     *
+     * @param toConvert String need to convert.
+     * @return Reformatted string.
+     */
+    public static String convertUnicodeToCharacter(String toConvert) {
+        Matcher matcher = Pattern.compile("\\\\u\\{([\\da-fA-F]*)}").matcher(toConvert);
+        StringBuilder stringBuilder = new StringBuilder();
+        int currentPosition = 0;
+        while (matcher.find()) {
+            stringBuilder.append(toConvert, currentPosition, matcher.start());
+            int code = Integer.parseInt(matcher.group(1), 16);
+            stringBuilder.append(Character.toChars(code));
+            currentPosition = matcher.end();
+        }
+
+        stringBuilder.append(toConvert.substring(currentPosition));
+        return stringBuilder.toString();
     }
 }

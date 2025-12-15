@@ -18,8 +18,11 @@
 
 package org.wso2.ballerinalang.compiler.bir.optimizer;
 
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JLargeArrayInstruction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JLargeMapInstruction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JMethodCallInstruction;
+import org.wso2.ballerinalang.compiler.bir.codegen.optimizer.LargeMethodOptimizer;
 import org.wso2.ballerinalang.compiler.bir.model.BIRAbstractInstruction;
-import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRBasicBlock;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRErrorEntry;
@@ -33,8 +36,10 @@ import org.wso2.ballerinalang.compiler.bir.model.BIRTerminator;
 import org.wso2.ballerinalang.compiler.bir.model.BIRVisitor;
 import org.wso2.ballerinalang.compiler.bir.model.InstructionKind;
 import org.wso2.ballerinalang.compiler.bir.model.VarKind;
+import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
+import org.wso2.ballerinalang.compiler.util.TypeTags;
 import org.wso2.ballerinalang.util.Lists;
 
 import java.util.ArrayList;
@@ -45,7 +50,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Optimize BIR.
@@ -58,8 +62,8 @@ public class BIROptimizer {
     private final RHSTempVarOptimizer rhsTempVarOptimizer;
     private final LHSTempVarOptimizer lhsTempVarOptimizer;
     private final BIRLockOptimizer lockOptimizer;
-//    private final BirVariableOptimizer variableOptimizer;
     private final BIRBasicBlockOptimizer bbOptimizer;
+    private final LargeMethodOptimizer largeMethodOptimizer;
 
     public static BIROptimizer getInstance(CompilerContext context) {
         BIROptimizer birGen = context.get(BIR_OPTIMIZER);
@@ -75,23 +79,27 @@ public class BIROptimizer {
         this.rhsTempVarOptimizer = new RHSTempVarOptimizer();
         this.lhsTempVarOptimizer = new LHSTempVarOptimizer();
         this.lockOptimizer = new BIRLockOptimizer();
-//        this.variableOptimizer = new BirVariableOptimizer();
         this.bbOptimizer = new BIRBasicBlockOptimizer();
+        this.largeMethodOptimizer = new LargeMethodOptimizer(SymbolTable.getInstance(context));
     }
 
     public void optimizePackage(BIRPackage pkg) {
         // RHS temp var optimization
         pkg.accept(this.rhsTempVarOptimizer);
-
+        // Split large BIR functions into smaller methods based on maps and arrays
+        largeMethodOptimizer.splitLargeBIRFunctions(pkg);
         // LHS temp var optimization
         this.lhsTempVarOptimizer.optimizeNode(pkg, null);
 
         // Optimize lock statements
         this.lockOptimizer.optimizeNode(pkg);
-//        variableOptimizer.optimizeNode(pkg);
 
         // Optimize BB - unnecessary goto removal
         bbOptimizer.optimizeNode(pkg, null);
+
+        // Optimize record value creation for default values - remove unnecessary method call
+        BIRRecordValueOptimizer recordValueOptimizer = new BIRRecordValueOptimizer();
+        recordValueOptimizer.optimizeNode(pkg);
     }
 
     /**
@@ -118,16 +126,7 @@ public class BIROptimizer {
             for (BIRErrorEntry errorEntry : birFunction.errorTable) {
                 addErrorTableDependency(errorEntry);
             }
-
-            // First add all the instructions within the function to a list.
-            // This is done since the order of bb's cannot be guaranteed.
-            birFunction.parameters.values().forEach(this::addDependency);
             addDependency(birFunction.basicBlocks);
-
-            // Then visit and replace any temp moves
-            for (List<BIRBasicBlock> paramBBs : birFunction.parameters.values()) {
-                paramBBs.forEach(bb -> bb.accept(this));
-            }
             birFunction.basicBlocks.forEach(bb -> bb.accept(this));
 
             // Remove unused temp vars
@@ -278,9 +277,8 @@ public class BIROptimizer {
             birFunction.errorTable.forEach(ee -> this.optimizeNode(ee, funcOpEnv));
 
             // Remove unused temp vars
-            birFunction.localVars = birFunction.localVars.stream()
-                    .filter(l -> l.kind != VarKind.TEMP || !funcOpEnv.tempVars
-                            .containsKey(l)).collect(Collectors.toList());
+            birFunction.localVars = new ArrayList<>(birFunction.localVars.stream()
+                    .filter(l -> l.kind != VarKind.TEMP || !funcOpEnv.tempVars.containsKey(l)).toList());
             // Reuse lhs temp vars
             Set<BIRVariableDcl> replaceableVarSet = new HashSet<>();
             reuseTempVariables(birFunction.localVars, funcOpEnv.tempVarsList, replaceableVarSet);
@@ -349,6 +347,9 @@ public class BIROptimizer {
                 }
                 BIRVariableDcl reusableVar = removableVarVsReplacementVarMap.get(variableDcl);
                 Set<BIRVariableDcl> reusableList = typeVsReusableVarsMap.get(variableDcl.type);
+                if (reusableList == null) {
+                    continue;
+                }
                 // Same var can be used by multiple operands. We need to collect all and then replace them with
                 // variable declarations.
                 if (reusableVar != null) {
@@ -480,6 +481,16 @@ public class BIROptimizer {
             this.optimizeNode(workerSend.data, this.env);
         }
 
+        @Override
+        public void visit(BIRTerminator.WorkerAlternateReceive workerReceive) {
+            this.optimizeNode(workerReceive.lhsOp, this.env);
+        }
+
+        @Override
+        public void visit(BIRTerminator.WorkerMultipleReceive workerReceive) {
+            this.optimizeNode(workerReceive.lhsOp, this.env);
+        }
+
         // Non-terminating instructions
 
         @Override
@@ -488,9 +499,25 @@ public class BIROptimizer {
                 this.env.newInstructions.add(birMove);
                 return;
             }
+            if (isIrreplaceableVar(birMove.rhsOp.variableDcl)) {
+                this.env.newInstructions.add(birMove);
+                this.env.irreplaceableTempVars.add(birMove.lhsOp.variableDcl);
+                return;
+            }
             if (birMove.rhsOp.variableDcl.kind != VarKind.TEMP) {
                 this.env.tempVars.put(birMove.lhsOp.variableDcl, birMove.rhsOp.variableDcl);
             }
+        }
+
+        private boolean isIrreplaceableVar(BIRVariableDcl variableDcl) {
+            if (variableDcl.kind != VarKind.GLOBAL) {
+                return false;
+            }
+            int typeTag = variableDcl.type.tag;
+            return switch (typeTag) {
+                case TypeTags.BYTE, TypeTags.BOOLEAN, TypeTags.FLOAT -> true;
+                default -> TypeTags.isIntegerTypeTag(typeTag);
+            };
         }
 
         @Override
@@ -535,6 +562,10 @@ public class BIROptimizer {
             for (BIRNode.BIRListConstructorEntry listValueEntry : birNewArray.values) {
                 this.optimizeNode(listValueEntry.exprOp, this.env);
             }
+            if (birNewArray.typedescOp != null) {
+                birNewArray.typedescOp.accept(this);
+            }
+            this.optimizeNode(birNewArray.elementTypedescOp, this.env);
         }
 
         @Override
@@ -643,6 +674,123 @@ public class BIROptimizer {
             this.optimizeNode(newXMLElement.defaultNsURIOp, this.env);
         }
 
+        @Override
+        public void visit(BIRNonTerminator.NewRegExp newRegExp) {
+            this.optimizeNode(newRegExp.lhsOp, this.env);
+            this.optimizeNode(newRegExp.reDisjunction, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReDisjunction reDisjunction) {
+            this.optimizeNode(reDisjunction.lhsOp, this.env);
+            this.optimizeNode(reDisjunction.sequences, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReSequence reSequence) {
+            this.optimizeNode(reSequence.lhsOp, this.env);
+            this.optimizeNode(reSequence.terms, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReAssertion reAssertion) {
+            this.optimizeNode(reAssertion.lhsOp, this.env);
+            this.optimizeNode(reAssertion.assertion, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReAtomQuantifier reAtomQuantifier) {
+            this.optimizeNode(reAtomQuantifier.lhsOp, this.env);
+            this.optimizeNode(reAtomQuantifier.atom, this.env);
+            this.optimizeNode(reAtomQuantifier.quantifier, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReQuantifier reQuantifier) {
+            this.optimizeNode(reQuantifier.lhsOp, this.env);
+            this.optimizeNode(reQuantifier.quantifier, this.env);
+            this.optimizeNode(reQuantifier.nonGreedyChar, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReLiteralCharOrEscape reLiteralCharOrEscape) {
+            this.optimizeNode(reLiteralCharOrEscape.lhsOp, this.env);
+            this.optimizeNode(reLiteralCharOrEscape.charOrEscape, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReCharacterClass reCharacterClass) {
+            this.optimizeNode(reCharacterClass.lhsOp, this.env);
+            this.optimizeNode(reCharacterClass.classStart, this.env);
+            this.optimizeNode(reCharacterClass.negation, this.env);
+            this.optimizeNode(reCharacterClass.charSet, this.env);
+            this.optimizeNode(reCharacterClass.classEnd, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReCharSet reCharSet) {
+            this.optimizeNode(reCharSet.lhsOp, this.env);
+            this.optimizeNode(reCharSet.charSetAtoms, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReCharSetRange reCharSetRange) {
+            this.optimizeNode(reCharSetRange.lhsOp, this.env);
+            this.optimizeNode(reCharSetRange.lhsCharSetAtom, this.env);
+            this.optimizeNode(reCharSetRange.dash, this.env);
+            this.optimizeNode(reCharSetRange.rhsCharSetAtom, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReCapturingGroup reCapturingGroup) {
+            this.optimizeNode(reCapturingGroup.lhsOp, this.env);
+            this.optimizeNode(reCapturingGroup.openParen, this.env);
+            this.optimizeNode(reCapturingGroup.flagExpr, this.env);
+            this.optimizeNode(reCapturingGroup.reDisjunction, this.env);
+            this.optimizeNode(reCapturingGroup.closeParen, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReFlagExpression reFlagExpression) {
+            this.optimizeNode(reFlagExpression.lhsOp, this.env);
+            this.optimizeNode(reFlagExpression.questionMark, this.env);
+            this.optimizeNode(reFlagExpression.flagsOnOff, this.env);
+            this.optimizeNode(reFlagExpression.colon, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.NewReFlagOnOff reFlagOnOff) {
+            this.optimizeNode(reFlagOnOff.lhsOp, this.env);
+            this.optimizeNode(reFlagOnOff.flags, this.env);
+        }
+
+        @Override
+        public void visit(BIRNonTerminator.RecordDefaultFPLoad recordDefaultFPLoad) {
+            this.optimizeNode(recordDefaultFPLoad.lhsOp, this.env);
+        }
+
+        @Override
+        public void visit(JMethodCallInstruction jMethodCallInstruction) {
+            for (BIROperand arg : jMethodCallInstruction.args) {
+                this.optimizeNode(arg, this.env);
+            }
+        }
+
+        @Override
+        public void visit(JLargeArrayInstruction jLargeArrayInstruction) {
+            this.optimizeNode(jLargeArrayInstruction.lhsOp, this.env);
+            this.optimizeNode(jLargeArrayInstruction.sizeOp, this.env);
+            this.optimizeNode(jLargeArrayInstruction.values, this.env);
+            this.optimizeNode(jLargeArrayInstruction.typedescOp, this.env);
+        }
+
+        @Override
+        public void visit(JLargeMapInstruction jLargeMapInstruction) {
+            this.optimizeNode(jLargeMapInstruction.lhsOp, this.env);
+            this.optimizeNode(jLargeMapInstruction.rhsOp, this.env);
+            this.optimizeNode(jLargeMapInstruction.initialValues, this.env);
+        }
+
         // Operands
         @Override
         public void visit(BIROperand birVarRef) {
@@ -652,16 +800,6 @@ public class BIROptimizer {
             }
             env.addTempBirOperand(birVarRef);
         }
-
-        @Override
-        public void visit(BIRArgument birArgument) {
-            BIRVariableDcl realVar = this.env.tempVars.get(birArgument.variableDcl);
-            if (realVar != null) {
-                birArgument.variableDcl = realVar;
-            }
-            env.addTempBirOperand(birArgument);
-            this.optimizeNode(birArgument.condition, this.env);
-        }
     }
 
     /**
@@ -670,6 +808,8 @@ public class BIROptimizer {
     public static class OptimizerEnv {
         // key - temp var, value - real var
         private final Map<BIRVariableDcl, BIRVariableDcl> tempVars = new HashMap<>();
+
+        private final Set<BIRVariableDcl> irreplaceableTempVars = new HashSet<>();
 
         private List<BIRNonTerminator> newInstructions;
 
@@ -687,7 +827,7 @@ public class BIROptimizer {
 
         public void addTempBirOperand(BIROperand birOperand) {
             BIRVariableDcl variableDcl = birOperand.variableDcl;
-            if (variableDcl.kind != VarKind.TEMP) {
+            if (variableDcl.kind != VarKind.TEMP || irreplaceableTempVars.contains(variableDcl)) {
                 return;
             }
             tempVarsList.add(birOperand);

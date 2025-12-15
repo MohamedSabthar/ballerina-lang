@@ -29,7 +29,9 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.NamedNode;
 import org.wso2.ballerinalang.compiler.util.Name;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,27 +58,30 @@ public abstract class BIRNode {
      */
     public static class BIRPackage extends BIRNode {
         public final PackageID packageID;
-        public final List<BIRImportModule> importModules;
+        public final Set<BIRImportModule> importModules;
         public final List<BIRTypeDefinition> typeDefs;
         public final List<BIRGlobalVariableDcl> globalVars;
+        public final Set<BIRGlobalVariableDcl> importedGlobalVarsDummyVarDcls;
         public final List<BIRFunction> functions;
         public final List<BIRAnnotation> annotations;
         public final List<BIRConstant> constants;
         public final List<BIRServiceDeclaration> serviceDecls;
         public boolean isListenerAvailable;
+        public Map<String, Map<String, String>> recordDefaultValueMap = new HashMap<>();
 
         public BIRPackage(Location pos, Name org, Name pkgName, Name name, Name version,
-                          Name sourceFileName) {
-            this(pos, org, pkgName, name, version, sourceFileName, false);
+                          Name sourceFileName, String sourceRoot, boolean skipTest) {
+            this(pos, org, pkgName, name, version, sourceFileName, sourceRoot, skipTest, false);
         }
 
         public BIRPackage(Location pos, Name org, Name pkgName, Name name, Name version, Name sourceFileName,
-                          boolean isTestPkg) {
+                          String sourceRoot, boolean skipTest, boolean isTestPkg) {
             super(pos);
-            packageID = new PackageID(org, pkgName, name, version, sourceFileName, isTestPkg);
-            this.importModules = new ArrayList<>();
+            packageID = new PackageID(org, pkgName, name, version, sourceFileName, sourceRoot, isTestPkg, skipTest);
+            this.importModules = new LinkedHashSet<>();
             this.typeDefs = new ArrayList<>();
             this.globalVars = new ArrayList<>();
+            this.importedGlobalVarsDummyVarDcls = new HashSet<>();
             this.functions = new ArrayList<>();
             this.annotations = new ArrayList<>();
             this.constants = new ArrayList<>();
@@ -106,6 +111,24 @@ public abstract class BIRNode {
         public void accept(BIRVisitor visitor) {
             visitor.visit(this);
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            return this.packageID.equals(((BIRImportModule) o).packageID);
+        }
+
+        @Override
+        public int hashCode() {
+            return this.packageID.hashCode();
+        }
     }
 
     /**
@@ -126,6 +149,7 @@ public abstract class BIRNode {
         public BIRBasicBlock startBB;
         public int insOffset;
         public boolean onlyUsedInSingleBB;
+        public boolean initialized = false;
 
         // Stores the scope of the current instruction with respect to local variables.
         public BirScope insScope;
@@ -162,11 +186,9 @@ public abstract class BIRNode {
                 return true;
             }
 
-            if (!(other instanceof BIRVariableDcl)) {
+            if (!(other instanceof BIRVariableDcl otherVarDecl)) {
                 return false;
             }
-
-            BIRVariableDcl otherVarDecl = (BIRVariableDcl) other;
 
             // Here we assume names are unique.
             return this.name.equals(otherVarDecl.name);
@@ -242,11 +264,18 @@ public abstract class BIRNode {
      */
     public static class BIRFunctionParameter extends BIRVariableDcl {
         public final boolean hasDefaultExpr;
+        public boolean isPathParameter;
 
         public BIRFunctionParameter(Location pos, BType type, Name name,
                                     VarScope scope, VarKind kind, String metaVarName, boolean hasDefaultExpr) {
             super(pos, type, name, scope, kind, metaVarName);
             this.hasDefaultExpr = hasDefaultExpr;
+        }
+
+        public BIRFunctionParameter(Location pos, BType type, Name name, VarScope scope, VarKind kind,
+                                    String metaVarName, boolean hasDefaultExpr, boolean isPathParameter) {
+            this(pos, type, name, scope, kind, metaVarName, hasDefaultExpr);
+            this.isPathParameter = isPathParameter;
         }
 
         @Override
@@ -322,7 +351,7 @@ public abstract class BIRNode {
         /**
          * Variable used for parameters of this function.
          */
-        public Map<BIRFunctionParameter, List<BIRBasicBlock>>  parameters;
+        public List<BIRFunctionParameter>  parameters;
 
         /**
          * List of basic blocks in this function.
@@ -346,14 +375,32 @@ public abstract class BIRNode {
 
         public List<BIRAnnotationAttachment> annotAttachments;
 
+        public List<BIRAnnotationAttachment> annotAttachmentsOnExternal = null;
+
         public List<BIRAnnotationAttachment> returnTypeAnnots;
 
         public Set<BIRGlobalVariableDcl> dependentGlobalVars = new TreeSet<>();
 
+        // Below fields will only be available on resource functions
+        // TODO: consider creating a sub class for resource functions issue: #36964
+        public List<BIRVariableDcl> pathParams;
+
+        public BIRVariableDcl restPathParam;
+
+        public List<Name> resourcePath;
+
+        public List<Location> resourcePathSegmentPosList;
+
+        public Name accessor;
+
+        public List<BType> pathSegmentTypeList;
+
+        public boolean hasWorkers;
+
         public BIRFunction(Location pos, Name name, Name originalName, long flags, SymbolOrigin origin,
                            BInvokableType type, List<BIRParameter> requiredParams, BIRVariableDcl receiver,
                            BIRParameter restParam, int argsCount, List<BIRVariableDcl> localVars,
-                           BIRVariableDcl returnVariable, Map<BIRFunctionParameter, List<BIRBasicBlock>> parameters,
+                           BIRVariableDcl returnVariable, List<BIRFunctionParameter> parameters,
                            List<BIRBasicBlock> basicBlocks, List<BIRErrorEntry> errorTable, Name workerName,
                            ChannelDetails[] workerChannels,
                            List<BIRAnnotationAttachment> annotAttachments,
@@ -389,7 +436,7 @@ public abstract class BIRNode {
             this.flags = flags;
             this.type = type;
             this.localVars = new ArrayList<>();
-            this.parameters = new LinkedHashMap<>();
+            this.parameters = new ArrayList<>();
             this.requiredParams = new ArrayList<>();
             this.basicBlocks = new ArrayList<>();
             this.errorTable = new ArrayList<>();
@@ -419,6 +466,7 @@ public abstract class BIRNode {
             f.errorTable = errorTable;
             f.workerChannels = workerChannels;
             f.annotAttachments = annotAttachments;
+            f.annotAttachmentsOnExternal = annotAttachmentsOnExternal;
             f.returnTypeAnnots = returnTypeAnnots;
             return f;
 
@@ -436,15 +484,26 @@ public abstract class BIRNode {
      * @since 0.980.0
      */
     public static class BIRBasicBlock extends BIRNode {
+        public int number;
         public Name id;
         public List<BIRNonTerminator> instructions;
         public BIRTerminator terminator;
+        public static final String BIR_BASIC_BLOCK_PREFIX = "bb";
 
-        public BIRBasicBlock(Name id) {
+        public BIRBasicBlock(Name id, int number) {
             super(null);
+            this.number = number;
             this.id = id;
             this.instructions = new ArrayList<>();
             this.terminator = null;
+        }
+
+        public BIRBasicBlock(int number) {
+            this(new Name(BIR_BASIC_BLOCK_PREFIX + number), number);
+        }
+
+        public BIRBasicBlock(String idPrefix, int number) {
+            this(new Name(idPrefix + number), number);
         }
 
         @Override
@@ -663,11 +722,6 @@ public abstract class BIRNode {
         public Name name;
 
         /**
-         * Original name of the constant.
-         */
-        public Name originalName;
-
-        /**
          * Value for the Flags.
          */
         public long flags;
@@ -692,11 +746,10 @@ public abstract class BIRNode {
          */
         public List<BIRAnnotationAttachment> annotAttachments;
 
-        public BIRConstant(Location pos, Name name, Name originalName, long flags,
-                           BType type, ConstValue constValue, SymbolOrigin origin) {
+        public BIRConstant(Location pos, Name name, long flags, BType type, ConstValue constValue,
+                           SymbolOrigin origin) {
             super(pos);
             this.name = name;
-            this.originalName = originalName;
             this.flags = flags;
             this.type = type;
             this.constValue = constValue;
@@ -794,7 +847,7 @@ public abstract class BIRNode {
     public static class BIRLockDetailsHolder {
 
         //This is the list of recursive locks in the current scope.
-        private List<BIRTerminator.Lock> locks = new ArrayList<>();
+        private final List<BIRTerminator.Lock> locks = new ArrayList<>();
 
         public boolean isEmpty() {
             return locks.isEmpty();

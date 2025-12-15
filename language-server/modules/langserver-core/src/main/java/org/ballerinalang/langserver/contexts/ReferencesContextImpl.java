@@ -32,37 +32,15 @@ import org.eclipse.lsp4j.jsonrpc.CancelChecker;
  */
 public class ReferencesContextImpl extends PositionedOperationContextImpl implements ReferencesContext {
 
-    private final Position cursorPos;
-    private int cursorPosInTree = -1;
-
     ReferencesContextImpl(LSOperation operation,
                           String fileUri,
                           WorkspaceManager wsManager,
                           Position cursorPos,
                           LanguageServerContext serverContext,
                           CancelChecker cancelChecker) {
-        super(operation, fileUri, wsManager, serverContext, cancelChecker);
-        this.cursorPos = cursorPos;
+        super(operation, fileUri, cursorPos, wsManager, serverContext, cancelChecker);
     }
-
-    @Override
-    public Position getCursorPosition() {
-        return this.cursorPos;
-    }
-
-    @Override
-    public void setCursorPositionInTree(int offset) {
-        if (this.cursorPosInTree > -1) {
-            throw new RuntimeException("Setting the cursor offset more than once is not allowed");
-        }
-        this.cursorPosInTree = offset;
-    }
-
-    @Override
-    public int getCursorPositionInTree() {
-        return this.cursorPosInTree;
-    }
-
+    
     /**
      * Represents Language server references context Builder.
      *
@@ -74,6 +52,7 @@ public class ReferencesContextImpl extends PositionedOperationContextImpl implem
             super(LSContextOperation.TXT_REFERENCES, serverContext);
         }
         
+        @Override
         public ReferencesContext build() {
             return new ReferencesContextImpl(this.operation,
                     this.fileUri,

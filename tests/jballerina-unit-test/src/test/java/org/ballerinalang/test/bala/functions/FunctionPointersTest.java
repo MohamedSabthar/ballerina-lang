@@ -23,6 +23,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -113,5 +114,15 @@ public class FunctionPointersTest {
     public void testAnyFunction() {
         // test any function type descriptor.
         BRunUtil.invoke(result, "test7");
+    }
+
+    @Test
+    public void testGlobalFPWithDefaultValues() {
+        BRunUtil.invoke(result, "test8");
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
     }
 }

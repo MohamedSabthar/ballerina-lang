@@ -18,26 +18,22 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 /**
  * Return children of provided xml element value, panic if provided is not a element.
  *
  * @since 1.0
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "getChildren",
-//        args = {@Argument(name = "BXML", type = TypeKind.XML)},
-//        returnType = {@ReturnType(type = TypeKind.XML)},
-//        isPublic = true
-//)
-public class GetChildren {
+public final class GetChildren {
+
+    private GetChildren() {
+    }
 
     public static BXml getChildren(BXml xmlVal) {
         if (!IsElement.isElement(xmlVal)) {
-            throw BLangExceptionHelper.getRuntimeException(RuntimeErrors.XML_FUNC_TYPE_ERROR, "getChildren", "element");
+            throw ErrorHelper.getRuntimeException(ErrorCodes.XML_FUNC_TYPE_ERROR, "getChildren", "element");
         }
 
         return xmlVal.children();

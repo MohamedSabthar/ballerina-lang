@@ -118,6 +118,17 @@ public class FileSystemCache extends CompilationCache {
         }
     }
 
+    /**
+     * Returns the path to the BIR cache directory for this repository.
+     *
+     * @since 2201.13.0
+     *
+     * @return path to the cache directory.
+     */
+    public Path cachePath() {
+        return getBirPath().getParent();
+    }
+
     private Path getTargetPlatformCacheDirPath(CompilerBackend compilerBackend) {
         String targetPlatformCode = compilerBackend.targetPlatform().code();
         return packageCacheDirPath().resolve(targetPlatformCode);
@@ -171,6 +182,7 @@ public class FileSystemCache extends CompilationCache {
             this.cacheDirPath = cacheDirPath;
         }
 
+        @Override
         public CompilationCache createCompilationCache(Project project) {
             return new FileSystemCache(project, cacheDirPath);
         }

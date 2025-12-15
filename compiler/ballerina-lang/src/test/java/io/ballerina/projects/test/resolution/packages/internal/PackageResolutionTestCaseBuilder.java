@@ -30,6 +30,7 @@ import io.ballerina.projects.PackageDescriptor;
 import io.ballerina.projects.PackageManifest;
 import io.ballerina.projects.environment.ModuleLoadRequest;
 import io.ballerina.projects.environment.PackageCache;
+import io.ballerina.projects.environment.PackageLockingMode;
 import io.ballerina.projects.environment.ResolutionOptions;
 import io.ballerina.projects.internal.BlendedManifest;
 import io.ballerina.projects.internal.ModuleResolver;
@@ -44,17 +45,18 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Builds package resolution test cases.
  *
  * @since 2.0.0
  */
-public class PackageResolutionTestCaseBuilder {
+public final class PackageResolutionTestCaseBuilder {
 
     private PackageResolutionTestCaseBuilder() {
     }
@@ -80,27 +82,65 @@ public class PackageResolutionTestCaseBuilder {
 
         // Create expected dependency graph with sticky
         DependencyGraph<DependencyNode> expectedGraphSticky = getPkgDescGraph(
-                filePaths.expectedGraphStickyPath().orElse(null));
+                filePaths.expectedGraphHardPath().orElse(null));
 
         // Create expected dependency graph with no sticky
         DependencyGraph<DependencyNode> expectedGraphNoSticky = getPkgDescGraph(
-                filePaths.expectedGraphNoStickyPath().orElse(null));
+                filePaths.expectedGraphSoftPath().orElse(null));
 
         BlendedManifest blendedManifest = BlendedManifest.from(dependencyManifest,
-                packageManifest, packageResolver.localRepo());
+                packageManifest, packageResolver.localRepo(), new HashMap<>(), false);
         ModuleResolver moduleResolver = new ModuleResolver(rootPkgDes,
                 getModulesInRootPackage(rootPkgDescWrapper, rootPkgDes),
                 blendedManifest, packageResolver, ResolutionOptions.builder().setSticky(sticky).build());
         return new PackageResolutionTestCase(rootPkgDes, blendedManifest,
                 packageResolver, moduleResolver, moduleLoadRequests,
-                expectedGraphSticky, expectedGraphNoSticky);
+                expectedGraphSticky, expectedGraphNoSticky, expectedGraphNoSticky);
+    }
+
+    public static PackageResolutionTestCase build(TestCaseFilePaths filePaths, PackageLockingMode lockingMode) {
+        // Create PackageResolver
+        DotGraphBasedPackageResolver packageResolver = buildPackageResolver(filePaths);
+
+        // Create module load requests
+        Collection<ModuleLoadRequest> moduleLoadRequests = getModuleLoadRequests(filePaths.appPath());
+
+        // Root Package Descriptor
+        PackageDescWrapper rootPkgDescWrapper = getRootPkgDescWrapper(filePaths.appPath());
+        PackageDescriptor rootPkgDes = rootPkgDescWrapper.pkgDesc();
+
+        // Create dependencyManifest
+        DependencyManifest dependencyManifest = getDependencyManifest(
+                filePaths.dependenciesTomlPath().orElse(null));
+
+        // Create packageManifest
+        PackageManifest packageManifest = getPackageManifest(
+                filePaths.ballerinaTomlPath().orElse(null), rootPkgDes);
+
+
+        DependencyGraph<DependencyNode> expectedGraphHard = getPkgDescGraph(
+                filePaths.expectedGraphHardPath().orElse(null));
+        DependencyGraph<DependencyNode> expectedGraphMedium = getPkgDescGraph(
+                filePaths.expectedGraphMediumPath().orElse(null));
+        DependencyGraph<DependencyNode> expectedGraphSoft = getPkgDescGraph(
+                filePaths.expectedGraphSoftPath().orElse(null));
+
+        BlendedManifest blendedManifest = BlendedManifest.from(dependencyManifest,
+                packageManifest, packageResolver.localRepo(), new HashMap<>(), false);
+        ModuleResolver moduleResolver = new ModuleResolver(rootPkgDes,
+                getModulesInRootPackage(rootPkgDescWrapper, rootPkgDes),
+                blendedManifest, packageResolver, ResolutionOptions.builder().setPackageLockingMode(lockingMode)
+                .build());
+        return new PackageResolutionTestCase(rootPkgDes, blendedManifest,
+                packageResolver, moduleResolver, moduleLoadRequests, expectedGraphHard, expectedGraphMedium,
+                expectedGraphSoft);
     }
 
     private static List<ModuleName> getModulesInRootPackage(PackageDescWrapper rootPkgDescWrapper,
                                                             PackageDescriptor rootPkgDes) {
         return rootPkgDescWrapper.modules().stream()
                 .map(modNameStr -> Utils.getModuleName(rootPkgDes.name(), modNameStr))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private static DependencyGraph<DependencyNode> getPkgDescGraph(Path dotFilePath) {
@@ -117,9 +157,10 @@ public class PackageResolutionTestCaseBuilder {
         AbstractPackageRepository centralRepo = repoBuilder.buildCentralRepo();
         AbstractPackageRepository distRepo = repoBuilder.buildDistRepo();
         AbstractPackageRepository localRepo = repoBuilder.buildLocalRepo();
+        AbstractPackageRepository workspaceRepo = repoBuilder.buildWorkspaceRepo();
 
         // Package cache is not needed for now.
-        return new DotGraphBasedPackageResolver(distRepo, centralRepo, localRepo, null);
+        return new DotGraphBasedPackageResolver(distRepo, centralRepo, localRepo, workspaceRepo, null);
     }
 
     private static Collection<ModuleLoadRequest> getModuleLoadRequests(Path appDotFilePath) {
@@ -141,7 +182,7 @@ public class PackageResolutionTestCaseBuilder {
 
     private static DependencyManifest getDependencyManifest(Path dependenciesTomlPath) {
         if (dependenciesTomlPath == null) {
-            return DependencyManifest.from("2.0.0", Collections.emptyList());
+            return DependencyManifest.from("2.0.0", null, Collections.emptyList(), Collections.emptyList());
         }
 
         List<DependencyManifest.Package> recordedDeps = new ArrayList<>();
@@ -156,15 +197,16 @@ public class PackageResolutionTestCaseBuilder {
             }
 
             PackageDescriptor pkgDesc = Utils.getPkgDescFromNode(node.name().value(), null);
+            List<DependencyManifest.Module> modules = Utils.getDependencyModules(pkgDesc, attrs.get("modules"));
             recordedDeps.add(new DependencyManifest.Package(pkgDesc.name(), pkgDesc.org(), pkgDesc.version(),
-                    scope.getValue(), isTransitive, Collections.emptyList(), Collections.emptyList()));
+                    scope.getValue(), isTransitive, Collections.emptyList(), modules));
         }
-        return DependencyManifest.from("2.0.0", recordedDeps);
+        return DependencyManifest.from("2.0.0", null, recordedDeps, Collections.emptyList());
     }
 
     private static PackageManifest getPackageManifest(Path balTomlPath, PackageDescriptor rootPkgDesc) {
         if (balTomlPath == null) {
-            return PackageManifest.from(rootPkgDesc, null, Collections.emptyMap(),
+            return PackageManifest.from(rootPkgDesc, null, null, Collections.emptyMap(),
                     Collections.emptyList());
         }
 
@@ -186,7 +228,7 @@ public class PackageResolutionTestCaseBuilder {
                     pkgDesc.org(), pkgDesc.version(), repo, new NullLocation()));
         }
 
-        return PackageManifest.from(rootPkgDesc, null, Collections.emptyMap(), dependencies);
+        return PackageManifest.from(rootPkgDesc, null, null, Collections.emptyMap(), dependencies);
     }
 
     private static PackageDescWrapper getRootPkgDescWrapper(Path appDotFilePath) {
@@ -202,8 +244,9 @@ public class PackageResolutionTestCaseBuilder {
         public DotGraphBasedPackageResolver(AbstractPackageRepository distributionRepo,
                                             AbstractPackageRepository centralRepo,
                                             AbstractPackageRepository localRepo,
+                                            AbstractPackageRepository workspaceRepo,
                                             PackageCache packageCache) {
-            super(distributionRepo, centralRepo, localRepo, packageCache);
+            super(distributionRepo, centralRepo, localRepo, Map.of(), workspaceRepo, packageCache);
             this.localRepo = localRepo;
         }
 

@@ -27,12 +27,15 @@ public class ResolutionOptions {
     private final boolean sticky;
     private final boolean dumpGraph;
     private final boolean dumpRawGraphs;
+    private final PackageLockingMode packageLockingMode;
 
-    private ResolutionOptions(boolean offline, boolean sticky, boolean dumpGraph, boolean dumpRawGraphs) {
+    private ResolutionOptions(boolean offline, boolean sticky, boolean dumpGraph, boolean dumpRawGraphs,
+                              PackageLockingMode packageLockingMode) {
         this.offline = offline;
         this.sticky = sticky;
         this.dumpGraph = dumpGraph;
         this.dumpRawGraphs = dumpRawGraphs;
+        this.packageLockingMode = packageLockingMode;
     }
 
     /**
@@ -56,6 +59,7 @@ public class ResolutionOptions {
      *
      * @return true if sticky model is enabled, otherwise false
      */
+    @Deprecated
     public boolean sticky() {
         return sticky;
     }
@@ -66,6 +70,10 @@ public class ResolutionOptions {
 
     public boolean dumpRawGraphs() {
         return dumpRawGraphs;
+    }
+
+    public PackageLockingMode packageLockingMode() {
+        return packageLockingMode;
     }
 
     public static ResolutionOptionBuilder builder() {
@@ -79,15 +87,17 @@ public class ResolutionOptions {
      */
     public static class ResolutionOptionBuilder {
         private boolean offline = false;
-        private boolean sticky = true;
+        private boolean sticky = false;
         private boolean dumpGraph = false;
         private boolean dumpRawGraphs = false;
+        private PackageLockingMode packageLockingMode = PackageLockingMode.SOFT;
 
         public ResolutionOptionBuilder setOffline(boolean value) {
             offline = value;
             return this;
         }
 
+        @Deprecated(forRemoval = true, since = "2201.13.0")
         public ResolutionOptionBuilder setSticky(boolean value) {
             sticky = value;
             return this;
@@ -103,8 +113,13 @@ public class ResolutionOptions {
             return this;
         }
 
+        public ResolutionOptionBuilder setPackageLockingMode(PackageLockingMode value) {
+            packageLockingMode = value;
+            return this;
+        }
+
         public ResolutionOptions build() {
-            return new ResolutionOptions(offline, sticky, dumpGraph, dumpRawGraphs);
+            return new ResolutionOptions(offline, sticky, dumpGraph, dumpRawGraphs, packageLockingMode);
         }
     }
 }

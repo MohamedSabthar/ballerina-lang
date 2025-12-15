@@ -18,18 +18,18 @@
 
 package org.ballerinalang.langlib.test;
 
-import io.ballerina.runtime.api.TypeTags;
+import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.internal.types.BArrayType;
-import io.ballerina.runtime.internal.types.BMapType;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -75,7 +75,7 @@ public class LangLibRecordTest {
         assertEquals(returns, 25L);
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
           expectedExceptionsMessageRegExp =
                   ".*error: \\{ballerina/lang.map\\}KeyNotFound \\{\"message\":\"cannot find key 'NonExistent'\"\\}.*")
     public void testGetNonExistentKey() {
@@ -87,21 +87,21 @@ public class LangLibRecordTest {
         Object returns = BRunUtil.invoke(compileResult, "testEntries");
         assertEquals(getType(returns).getTag(), TypeTags.MAP_TAG);
 
-        BMap map = (BMap) returns;
-        assertEquals(((BMapType) map.getType()).getConstrainedType().getTag(), TypeTags.TUPLE_TAG);
+        BMap<?, ?> map = (BMap<?, ?>) returns;
+        assertEquals(((MapType) map.getType()).getConstrainedType().getTag(), TypeTags.TUPLE_TAG);
         assertEquals(map.size(), 2);
         assertEquals(map.get(StringUtils.fromString("name")).toString(), "[\"name\",\"John Doe\"]");
         assertEquals(map.get(StringUtils.fromString("age")).toString(), "[\"age\",25]");
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
           expectedExceptionsMessageRegExp =
                   ".*OperationNotSupported \\{\"message\":\"failed .*")
     public void testRemove() {
         BRunUtil.invoke(compileResult, "testRemove", new Object[]{StringUtils.fromString("name")});
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
           expectedExceptionsMessageRegExp =
                   ".*OperationNotSupported \\{\"message\":\"failed .*")
     public void testRemoveAll() {
@@ -142,8 +142,8 @@ public class LangLibRecordTest {
         Object returns = BRunUtil.invoke(compileResult, "testMap");
         assertEquals(getType(returns).getTag(), TypeTags.MAP_TAG);
 
-        BMap map = (BMap) returns;
-        assertEquals(((BMapType) map.getType()).getConstrainedType().getTag(), TypeTags.INT_TAG);
+        BMap<?, ?> map = (BMap<?, ?>) returns;
+        assertEquals(((MapType) map.getType()).getConstrainedType().getTag(), TypeTags.INT_TAG);
         assertEquals(map.size(), 2);
         assertEquals(map.get(StringUtils.fromString("name")), 8L);
         assertEquals(map.get(StringUtils.fromString("age")), 25L);
@@ -160,8 +160,8 @@ public class LangLibRecordTest {
         Object returns = BRunUtil.invoke(compileResult, "testFilter");
         assertEquals(getType(returns).getTag(), TypeTags.MAP_TAG);
 
-        BMap map = (BMap) returns;
-        assertEquals(((BMapType) map.getType()).getConstrainedType().getTag(), TypeTags.INT_TAG);
+        BMap<?, ?> map = (BMap<?, ?>) returns;
+        assertEquals(((MapType) map.getType()).getConstrainedType().getTag(), TypeTags.INT_TAG);
         assertEquals(map.size(), 2);
         assertEquals(map.get(StringUtils.fromString("physics")), 75L);
         assertEquals(map.get(StringUtils.fromString("ict")), 85L);

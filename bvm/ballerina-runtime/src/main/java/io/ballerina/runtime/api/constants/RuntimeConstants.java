@@ -29,10 +29,11 @@ import java.math.MathContext;
  *
  * @since 0.90
  */
-public class RuntimeConstants {
+public final class RuntimeConstants {
 
     public static final String MAIN_FUNCTION_NAME = "main";
     public static final String MODULE_INIT_CLASS_NAME = "$_init";
+    public static final String CONFIGURATION_CLASS_NAME = "$configurationMapper";
     public static final String TEST_PACKAGE_NAME = "$test";
     public static final String FILE_NAME_PERIOD_SEPARATOR = "$$$";
 
@@ -49,7 +50,6 @@ public class RuntimeConstants {
     public static final String VERSION_SEPARATOR = ":";
     public static final String UNDERSCORE = "_";
     public static final String COLON = ":";
-
     public static final String BLANG_SRC_FILE_EXT = "bal";
     public static final String BLANG_SRC_FILE_SUFFIX = "." + BLANG_SRC_FILE_EXT;
 
@@ -61,6 +61,8 @@ public class RuntimeConstants {
     public static final String BALLERINA_MAX_POOL_SIZE_ENV_VAR = "BALLERINA_MAX_POOL_SIZE";
     public static final Module BALLERINA_LANG_ERROR_PKG_ID = new Module(BALLERINA_BUILTIN_PKG_PREFIX,
                                                                         "lang.error", "0");
+    public static final Module BALLERINA_QUERY_PKG_ID = new Module(BALLERINA_BUILTIN_PKG_PREFIX,
+            "lang.query", "0");
 
     // Lang libs
     public static final String STRING_LANG_LIB = "lang.string";
@@ -69,6 +71,7 @@ public class RuntimeConstants {
     public static final String TYPEDESC_LANG_LIB = "lang.typedesc";
     public static final String VALUE_LANG_LIB = "lang.value";
     public static final String XML_LANG_LIB = "lang.xml";
+    public static final String FUNCTION_LANG_LIB = "lang.function";
     public static final String FUTURE_LANG_LIB = "lang.future";
     public static final String OBJECT_LANG_LIB = "lang.object";
     public static final String TABLE_LANG_LIB = "lang.table";
@@ -77,6 +80,7 @@ public class RuntimeConstants {
     public static final String DECIMAL_LANG_LIB = "lang.decimal";
     public static final String BOOLEAN_LANG_LIB = "lang.boolean";
     public static final String TRANSACTION_LANG_LIB = "lang.transaction";
+    public static final String REGEXP_LANG_LIB = "lang.regexp";
 
     // Workers
     public static final String DEFAULT_WORKER_NAME = "default";
@@ -88,6 +92,8 @@ public class RuntimeConstants {
     // Empty value for string
     public static final BString STRING_EMPTY_VALUE = StringUtils.fromString("");
 
+    public static final Long INT_MAX_VALUE = 9223372036854775807L;
+    public static final Long INT_MIN_VALUE = -9223372036854775807L - 1L;
     public static final Integer BBYTE_MIN_VALUE = 0;
     public static final Integer BBYTE_MAX_VALUE = 255;
     public static final Integer SIGNED32_MAX_VALUE = 2147483647;
@@ -103,17 +109,18 @@ public class RuntimeConstants {
     public static final double BINT_MIN_VALUE_DOUBLE_RANGE_MIN = -9223372036854775807.6;
     public static final BigDecimal BINT_MAX_VALUE_BIG_DECIMAL_RANGE_MAX = new BigDecimal("9223372036854775807.5",
                                                                                          MathContext.DECIMAL128);
-    public static final BigDecimal BINT_MIN_VALUE_BIG_DECIMAL_RANGE_MIN = new BigDecimal("-9223372036854775807.6",
+    public static final BigDecimal BINT_MIN_VALUE_BIG_DECIMAL_RANGE_MIN = new BigDecimal("-9223372036854775808.5",
                                                                                          MathContext.DECIMAL128);
     // runtime related error message constant values
-    public static final String INTERNAL_ERROR_MESSAGE =
-            "ballerina: Oh no, something really went wrong. Bad. Sad.\n" +
-            "\n" +
-            "We appreciate it if you can report the code that broke Ballerina in\n" +
-            "https://github.com/ballerina-platform/ballerina-lang/issues with the\n" +
-            "log you get below and your sample code.\n" +
-            "\n" +
-            "We thank you for helping make us better.\n";
+    public static final String INTERNAL_ERROR_MESSAGE = """
+            ballerina: Oh no, something really went wrong. Bad. Sad.
+
+            We appreciate it if you can report the code that broke Ballerina in
+            https://github.com/ballerina-platform/ballerina-lang/issues with the
+            log you get below and your sample code.
+
+            We thank you for helping make us better.
+            """;
 
     public static final String DEFAULT_LOG_FILE_HANDLER_PATTERN =
             "org.ballerinalang.logging.handlers.DefaultLogFileHandler.pattern";
@@ -124,6 +131,7 @@ public class RuntimeConstants {
 
     // Name of the system property to hold the debug port
     public static final String SYSTEM_PROP_BAL_DEBUG = "debug";
+    public static final String SYSTEM_PROP_PROFILE_DEBUG = "profilerDebug";
 
     // Transaction constants
     public static final String GLOBAL_TRANSACTION_ID = "globalTransactionId";
@@ -147,5 +155,7 @@ public class RuntimeConstants {
     public static final String FALSE = "false";
 
     public static final String CURRENT_TRANSACTION_CONTEXT_PROPERTY = "currentTrxContext";
+
+    private RuntimeConstants() {}
 
 }

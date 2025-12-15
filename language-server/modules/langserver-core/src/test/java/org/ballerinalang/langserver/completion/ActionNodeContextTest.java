@@ -20,12 +20,15 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Completion tests for subtypes of {@link io.ballerina.compiler.syntax.tree.ActionNode}.
  */
 public class ActionNodeContextTest extends CompletionTest {
 
+    @Override
     @Test(dataProvider = "completion-data-provider")
     public void test(String config, String configPath) throws IOException, WorkspaceDocumentException {
         super.test(config, configPath);
@@ -40,5 +43,10 @@ public class ActionNodeContextTest extends CompletionTest {
     @Override
     public String getTestResourceDir() {
         return "action_node_context";
+    }
+
+    @Override
+    public List<String> skipList() {
+        return Collections.emptyList();
     }
 }

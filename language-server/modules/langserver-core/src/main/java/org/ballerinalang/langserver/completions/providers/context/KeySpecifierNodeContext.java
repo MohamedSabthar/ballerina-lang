@@ -28,9 +28,9 @@ import io.ballerina.compiler.syntax.tree.TypeParameterNode;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.RawTypeSymbolWrapper;
+import org.ballerinalang.langserver.common.utils.RecordUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
-import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.RecordFieldCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
@@ -56,8 +56,7 @@ public class KeySpecifierNodeContext extends AbstractCompletionProvider<KeySpeci
     }
 
     @Override
-    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, KeySpecifierNode node)
-            throws LSCompletionException {
+    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, KeySpecifierNode node) {
         List<LSCompletionItem> completionItems = getKeyCompletionItems(context, node);
         this.sort(context, node, completionItems);
         return completionItems;
@@ -98,7 +97,7 @@ public class KeySpecifierNodeContext extends AbstractCompletionProvider<KeySpeci
                 .map(Token::text)
                 .collect(Collectors.toSet());
 
-        List<RawTypeSymbolWrapper<RecordTypeSymbol>> recordTypeSymbols = CommonUtil.getRecordTypeSymbols(rowTypeSymbol);
+        List<RawTypeSymbolWrapper<RecordTypeSymbol>> recordTypeSymbols = RecordUtil.getRecordTypeSymbols(rowTypeSymbol);
         List<RecordFieldSymbol> commonFields = recordTypeSymbols.stream()
                 .map(RawTypeSymbolWrapper::getRawType)
                 .map(RecordTypeSymbol::fieldDescriptors)
@@ -112,7 +111,7 @@ public class KeySpecifierNodeContext extends AbstractCompletionProvider<KeySpeci
                 .map(Map.Entry::getValue)
                 .filter(recordFieldSymbol -> recordFieldSymbol.getName().isPresent())
                 .filter(recordFieldSymbol -> SyntaxInfo.isIdentifier(recordFieldSymbol.getName().get()))
-                .collect(Collectors.toList());
+                .toList();
 
         completionItems.addAll(this.getCompletionItemList(commonFields, context));
         return completionItems;

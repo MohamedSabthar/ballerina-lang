@@ -22,6 +22,11 @@ import io.ballerina.projects.ModuleId;
 import io.ballerina.projects.PlatformLibrary;
 import io.ballerina.projects.PlatformLibraryScope;
 import org.ballerinalang.util.diagnostic.DiagnosticErrorCode;
+import org.wso2.ballerinalang.compiler.bir.codegen.exceptions.JInteropException;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JFieldBIRFunction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JMethod;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JMethodBIRFunction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JavaField;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.diagnostic.BLangDiagnosticLog;
 import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
@@ -42,8 +47,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.wso2.ballerinalang.compiler.bir.codegen.JvmCodeGenUtil.isExternFunc;
 import static org.wso2.ballerinalang.compiler.bir.codegen.interop.AnnotationProc.getInteropAnnotValue;
+import static org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmCodeGenUtil.isExternFunc;
 
 /**
  * Java interop validation class for both field access and method invocations.
@@ -82,6 +87,8 @@ public class InteropValidator {
         // find module dependencies path
         Set<Path> moduleDependencyPaths = getPlatformDependencyPaths(
                 moduleId, compilerBackend, PlatformLibraryScope.DEFAULT);
+        moduleDependencyPaths.addAll(getPlatformDependencyPaths(moduleId, compilerBackend,
+                PlatformLibraryScope.PROVIDED));
 
         // Add runtime library
         Path runtimeJar = compilerBackend.runtimeLibrary().path();
@@ -102,9 +109,11 @@ public class InteropValidator {
             return;
         }
         Set<Path> testDependencies = getPlatformDependencyPaths(moduleId, compilerBackend,
-                                                                PlatformLibraryScope.DEFAULT);
+                PlatformLibraryScope.DEFAULT);
         testDependencies.addAll(getPlatformDependencyPaths(moduleId, compilerBackend,
-                                                           PlatformLibraryScope.TEST_ONLY));
+                PlatformLibraryScope.PROVIDED));
+        testDependencies.addAll(getPlatformDependencyPaths(moduleId, compilerBackend,
+                PlatformLibraryScope.TEST_ONLY));
 
         // Add runtime library
         Path runtimeJar = compilerBackend.runtimeLibrary().path();
@@ -172,7 +181,7 @@ public class InteropValidator {
     }
 
     private ClassLoader makeClassLoader(Set<Path> moduleDependencies) {
-        if (moduleDependencies == null || moduleDependencies.size() == 0) {
+        if (moduleDependencies == null || moduleDependencies.isEmpty()) {
             return Thread.currentThread().getContextClassLoader();
         }
         List<URL> dependentJars = new ArrayList<>();
@@ -195,7 +204,8 @@ public class InteropValidator {
     JMethod validateAndGetJMethod(InteropValidationRequest.MethodValidationRequest methodValidationRequest,
                                   ClassLoader classLoader) {
         // Populate JMethodRequest from the BValue
-        JMethodRequest jMethodRequest = JMethodRequest.build(methodValidationRequest, classLoader);
+        JMethodRequest jMethodRequest = JMethodRequest.build(symbolTable.typeEnv(), methodValidationRequest,
+                                                            classLoader);
 
         // Find the most specific Java method or constructor for the given request
         JMethodResolver methodResolver = new JMethodResolver(classLoader, symbolTable);
@@ -216,9 +226,7 @@ public class InteropValidator {
     BIRNode.BIRFunction createJInteropFunction(InteropValidationRequest jInteropValidationReq,
                                                BIRNode.BIRFunction birFunc, ClassLoader classLoader) {
 
-        if (jInteropValidationReq instanceof InteropValidationRequest.MethodValidationRequest) {
-            InteropValidationRequest.MethodValidationRequest methodValidationRequest =
-                    ((InteropValidationRequest.MethodValidationRequest) jInteropValidationReq);
+        if (jInteropValidationReq instanceof InteropValidationRequest.MethodValidationRequest methodValidationRequest) {
             methodValidationRequest.restParamExist = birFunc.restParam != null;
             JMethod jMethod = validateAndGetJMethod(methodValidationRequest, classLoader);
             return new JMethodBIRFunction(birFunc, jMethod);
@@ -285,7 +293,7 @@ public class InteropValidator {
                 throw new JInteropException(DiagnosticErrorCode.INVALID_NUMBER_OF_PARAMETERS,
                         "Two parameters are required to set the value to the instance field '" + fieldName +
                                 "' in class '" + className + "'");
-            } else if (bFuncParamTypes.get(0).tag != TypeTags.HANDLE) {
+            } else if (bFuncParamTypes.getFirst().tag != TypeTags.HANDLE) {
                 throw new JInteropException(DiagnosticErrorCode.INVALID_PARAMETER_TYPE, "First parameter needs "
                         + "to be of the handle type to set the value to the instance field '" + fieldName +
                         "' in class '" + className + "'");
@@ -295,7 +303,7 @@ public class InteropValidator {
                 throw new JInteropException(DiagnosticErrorCode.INVALID_NUMBER_OF_PARAMETERS,
                         "One parameter is required to get the value of the instance field '" + fieldName +
                                 "' in class '" + className + "'");
-            } else if (bFuncParamTypes.get(0).tag != TypeTags.HANDLE) {
+            } else if (bFuncParamTypes.getFirst().tag != TypeTags.HANDLE) {
                 throw new JInteropException(DiagnosticErrorCode.INVALID_PARAMETER_TYPE, "The parameter needs "
                         + "to be of the handle type to get the value of the instance field '" + fieldName +
                         "' in class '" + className + "'");

@@ -20,6 +20,8 @@ package io.ballerina.projects.internal;
 import io.ballerina.projects.ModuleDescriptor;
 import io.ballerina.projects.ProjectKind;
 
+import java.nio.file.Path;
+
 /**
  * Data holder class for {@code ModuleContext}.
  *
@@ -31,13 +33,22 @@ public class ModuleContextDataHolder {
     private final ModuleDescriptor descriptor;
     private final ProjectKind projectKind;
     private final boolean skipTests;
+    private final Path sourceRoot;
+    private final boolean isObservabiltyIncluded;
+    private final boolean dumpBir;
+    private final String cloud;
 
     public ModuleContextDataHolder(boolean exported, ModuleDescriptor descriptor, ProjectKind projectKind,
-                                   boolean skipTests) {
+                                   boolean skipTests, Path sourceRoot, boolean isObservabiltyIncluded,
+                                   boolean dumpBir, String cloud) {
         this.exported = exported;
         this.descriptor = descriptor;
         this.projectKind = projectKind;
         this.skipTests = skipTests;
+        this.sourceRoot = sourceRoot;
+        this.isObservabiltyIncluded = isObservabiltyIncluded;
+        this.dumpBir = dumpBir;
+        this.cloud = cloud;
     }
 
     public boolean isExported() {
@@ -54,5 +65,21 @@ public class ModuleContextDataHolder {
 
     public boolean skipTests() {
         return skipTests;
+    }
+
+    public Path sourceRoot() {
+        return sourceRoot;
+    }
+
+    public boolean isObservabiltyIncluded() {
+        return isObservabiltyIncluded;
+    }
+
+    public boolean isDumpBir() {
+        return dumpBir;
+    }
+
+    public String cloud() {
+        return cloud;
     }
 }

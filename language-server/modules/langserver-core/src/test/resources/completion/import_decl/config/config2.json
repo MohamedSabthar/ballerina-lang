@@ -4,6 +4,7 @@
     "character": 8
   },
   "source": "import_decl/source/source2.bal",
+  "description": "",
   "items": [
     {
       "label": "test/project2",
@@ -211,6 +212,30 @@
       "detail": "Module",
       "sortText": "C",
       "insertText": "ballerina/lang.'typedesc;",
+      "insertTextFormat": "Snippet"
+    },
+    {
+      "label": "ballerina/lang.function",
+      "kind": "Module",
+      "detail": "Module",
+      "sortText": "C",
+      "insertText": "ballerina/lang.'function;",
+      "insertTextFormat": "Snippet"
+    },
+    {
+      "label": "ballerina/lang.regexp",
+      "kind": "Module",
+      "detail": "Module",
+      "sortText": "C",
+      "insertText": "ballerina/lang.regexp;",
+      "insertTextFormat": "Snippet"
+    },
+    {
+      "label": "ballerina/lang.natural",
+      "kind": "Module",
+      "detail": "Module",
+      "sortText": "C",
+      "insertText": "ballerina/lang.'natural;",
       "insertTextFormat": "Snippet"
     }
   ]

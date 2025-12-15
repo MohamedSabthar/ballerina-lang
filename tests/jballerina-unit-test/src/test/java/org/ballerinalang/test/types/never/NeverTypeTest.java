@@ -17,11 +17,11 @@
  */
 package org.ballerinalang.test.types.never;
 
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -44,7 +44,7 @@ public class NeverTypeTest {
         runtimeResult = BCompileUtil.compile("test-src/types/never/never_type_runtime.bal");
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: Panic occured in function with never return.*")
     public void testNeverReturnTypedFunctionCall() {
         BRunUtil.invoke(neverTypeTestResult, "testNeverReturnTypedFunctionCall");
@@ -120,7 +120,7 @@ public class NeverTypeTest {
         BAssertUtil.validateError(negativeCompileResult, i++,
                 "incompatible types: expected 'never', found 'string'", 54, 23);
         BAssertUtil.validateError(negativeCompileResult, i++,
-                "incompatible types: expected 'never', found 'string'", 58, 23);
+                "incompatible types: expected 'never?', found 'string'", 58, 23);
         BAssertUtil.validateError(negativeCompileResult, i++,
                 "cannot define a variable of type 'never' or equivalent to type 'never'", 62, 5);
         BAssertUtil.validateError(negativeCompileResult, i++,
@@ -132,7 +132,7 @@ public class NeverTypeTest {
         BAssertUtil.validateError(negativeCompileResult, i++,
                 "incompatible types: expected 'never', found '()'", 92, 16);
         BAssertUtil.validateError(negativeCompileResult, i++,
-                "incompatible types: expected 'never', found 'int'", 101, 38);
+                "incompatible types: expected 'never?', found 'int'", 101, 38);
         BAssertUtil.validateError(negativeCompileResult, i++,
                 "incompatible types: expected 'never', found 'int'", 108, 14);
         BAssertUtil.validateError(negativeCompileResult, i++,
@@ -185,6 +185,8 @@ public class NeverTypeTest {
                 189, 5);
         BAssertUtil.validateError(negativeCompileResult, i++, "cannot define a variable of type 'never' " +
                 "or equivalent to type 'never'", 207, 5);
+        BAssertUtil.validateError(negativeCompileResult, i++, "invalid usage of list constructor: type " +
+                "'never' does not have a filler value", 207, 17);
         BAssertUtil.validateError(negativeCompileResult, i++, "a required parameter or a defaultable parameter" +
                 " cannot be of type 'never' or equivalent to type 'never'", 210, 48);
         BAssertUtil.validateError(negativeCompileResult, i++, "a required parameter or a defaultable parameter" +
@@ -206,11 +208,21 @@ public class NeverTypeTest {
         BAssertUtil.validateError(negativeCompileResult, i++, "incompatible types: expected " +
                 "'record {| |} & readonly', found 'record {| int x; never?...; |}'", 258, 25);
         BAssertUtil.validateError(negativeCompileResult, i++, "incompatible types: expected " +
-                "'record {| int x; never...; |}', found 'record {| |} & readonly'", 261, 41);
+                "'record {| int x; never...; |}', found 'record {| |} & readonly'", 261, 40);
+        BAssertUtil.validateError(negativeCompileResult, i++, "incompatible types: expected 'record {| never i?; " +
+                "anydata...; |}', found 'record {| never?...; |}'", 264, 28);
+        BAssertUtil.validateError(negativeCompileResult, i++, "cannot define a variable of type 'never' or " +
+                "equivalent to type 'never'", 267, 1);
+        BAssertUtil.validateError(negativeCompileResult, i++, "cannot define a variable of type 'never' or " +
+                "equivalent to type 'never'", 270, 5);
+        BAssertUtil.validateError(negativeCompileResult, i++, "cannot define a variable of type 'never' or " +
+                "equivalent to type 'never'", 271, 5);
+        BAssertUtil.validateError(negativeCompileResult, i++, "cannot define a variable of type 'never' or " +
+                "equivalent to type 'never'", 275, 1);
         Assert.assertEquals(negativeCompileResult.getErrorCount(), i);
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: Bad Sad!!.*")
     public void testNeverWithCallStmt() {
         BRunUtil.invoke(neverTypeTestResult, "testNeverWithCallStmt");
@@ -236,7 +248,7 @@ public class NeverTypeTest {
         };
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: Bad Sad!!.*")
     public void testNeverWithMethodCallExpr() {
         BRunUtil.invoke(neverTypeTestResult, "testNeverWithMethodCallExpr");
@@ -290,8 +302,7 @@ public class NeverTypeTest {
                 "testNeverWithFromClauseInQueryExpr1",
                 "testNeverWithFromClauseInQueryExpr2",
                 "testNeverWithFromClauseInQueryExpr3",
-                "testNeverWithFromClauseInQueryExpr4",
-                "testNeverWithFromClauseInQueryExpr5"
+                "testNeverWithFromClauseInQueryExpr4"
         };
     }
 
@@ -327,8 +338,6 @@ public class NeverTypeTest {
                 "testNeverRuntime7",
                 "testNeverRuntime8",
                 "testNeverRuntime9",
-                "testNeverRuntime10",
-                "testNeverRuntime11",
                 "testNeverRuntime12",
                 "testNeverWithAnyAndAnydataRuntime",
                 "testNeverFieldTypeCheck",
@@ -363,8 +372,51 @@ public class NeverTypeTest {
                 "type 'never' not allowed here", 48, 16);
         BAssertUtil.validateError(compileResult, i++, "expression of type 'never' or equivalent to " +
                 "type 'never' not allowed here", 48, 23);
+        BAssertUtil.validateError(compileResult, i++, "expression of type 'never' or equivalent to " +
+                "type 'never' not allowed here", 67, 13);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 71, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 74, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 79, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 82, 1);
+        BAssertUtil.validateError(compileResult, i++, "this function must return a result", 86, 1);
+        BAssertUtil.validateError(compileResult, i++, "this function must return a result", 89, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 93, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 96, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 102, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 105, 1);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 109, 34);
+        BAssertUtil.validateError(compileResult, i++, "function with return type 'never' or equivalent to type " +
+                "'never' cannot implicitly return 'nil' by falling off the end of the function body", 112, 34);
         Assert.assertEquals(compileResult.getErrorCount(), i - 1);
         Assert.assertEquals(compileResult.getWarnCount(), 1);
+    }
+
+    @Test
+    public void testNeverTypeIsExprNegative() {
+        CompileResult res = BCompileUtil.compile("test-src/types/never/never_type_is_expr_negative.bal");
+        int i = 0;
+        BAssertUtil.validateError(res, i++, "incompatible types: 'int' will not be matched to 'never'", 19, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: 'Record' will not be matched to 'never'", 29, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: 'record {| int x; anydata...; |}' " +
+                "will not be matched to 'record {| never x?; anydata...; |}'", 34, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: 'record {| never? x; anydata...; |}' " +
+                "will not be matched to 'record {| never x?; anydata...; |}'", 37, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: 'record {| int? x; anydata...; |}' " +
+                "will not be matched to 'record {| never x?; anydata...; |}'", 40, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: '(record {| int x; anydata...; |} & readonly)' " +
+                "will not be matched to 'record {| never x?; anydata...; |}'", 43, 17);
+        BAssertUtil.validateError(res, i++, "incompatible types: '(record {| never? x; anydata...; |} & readonly)' " +
+                "will not be matched to 'record {| never x?; anydata...; |}'", 46, 17);
+        Assert.assertEquals(res.getErrorCount(), i);
     }
 
     @AfterClass

@@ -17,8 +17,14 @@
  */
 package io.ballerina.runtime.api.values;
 
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.SemType;
+import io.ballerina.runtime.api.types.semtype.ShapeAnalyzer;
+import io.ballerina.runtime.internal.types.TypeWithShape;
+
 import java.io.PrintWriter;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * <p>
@@ -34,8 +40,9 @@ public abstract class BError extends RuntimeException implements BValue {
     public static final String CALL_STACK_ELEMENT = "CallStackElement";
 
     public BError(BString message) {
-        super(message.getValue());
+        super((message == null) ? null : message.getValue());
     }
+
     /**
      * Returns error reason.
      *
@@ -55,6 +62,7 @@ public abstract class BError extends RuntimeException implements BValue {
      *
      * @return error cause
      */
+    @Override
     public abstract BError getCause();
 
     /**
@@ -62,6 +70,7 @@ public abstract class BError extends RuntimeException implements BValue {
      *
      * @param printWriter {@code PrintWriter} to be used
      */
+    @Override
     public void printStackTrace(PrintWriter printWriter) {
         printWriter.print(ERROR_PRINT_PREFIX + getPrintableStackTrace());
     }
@@ -80,4 +89,9 @@ public abstract class BError extends RuntimeException implements BValue {
      */
     public abstract List<StackTraceElement> getCallStack();
 
+    @Override
+    public Optional<SemType> inherentTypeOf(Context cx) {
+        TypeWithShape type = (TypeWithShape) getType();
+        return type.inherentTypeOf(cx, ShapeAnalyzer::inherentTypeOf, this);
+    }
 }

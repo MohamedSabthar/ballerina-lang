@@ -1,7 +1,7 @@
 /*
- *  Copyright (c) 2020, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *  Copyright (c) 2020, WSO2 LLC. (http://www.wso2.com).
  *
- *  WSO2 Inc. licenses this file to you under the Apache License,
+ *  WSO2 LLC. licenses this file to you under the Apache License,
  *  Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License.
  *  You may obtain a copy of the License at
@@ -11,7 +11,7 @@
  *  Unless required by applicable law or agreed to in writing,
  *  software distributed under the License is distributed on an
  *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- *  KIND, either express or implied.  See the License for the
+ *  KIND, either express or implied. See the License for the
  *  specific language governing permissions and limitations
  *  under the License.
  */
@@ -525,6 +525,10 @@ public abstract class STNodeTransformer<T> {
         return transformSyntaxNode(selectClauseNode);
     }
 
+    public T transform(STCollectClauseNode collectClauseNode) {
+        return transformSyntaxNode(collectClauseNode);
+    }
+
     public T transform(STQueryExpressionNode queryExpressionNode) {
         return transformSyntaxNode(queryExpressionNode);
     }
@@ -617,6 +621,10 @@ public abstract class STNodeTransformer<T> {
         return transformSyntaxNode(receiveFieldsNode);
     }
 
+    public T transform(STAlternateReceiveNode alternateReceiveNode) {
+        return transformSyntaxNode(alternateReceiveNode);
+    }
+
     public T transform(STRestDescriptorNode restDescriptorNode) {
         return transformSyntaxNode(restDescriptorNode);
     }
@@ -705,6 +713,14 @@ public abstract class STNodeTransformer<T> {
         return transformSyntaxNode(xMLNamePatternChainingNode);
     }
 
+    public T transform(STXMLStepIndexedExtendNode xMLStepIndexedExtendNode) {
+        return transformSyntaxNode(xMLStepIndexedExtendNode);
+    }
+
+    public T transform(STXMLStepMethodCallExtendNode xMLStepMethodCallExtendNode) {
+        return transformSyntaxNode(xMLStepMethodCallExtendNode);
+    }
+
     public T transform(STXMLAtomicNamePatternNode xMLAtomicNamePatternNode) {
         return transformSyntaxNode(xMLAtomicNamePatternNode);
     }
@@ -789,6 +805,14 @@ public abstract class STNodeTransformer<T> {
         return transformSyntaxNode(orderKeyNode);
     }
 
+    public T transform(STGroupByClauseNode groupByClauseNode) {
+        return transformSyntaxNode(groupByClauseNode);
+    }
+
+    public T transform(STGroupingKeyVarDeclarationNode groupingKeyVarDeclarationNode) {
+        return transformSyntaxNode(groupingKeyVarDeclarationNode);
+    }
+
     public T transform(STOnFailClauseNode onFailClauseNode) {
         return transformSyntaxNode(onFailClauseNode);
     }
@@ -819,6 +843,118 @@ public abstract class STNodeTransformer<T> {
 
     public T transform(STSpreadMemberNode spreadMemberNode) {
         return transformSyntaxNode(spreadMemberNode);
+    }
+
+    public T transform(STClientResourceAccessActionNode clientResourceAccessActionNode) {
+        return transformSyntaxNode(clientResourceAccessActionNode);
+    }
+
+    public T transform(STComputedResourceAccessSegmentNode computedResourceAccessSegmentNode) {
+        return transformSyntaxNode(computedResourceAccessSegmentNode);
+    }
+
+    public T transform(STResourceAccessRestSegmentNode resourceAccessRestSegmentNode) {
+        return transformSyntaxNode(resourceAccessRestSegmentNode);
+    }
+
+    public T transform(STReSequenceNode reSequenceNode) {
+        return transformSyntaxNode(reSequenceNode);
+    }
+
+    public T transform(STReAtomQuantifierNode reAtomQuantifierNode) {
+        return transformSyntaxNode(reAtomQuantifierNode);
+    }
+
+    public T transform(STReAtomCharOrEscapeNode reAtomCharOrEscapeNode) {
+        return transformSyntaxNode(reAtomCharOrEscapeNode);
+    }
+
+    public T transform(STReQuoteEscapeNode reQuoteEscapeNode) {
+        return transformSyntaxNode(reQuoteEscapeNode);
+    }
+
+    public T transform(STReSimpleCharClassEscapeNode reSimpleCharClassEscapeNode) {
+        return transformSyntaxNode(reSimpleCharClassEscapeNode);
+    }
+
+    public T transform(STReUnicodePropertyEscapeNode reUnicodePropertyEscapeNode) {
+        return transformSyntaxNode(reUnicodePropertyEscapeNode);
+    }
+
+    public T transform(STReUnicodeScriptNode reUnicodeScriptNode) {
+        return transformSyntaxNode(reUnicodeScriptNode);
+    }
+
+    public T transform(STReUnicodeGeneralCategoryNode reUnicodeGeneralCategoryNode) {
+        return transformSyntaxNode(reUnicodeGeneralCategoryNode);
+    }
+
+    public T transform(STReCharacterClassNode reCharacterClassNode) {
+        return transformSyntaxNode(reCharacterClassNode);
+    }
+
+    public T transform(STReCharSetRangeWithReCharSetNode reCharSetRangeWithReCharSetNode) {
+        return transformSyntaxNode(reCharSetRangeWithReCharSetNode);
+    }
+
+    public T transform(STReCharSetRangeNode reCharSetRangeNode) {
+        return transformSyntaxNode(reCharSetRangeNode);
+    }
+
+    public T transform(STReCharSetAtomWithReCharSetNoDashNode reCharSetAtomWithReCharSetNoDashNode) {
+        return transformSyntaxNode(reCharSetAtomWithReCharSetNoDashNode);
+    }
+
+    public T transform(STReCharSetRangeNoDashWithReCharSetNode reCharSetRangeNoDashWithReCharSetNode) {
+        return transformSyntaxNode(reCharSetRangeNoDashWithReCharSetNode);
+    }
+
+    public T transform(STReCharSetRangeNoDashNode reCharSetRangeNoDashNode) {
+        return transformSyntaxNode(reCharSetRangeNoDashNode);
+    }
+
+    public T transform(STReCharSetAtomNoDashWithReCharSetNoDashNode reCharSetAtomNoDashWithReCharSetNoDashNode) {
+        return transformSyntaxNode(reCharSetAtomNoDashWithReCharSetNoDashNode);
+    }
+
+    public T transform(STReCapturingGroupsNode reCapturingGroupsNode) {
+        return transformSyntaxNode(reCapturingGroupsNode);
+    }
+
+    public T transform(STReFlagExpressionNode reFlagExpressionNode) {
+        return transformSyntaxNode(reFlagExpressionNode);
+    }
+
+    public T transform(STReFlagsOnOffNode reFlagsOnOffNode) {
+        return transformSyntaxNode(reFlagsOnOffNode);
+    }
+
+    public T transform(STReFlagsNode reFlagsNode) {
+        return transformSyntaxNode(reFlagsNode);
+    }
+
+    public T transform(STReAssertionNode reAssertionNode) {
+        return transformSyntaxNode(reAssertionNode);
+    }
+
+    public T transform(STReQuantifierNode reQuantifierNode) {
+        return transformSyntaxNode(reQuantifierNode);
+    }
+
+    public T transform(STReBracedQuantifierNode reBracedQuantifierNode) {
+        return transformSyntaxNode(reBracedQuantifierNode);
+    }
+
+    public T transform(STMemberTypeDescriptorNode memberTypeDescriptorNode) {
+        return transformSyntaxNode(memberTypeDescriptorNode);
+    }
+
+    public T transform(STReceiveFieldNode receiveFieldNode) {
+        return transformSyntaxNode(receiveFieldNode);
+    }
+
+    public T transform(STNaturalExpressionNode naturalExpressionNode) {
+        return transformSyntaxNode(naturalExpressionNode);
     }
 
     // Tokens

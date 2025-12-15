@@ -18,21 +18,23 @@ package org.ballerinalang.langserver.completions.providers.context;
 import io.ballerina.compiler.syntax.tree.FunctionSignatureNode;
 import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
+import io.ballerina.compiler.syntax.tree.ReturnTypeDescriptorNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
 import org.ballerinalang.langserver.completions.util.CompletionUtil;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Completion provider for {@link FunctionSignatureNode} context.
@@ -52,7 +54,7 @@ public class FunctionSignatureNodeContext extends AbstractCompletionProvider<Fun
         List<LSCompletionItem> completionItems = new ArrayList<>();
 
         if (withinReturnTypeDescContext(context, node)) {
-            var returnTypeDesc = node.returnTypeDesc();
+            Optional<ReturnTypeDescriptorNode> returnTypeDesc = node.returnTypeDesc();
             if (returnTypeDesc.isEmpty() || returnTypeDesc.get().returnsKeyword().isMissing()) {
                 /*
                 Covers the following cases.
@@ -69,14 +71,14 @@ public class FunctionSignatureNodeContext extends AbstractCompletionProvider<Fun
             }
         } else if (this.withinParameterContext(context, node)) {
             NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
-            if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+            if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
                 /*
                 Covers the Following
                 (1) function(mod:<cursor>)
                 (2) function(mod:T<cursor>)
                  */
                 QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-                completionItems.addAll(this.getCompletionItemList(QNameReferenceUtil
+                completionItems.addAll(this.getCompletionItemList(QNameRefCompletionUtil
                         .getTypesInModule(context, qNameRef), context));
             } else {
                 /*

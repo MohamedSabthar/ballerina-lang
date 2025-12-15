@@ -19,7 +19,12 @@
      any x = y;
  }
 
-  function cannotDeepEqualReadonly() returns boolean {
-      readonly arr = [1, 2 , 3];
-      return arr == [1, 2 , 3];
-  }
+  function testReadOnlyAssignabilityToUnions() {
+       readonly readonlyVal = 1;
+       error? errOrNil = readonlyVal;
+       int|any intOrAny = readonlyVal;
+       readonly|any s = "s";
+       string|readonly stringOrReadonly = s;
+       readonly|string s2 = "1";
+       any? o = s2;
+   }

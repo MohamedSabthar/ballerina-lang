@@ -40,16 +40,15 @@ public class CheckedExprNegativeTest {
                 "operator: no expression type is equivalent to error type", 6, 25);
         BAssertUtil.validateError(compile, i++, "incompatible types: expected '(string|error)'" +
                                               ", found '(string|int)'", 19, 25);
-        BAssertUtil.validateError(compile, i++, "invalid expression, expected a call expression", 34, 11);
-        BAssertUtil.validateError(compile, i++, "undefined function 'line'", 34, 11);
+        BAssertUtil.validateError(compile, i++, "variable assignment is required", 34, 5);
         BAssertUtil.validateWarning(compile, i++, "invalid usage of the 'check' expression " +
                 "operator: no expression type is equivalent to error type", 39, 19);
         BAssertUtil.validateWarning(compile, i++, "invalid usage of the 'check' expression " +
                 "operator: no expression type is equivalent to error type", 44, 26);
         BAssertUtil.validateWarning(compile, i++, "invalid usage of the 'check' expression " +
                 "operator: no expression type is equivalent to error type", 44, 38);
-        Assert.assertEquals(compile.getErrorCount(), 3);
-        Assert.assertEquals(compile.getWarnCount(), i - 3);
+        Assert.assertEquals(compile.getErrorCount(), 2);
+        Assert.assertEquals(compile.getWarnCount(), i - 2);
     }
 
     @Test
@@ -97,6 +96,8 @@ public class CheckedExprNegativeTest {
         BAssertUtil.validateError(compile, i++, ERROR_MISMATCH_ERR_MSG, 76, 20);
         BAssertUtil.validateError(compile, i++, ERROR_MISMATCH_ERR_MSG, 76, 31);
         BAssertUtil.validateError(compile, i++, ERROR_MISMATCH_ERR_MSG, 85, 13);
+        BAssertUtil.validateError(compile, i++, ERROR_MISMATCH_ERR_MSG, 92, 28);
+        BAssertUtil.validateError(compile, i++, ERROR_MISMATCH_ERR_MSG, 107, 24);
         Assert.assertEquals(compile.getWarnCount(), 6);
         Assert.assertEquals(compile.getErrorCount(), i - 6);
     }

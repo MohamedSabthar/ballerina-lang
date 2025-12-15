@@ -17,69 +17,62 @@
  */
 package io.ballerina.runtime.api;
 
-import io.ballerina.runtime.api.async.StrandMetadata;
-import io.ballerina.runtime.internal.scheduling.State;
-import io.ballerina.runtime.internal.scheduling.Strand;
+import io.ballerina.runtime.api.repository.Repository;
+import io.ballerina.runtime.api.types.Parameter;
 
-import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
- * When this class is used as the first argument of an interop method, Ballerina will inject an instance of the class
- * when calling. That instance can be used to communicate with currently executing Ballerina runtime.
+ * When this class is used as the first argument of an interop method, Ballerina will inject an instance of
+ * the class when calling. That instance can be used to communicate with currently executing Ballerina runtime.
  *
  * @since 2.0.0
  */
-public class Environment {
-
-    private final Strand strand;
-    private Future future;
-    private Module currentModule;
-
-    public Environment(Strand strand) {
-        this.strand = strand;
-    }
-
-    public Environment(Strand strand, Module currentModule) {
-        this.strand = strand;
-        this.currentModule = currentModule;
-        future = new Future(this.strand);
-    }
+public abstract class Environment {
 
     /**
-     * Mark the current executing strand as async. Execution of Ballerina code after the current
-     * interop will stop until given BalFuture is completed. However the java thread will not be blocked
-     * and will be reused for running other Ballerina code in the meantime. Therefore callee of this method
-     * must return as soon as possible to avoid starvation of ballerina code execution.
+     * Returns the Ballerina function name for the corresponding external interop method.
      *
-     * @return BalFuture which will resume the current strand when completed.
+     * @return function name
      */
-    public Future markAsync() {
-        strand.blockedOnExtern = true;
-        strand.setState(State.BLOCK_AND_YIELD);
-        return future;
-    }
-
-    public Runtime getRuntime() {
-        return new Runtime(strand.scheduler);
-    }
+    public abstract String getFunctionName();
 
     /**
-     * Gets current module @{@link Module}.
+     * Returns an array consisting of the path parameters of the resource function defined as external.
+     *
+     * @return array of {@link Parameter}
+     */
+    public abstract Parameter[] getFunctionPathParameters();
+
+    /**
+     * Yield the current execution and run some operation so other non isolated functions can run in asynchronously.
+     *
+     * @param supplier operation to be executed.
+     * @param <T>      supplier type.
+     * @return results supplied by this supplier.
+     */
+    public abstract <T> T yieldAndRun(Supplier<T> supplier);
+
+    /**
+     * Gets an instance of Ballerina runtime.
+     *
+     * @return Ballerina runtime instance.
+     */
+    public abstract Runtime getRuntime();
+
+    /**
+     * Gets current module {@link Module}.
      *
      * @return module of the environment.
      */
-    public Module getCurrentModule() {
-        return currentModule;
-    }
+    public abstract Module getCurrentModule();
 
     /**
      * Gets the strand id. This will be generated on strand initialization.
      *
      * @return Strand id.
      */
-    public int getStrandId() {
-        return strand.getId();
-    }
+    public abstract int getStrandId();
 
     /**
      * Gets the strand name. This will be optional. Strand name can be either name given in strand annotation or async
@@ -87,36 +80,28 @@ public class Environment {
      *
      * @return Optional strand name.
      */
-    public Optional<String> getStrandName() {
-        return strand.getName();
-    }
-
-    /**
-     * Gets @{@link StrandMetadata}.
-     *
-     * @return metadata of the strand.
-     */
-    public StrandMetadata getStrandMetadata() {
-        return strand.getMetadata();
-    }
+    public abstract String getStrandName();
 
     /**
      * Sets given local key value pair in strand.
      *
      * @param key   string key
-     * @param value value to be store in the strand
+     * @param value value to be stored in the strand
      */
-    public void setStrandLocal(String key, Object value) {
-        strand.setProperty(key, value);
-    }
+    public abstract void setStrandLocal(String key, Object value);
 
     /**
-     * Gets the value stored in the strand on given key.
+     * Gets the value stored in the strand on a given key.
      *
      * @param key key
      * @return value stored in the strand.
      */
-    public Object getStrandLocal(String key) {
-        return strand.getProperty(key);
-    }
+    public abstract Object getStrandLocal(String key);
+
+    /**
+     * Gets the current environment repository.
+     *
+     * @return repository.
+     */
+    public abstract Repository getRepository();
 }

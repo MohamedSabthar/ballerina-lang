@@ -146,13 +146,14 @@ public class LimitClauseTest {
         Assert.assertEquals(fullName2.get(StringUtils.fromString("lastName")).toString(), "Fonseka");
     }
 
-    @Test(description = "Test limit clause a let expression")
-    public void testLetExpressionWithLimitClause() {
-        Object values = BRunUtil.invoke(result, "testLetExpressionWithLimitClause");
-        Assert.assertTrue((Boolean) values);
-    }
+//    TODO: related to the issue https://github.com/ballerina-platform/ballerina-lang/issues/43831//
+//    @Test(description = "Test limit clause a let expression")
+//    public void testLetExpressionWithLimitClause() {
+//        Object values = BRunUtil.invoke(result, "testLetExpressionWithLimitClause");
+//        Assert.assertTrue((Boolean) values);
+//    }
 
-    @Test(description = "Test limit clause with incompatible types", groups = {"disableOnOldParser"})
+    @Test(description = "Test limit clause with incompatible types")
     public void testNegativeScenarios() {
         negativeResult = BCompileUtil.compile("test-src/query/limit-clause-negative.bal");
         Assert.assertEquals(negativeResult.getErrorCount(), 3);

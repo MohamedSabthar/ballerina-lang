@@ -18,20 +18,15 @@
 package io.ballerina.runtime.api.types;
 
 /**
- * {@code {@link FunctionType }} represents a function type in ballerina.
+ * {@code FunctionType} represents a function type in ballerina.
  *
  * @since 2.0.0
  */
 public interface FunctionType extends AnnotatableType {
 
-    /*
-     * @deprecated use {@link #getParameters()} instead.
-     */
-    @Deprecated
-    Type[] getParameterTypes();
-
     Type getReturnType();
 
+    @Override
     long getFlags();
 
     Type getReturnParameterType();

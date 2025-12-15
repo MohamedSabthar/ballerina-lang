@@ -39,6 +39,7 @@ public class Names {
     public static final String STRING_XML_PI = "ProcessingInstruction";
     public static final String STRING_XML_COMMENT = "Comment";
     public static final String STRING_XML_TEXT = "Text";
+    public static final String STRING_REGEXP = "RegExp";
 
     public static final Name EMPTY = new Name("");
     public static final Name DOT = new Name(".");
@@ -54,15 +55,18 @@ public class Names {
     public static final Name DECIMAL = new Name("decimal");
     public static final Name ERROR = new Name("error");
     public static final Name FLOAT = new Name("float");
+    public static final Name FUNCTION = new Name("function");
     public static final Name FUTURE = new Name("future");
     public static final Name INT = new Name("int");
     public static final Name BOOLEAN = new Name("boolean");
     public static final Name MAP = new Name("map");
+    public static final Name NATURAL = new Name("natural");
     public static final Name OBJECT = new Name("object");
     public static final Name STREAM = new Name("stream");
     public static final Name QUERY = new Name("query");
     public static final Name RUNTIME = new Name("runtime");
     public static final Name TRANSACTION = new Name("transaction");
+    public static final Name NATURAL_PROGRAMMING = new Name("ai.np");
     public static final Name OBSERVE = new Name("observe");
     public static final Name CLOUD = new Name("cloud");
     public static final Name TABLE = new Name("table");
@@ -73,6 +77,7 @@ public class Names {
     public static final Name XML = new Name("xml");
     public static final Name JSON = new Name("json");
     public static final Name ANYDATA = new Name("anydata");
+    public static final Name REGEXP = new Name("regexp");
     public static final Name UTILS_PACKAGE = new Name("utils");
     public static final Name BUILTIN_ORG = new Name("ballerina");
     public static final Name RUNTIME_PACKAGE = new Name("runtime");
@@ -110,6 +115,7 @@ public class Names {
     public static final Name CLONEABLE = new Name("Cloneable");
     public static final Name CLONEABLE_INTERNAL = new Name("__Cloneable");
     public static final Name OBJECT_ITERABLE = new Name("Iterable");
+    public static final Name NATURAL_GENERATOR = new Name("Generator");
 
     // Subtypes
     public static final Name SIGNED32 = new Name(STRING_SIGNED32);
@@ -123,6 +129,9 @@ public class Names {
     public static final Name XML_PI = new Name(STRING_XML_PI);
     public static final Name XML_COMMENT = new Name(STRING_XML_COMMENT);
     public static final Name XML_TEXT = new Name(STRING_XML_TEXT);
+    public static final Name REGEXP_TYPE = new Name(STRING_REGEXP);
+    public static final Name TRUE = new Name("true");
+    public static final Name FALSE = new Name("false");
 
     // Names related to transactions.
     public static final Name TRANSACTION_PACKAGE = new Name("transactions");
@@ -178,7 +187,7 @@ public class Names {
 
     public static Name fromString(String value) {
         // value cannot be null
-        if (value.equals("")) {
+        if (value.isEmpty()) {
             return EMPTY;
         } else if (value.equals("_")) {
             return IGNORE;

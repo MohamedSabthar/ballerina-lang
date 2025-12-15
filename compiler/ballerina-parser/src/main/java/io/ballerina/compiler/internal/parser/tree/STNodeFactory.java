@@ -1,7 +1,7 @@
 /*
- *  Copyright (c) 2020, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *  Copyright (c) 2020, WSO2 LLC. (http://www.wso2.com).
  *
- *  WSO2 Inc. licenses this file to you under the Apache License,
+ *  WSO2 LLC. licenses this file to you under the Apache License,
  *  Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License.
  *  You may obtain a copy of the License at
@@ -11,7 +11,7 @@
  *  Unless required by applicable law or agreed to in writing,
  *  software distributed under the License is distributed on an
  *  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- *  KIND, either express or implied.  See the License for the
+ *  KIND, either express or implied. See the License for the
  *  specific language governing permissions and limitations
  *  under the License.
  */
@@ -131,7 +131,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
             STNode expressions,
             STNode openBraceToken,
             STNode members,
-            STNode closeBraceToken) {
+            STNode closeBraceToken,
+            STNode semicolonToken) {
 
         return new STServiceDeclarationNode(
                 metadata,
@@ -143,7 +144,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 expressions,
                 openBraceToken,
                 members,
-                closeBraceToken);
+                closeBraceToken,
+                semicolonToken);
     }
 
     public static STNode createAssignmentStatementNode(
@@ -960,13 +962,15 @@ public class STNodeFactory extends STAbstractNodeFactory {
             STNode openBraceToken,
             STNode namedWorkerDeclarator,
             STNode statements,
-            STNode closeBraceToken) {
+            STNode closeBraceToken,
+            STNode semicolonToken) {
 
         return new STFunctionBodyBlockNode(
                 openBraceToken,
                 namedWorkerDeclarator,
                 statements,
-                closeBraceToken);
+                closeBraceToken,
+                semicolonToken);
     }
 
     public static STNode createNamedWorkerDeclarationNode(
@@ -975,7 +979,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
             STNode workerKeyword,
             STNode workerName,
             STNode returnTypeDesc,
-            STNode workerBody) {
+            STNode workerBody,
+            STNode onFailClause) {
 
         return new STNamedWorkerDeclarationNode(
                 annotations,
@@ -983,7 +988,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 workerKeyword,
                 workerName,
                 returnTypeDesc,
-                workerBody);
+                workerBody,
+                onFailClause);
     }
 
     public static STNode createNamedWorkerDeclarator(
@@ -1566,16 +1572,25 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 expression);
     }
 
+    public static STNode createCollectClauseNode(
+            STNode collectKeyword,
+            STNode expression) {
+
+        return new STCollectClauseNode(
+                collectKeyword,
+                expression);
+    }
+
     public static STNode createQueryExpressionNode(
             STNode queryConstructType,
             STNode queryPipeline,
-            STNode selectClause,
+            STNode resultClause,
             STNode onConflictClause) {
 
         return new STQueryExpressionNode(
                 queryConstructType,
                 queryPipeline,
-                selectClause,
+                resultClause,
                 onConflictClause);
     }
 
@@ -1811,6 +1826,13 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 closeBrace);
     }
 
+    public static STNode createAlternateReceiveNode(
+            STNode workers) {
+
+        return new STAlternateReceiveNode(
+                workers);
+    }
+
     public static STNode createRestDescriptorNode(
             STNode typeDescriptor,
             STNode ellipsisToken) {
@@ -1915,7 +1937,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
             STNode identifier,
             STNode openBraceToken,
             STNode enumMemberList,
-            STNode closeBraceToken) {
+            STNode closeBraceToken,
+            STNode semicolonToken) {
 
         return new STEnumDeclarationNode(
                 metadata,
@@ -1924,7 +1947,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 identifier,
                 openBraceToken,
                 enumMemberList,
-                closeBraceToken);
+                closeBraceToken,
+                semicolonToken);
     }
 
     public static STNode createEnumMemberNode(
@@ -2035,11 +2059,13 @@ public class STNodeFactory extends STAbstractNodeFactory {
 
     public static STNode createXMLStepExpressionNode(
             STNode expression,
-            STNode xmlStepStart) {
+            STNode xmlStepStart,
+            STNode xmlStepExtend) {
 
         return new STXMLStepExpressionNode(
                 expression,
-                xmlStepStart);
+                xmlStepStart,
+                xmlStepExtend);
     }
 
     public static STNode createXMLNamePatternChainingNode(
@@ -2051,6 +2077,28 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 startToken,
                 xmlNamePattern,
                 gtToken);
+    }
+
+    public static STNode createXMLStepIndexedExtendNode(
+            STNode openBracket,
+            STNode expression,
+            STNode closeBracket) {
+
+        return new STXMLStepIndexedExtendNode(
+                openBracket,
+                expression,
+                closeBracket);
+    }
+
+    public static STNode createXMLStepMethodCallExtendNode(
+            STNode dotToken,
+            STNode methodName,
+            STNode parenthesizedArgList) {
+
+        return new STXMLStepMethodCallExtendNode(
+                dotToken,
+                methodName,
+                parenthesizedArgList);
     }
 
     public static STNode createXMLAtomicNamePatternNode(
@@ -2294,18 +2342,40 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 orderDirection);
     }
 
+    public static STNode createGroupByClauseNode(
+            STNode groupKeyword,
+            STNode byKeyword,
+            STNode groupingKey) {
+
+        return new STGroupByClauseNode(
+                groupKeyword,
+                byKeyword,
+                groupingKey);
+    }
+
+    public static STNode createGroupingKeyVarDeclarationNode(
+            STNode typeDescriptor,
+            STNode simpleBindingPattern,
+            STNode equalsToken,
+            STNode expression) {
+
+        return new STGroupingKeyVarDeclarationNode(
+                typeDescriptor,
+                simpleBindingPattern,
+                equalsToken,
+                expression);
+    }
+
     public static STNode createOnFailClauseNode(
             STNode onKeyword,
             STNode failKeyword,
-            STNode typeDescriptor,
-            STNode failErrorName,
+            STNode typedBindingPattern,
             STNode blockStatement) {
 
         return new STOnFailClauseNode(
                 onKeyword,
                 failKeyword,
-                typeDescriptor,
-                failErrorName,
+                typedBindingPattern,
                 blockStatement);
     }
 
@@ -2328,7 +2398,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
             STNode className,
             STNode openBrace,
             STNode members,
-            STNode closeBrace) {
+            STNode closeBrace,
+            STNode semicolonToken) {
 
         return new STClassDefinitionNode(
                 metadata,
@@ -2338,7 +2409,8 @@ public class STNodeFactory extends STAbstractNodeFactory {
                 className,
                 openBrace,
                 members,
-                closeBrace);
+                closeBrace,
+                semicolonToken);
     }
 
     public static STNode createResourcePathParameterNode(
@@ -2400,6 +2472,304 @@ public class STNodeFactory extends STAbstractNodeFactory {
         return new STSpreadMemberNode(
                 ellipsis,
                 expression);
+    }
+
+    public static STNode createClientResourceAccessActionNode(
+            STNode expression,
+            STNode rightArrowToken,
+            STNode slashToken,
+            STNode resourceAccessPath,
+            STNode dotToken,
+            STNode methodName,
+            STNode arguments) {
+
+        return new STClientResourceAccessActionNode(
+                expression,
+                rightArrowToken,
+                slashToken,
+                resourceAccessPath,
+                dotToken,
+                methodName,
+                arguments);
+    }
+
+    public static STNode createComputedResourceAccessSegmentNode(
+            STNode openBracketToken,
+            STNode expression,
+            STNode closeBracketToken) {
+
+        return new STComputedResourceAccessSegmentNode(
+                openBracketToken,
+                expression,
+                closeBracketToken);
+    }
+
+    public static STNode createResourceAccessRestSegmentNode(
+            STNode openBracketToken,
+            STNode ellipsisToken,
+            STNode expression,
+            STNode closeBracketToken) {
+
+        return new STResourceAccessRestSegmentNode(
+                openBracketToken,
+                ellipsisToken,
+                expression,
+                closeBracketToken);
+    }
+
+    public static STNode createReSequenceNode(
+            STNode reTerm) {
+
+        return new STReSequenceNode(
+                reTerm);
+    }
+
+    public static STNode createReAtomQuantifierNode(
+            STNode reAtom,
+            STNode reQuantifier) {
+
+        return new STReAtomQuantifierNode(
+                reAtom,
+                reQuantifier);
+    }
+
+    public static STNode createReAtomCharOrEscapeNode(
+            STNode reAtomCharOrEscape) {
+
+        return new STReAtomCharOrEscapeNode(
+                reAtomCharOrEscape);
+    }
+
+    public static STNode createReQuoteEscapeNode(
+            STNode slashToken,
+            STNode reSyntaxChar) {
+
+        return new STReQuoteEscapeNode(
+                slashToken,
+                reSyntaxChar);
+    }
+
+    public static STNode createReSimpleCharClassEscapeNode(
+            STNode slashToken,
+            STNode reSimpleCharClassCode) {
+
+        return new STReSimpleCharClassEscapeNode(
+                slashToken,
+                reSimpleCharClassCode);
+    }
+
+    public static STNode createReUnicodePropertyEscapeNode(
+            STNode slashToken,
+            STNode property,
+            STNode openBraceToken,
+            STNode reUnicodeProperty,
+            STNode closeBraceToken) {
+
+        return new STReUnicodePropertyEscapeNode(
+                slashToken,
+                property,
+                openBraceToken,
+                reUnicodeProperty,
+                closeBraceToken);
+    }
+
+    public static STNode createReUnicodeScriptNode(
+            STNode scriptStart,
+            STNode reUnicodePropertyValue) {
+
+        return new STReUnicodeScriptNode(
+                scriptStart,
+                reUnicodePropertyValue);
+    }
+
+    public static STNode createReUnicodeGeneralCategoryNode(
+            STNode categoryStart,
+            STNode reUnicodeGeneralCategoryName) {
+
+        return new STReUnicodeGeneralCategoryNode(
+                categoryStart,
+                reUnicodeGeneralCategoryName);
+    }
+
+    public static STNode createReCharacterClassNode(
+            STNode openBracket,
+            STNode negation,
+            STNode reCharSet,
+            STNode closeBracket) {
+
+        return new STReCharacterClassNode(
+                openBracket,
+                negation,
+                reCharSet,
+                closeBracket);
+    }
+
+    public static STNode createReCharSetRangeWithReCharSetNode(
+            STNode reCharSetRange,
+            STNode reCharSet) {
+
+        return new STReCharSetRangeWithReCharSetNode(
+                reCharSetRange,
+                reCharSet);
+    }
+
+    public static STNode createReCharSetRangeNode(
+            STNode lhsReCharSetAtom,
+            STNode minusToken,
+            STNode rhsReCharSetAtom) {
+
+        return new STReCharSetRangeNode(
+                lhsReCharSetAtom,
+                minusToken,
+                rhsReCharSetAtom);
+    }
+
+    public static STNode createReCharSetAtomWithReCharSetNoDashNode(
+            STNode reCharSetAtom,
+            STNode reCharSetNoDash) {
+
+        return new STReCharSetAtomWithReCharSetNoDashNode(
+                reCharSetAtom,
+                reCharSetNoDash);
+    }
+
+    public static STNode createReCharSetRangeNoDashWithReCharSetNode(
+            STNode reCharSetRangeNoDash,
+            STNode reCharSet) {
+
+        return new STReCharSetRangeNoDashWithReCharSetNode(
+                reCharSetRangeNoDash,
+                reCharSet);
+    }
+
+    public static STNode createReCharSetRangeNoDashNode(
+            STNode reCharSetAtomNoDash,
+            STNode minusToken,
+            STNode reCharSetAtom) {
+
+        return new STReCharSetRangeNoDashNode(
+                reCharSetAtomNoDash,
+                minusToken,
+                reCharSetAtom);
+    }
+
+    public static STNode createReCharSetAtomNoDashWithReCharSetNoDashNode(
+            STNode reCharSetAtomNoDash,
+            STNode reCharSetNoDash) {
+
+        return new STReCharSetAtomNoDashWithReCharSetNoDashNode(
+                reCharSetAtomNoDash,
+                reCharSetNoDash);
+    }
+
+    public static STNode createReCapturingGroupsNode(
+            STNode openParenthesis,
+            STNode reFlagExpression,
+            STNode reSequences,
+            STNode closeParenthesis) {
+
+        return new STReCapturingGroupsNode(
+                openParenthesis,
+                reFlagExpression,
+                reSequences,
+                closeParenthesis);
+    }
+
+    public static STNode createReFlagExpressionNode(
+            STNode questionMark,
+            STNode reFlagsOnOff,
+            STNode colon) {
+
+        return new STReFlagExpressionNode(
+                questionMark,
+                reFlagsOnOff,
+                colon);
+    }
+
+    public static STNode createReFlagsOnOffNode(
+            STNode lhsReFlags,
+            STNode minusToken,
+            STNode rhsReFlags) {
+
+        return new STReFlagsOnOffNode(
+                lhsReFlags,
+                minusToken,
+                rhsReFlags);
+    }
+
+    public static STNode createReFlagsNode(
+            STNode reFlag) {
+
+        return new STReFlagsNode(
+                reFlag);
+    }
+
+    public static STNode createReAssertionNode(
+            STNode reAssertion) {
+
+        return new STReAssertionNode(
+                reAssertion);
+    }
+
+    public static STNode createReQuantifierNode(
+            STNode reBaseQuantifier,
+            STNode nonGreedyChar) {
+
+        return new STReQuantifierNode(
+                reBaseQuantifier,
+                nonGreedyChar);
+    }
+
+    public static STNode createReBracedQuantifierNode(
+            STNode openBraceToken,
+            STNode leastTimesMatchedDigit,
+            STNode commaToken,
+            STNode mostTimesMatchedDigit,
+            STNode closeBraceToken) {
+
+        return new STReBracedQuantifierNode(
+                openBraceToken,
+                leastTimesMatchedDigit,
+                commaToken,
+                mostTimesMatchedDigit,
+                closeBraceToken);
+    }
+
+    public static STNode createMemberTypeDescriptorNode(
+            STNode annotations,
+            STNode typeDescriptor) {
+
+        return new STMemberTypeDescriptorNode(
+                annotations,
+                typeDescriptor);
+    }
+
+    public static STNode createReceiveFieldNode(
+            STNode fieldName,
+            STNode colon,
+            STNode peerWorker) {
+
+        return new STReceiveFieldNode(
+                fieldName,
+                colon,
+                peerWorker);
+    }
+
+    public static STNode createNaturalExpressionNode(
+            STNode constKeyword,
+            STNode naturalKeyword,
+            STNode parenthesizedArgList,
+            STNode openBraceToken,
+            STNode prompt,
+            STNode closeBraceToken) {
+
+        return new STNaturalExpressionNode(
+                constKeyword,
+                naturalKeyword,
+                parenthesizedArgList,
+                openBraceToken,
+                prompt,
+                closeBraceToken);
     }
 }
 

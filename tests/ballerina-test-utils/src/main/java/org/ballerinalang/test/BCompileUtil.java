@@ -17,30 +17,36 @@
  */
 package org.ballerinalang.test;
 
+import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.projects.BuildOptions;
+import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.JBallerinaBackend;
 import io.ballerina.projects.JvmTarget;
+import io.ballerina.projects.Module;
 import io.ballerina.projects.NullBackend;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageCompilation;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectEnvironmentBuilder;
+import io.ballerina.projects.ProjectException;
 import io.ballerina.projects.directory.ProjectLoader;
 import io.ballerina.projects.directory.SingleFileProject;
 import io.ballerina.projects.environment.EnvironmentBuilder;
 import io.ballerina.projects.repos.FileSystemCache;
 import io.ballerina.projects.util.ProjectConstants;
 import io.ballerina.projects.util.ProjectUtils;
+import io.ballerina.runtime.api.types.semtype.TypeCheckCacheFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BPackageSymbol;
-import org.wso2.ballerinalang.programfile.CompiledBinaryFile;
+import org.wso2.ballerinalang.compiler.tree.BLangPackage;
+import org.wso2.ballerinalang.programfile.BIRPackageFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.stream.Stream;
 
 import static io.ballerina.projects.util.ProjectConstants.CACHES_DIR_NAME;
 import static io.ballerina.projects.util.ProjectConstants.DIST_CACHE_DIRECTORY;
@@ -50,12 +56,15 @@ import static io.ballerina.projects.util.ProjectConstants.DIST_CACHE_DIRECTORY;
  *
  * @since 2.0.0
  */
-public class BCompileUtil {
+public final class BCompileUtil {
 
-    private static final Path testSourcesDirectory = Paths.get("src/test/resources").toAbsolutePath().normalize();
-    private static final Path testBuildDirectory = Paths.get("build").toAbsolutePath().normalize();
+    private static final Path TEST_SOURCES_DIRECTORY = Path.of("src/test/resources").toAbsolutePath()
+            .normalize();
+    private static final Path TEST_BUILD_DIRECTORY = Path.of("build").toAbsolutePath().normalize();
 
-    private static final Logger logger = LoggerFactory.getLogger(BCompileUtil.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(BCompileUtil.class);
+
+    private BCompileUtil() {}
 
     public static Project loadProject(String sourceFilePath) {
         BuildOptions.BuildOptionsBuilder buildOptionsBuilder = BuildOptions.builder();
@@ -63,45 +72,52 @@ public class BCompileUtil {
     }
 
     public static Project loadProject(String sourceFilePath, BuildOptions buildOptions) {
-        Path sourcePath = Paths.get(sourceFilePath);
+        Path sourcePath = Path.of(sourceFilePath);
         String sourceFileName = sourcePath.getFileName().toString();
-        Path sourceRoot = testSourcesDirectory.resolve(sourcePath.getParent());
+        Path sourceRoot = TEST_SOURCES_DIRECTORY.resolve(sourcePath.getParent());
 
-        Path projectPath = Paths.get(sourceRoot.toString(), sourceFileName);
+        Path projectPath = Path.of(sourceRoot.toString(), sourceFileName);
 
-        BuildOptions defaultOptions = BuildOptions.builder().setOffline(true).setDumpBirFile(true).build();
+        BuildOptions defaultOptions;
+        try {
+            defaultOptions = BuildOptions.builder()
+                    .setOffline(true)
+                    .setDumpBirFile(true)
+                    .targetDir(String.valueOf(Files.createTempDirectory("ballerina-cache" + System.nanoTime())))
+                    .build();
+        } catch (IOException e) {
+            throw new ProjectException("Failed to create the temporary target directory: " + e.getMessage());
+        }
+
         BuildOptions mergedOptions = buildOptions.acceptTheirs(defaultOptions);
         return ProjectLoader.loadProject(projectPath, mergedOptions);
     }
 
     public static CompileResult compile(String sourceFilePath) {
+        TypeCheckCacheFactory.reset();
         Project project = loadProject(sourceFilePath);
+        return compileProject(project);
+    }
 
-        Package currentPackage = project.currentPackage();
-        JBallerinaBackend jBallerinaBackend = jBallerinaBackend(currentPackage);
-        if (jBallerinaBackend.diagnosticResult().hasErrors()) {
-            return new CompileResult(currentPackage, jBallerinaBackend);
-        }
-
-        CompileResult compileResult = new CompileResult(currentPackage, jBallerinaBackend);
-        invokeModuleInit(compileResult);
-        return compileResult;
+    public static CompileResult compile(String sourceFilePath, BuildOptions buildOptions) {
+        TypeCheckCacheFactory.reset();
+        Project project = loadProject(sourceFilePath, buildOptions);
+        return compileProject(project);
     }
 
     public static CompileResult compileOffline(String sourceFilePath) {
         BuildOptions.BuildOptionsBuilder buildOptionsBuilder = BuildOptions.builder();
         BuildOptions buildOptions = buildOptionsBuilder.setOffline(Boolean.TRUE).build();
-        Project project = loadProject(sourceFilePath, buildOptions);
+        return compile(sourceFilePath, buildOptions);
+    }
 
+    public static PackageSyntaxTreePair compileSemType(String sourceFilePath) {
+        Project project = loadProject(sourceFilePath);
         Package currentPackage = project.currentPackage();
-        JBallerinaBackend jBallerinaBackend = jBallerinaBackend(currentPackage);
-        if (jBallerinaBackend.diagnosticResult().hasErrors()) {
-            return new CompileResult(currentPackage, jBallerinaBackend);
-        }
-
-        CompileResult compileResult = new CompileResult(currentPackage, jBallerinaBackend);
-        invokeModuleInit(compileResult);
-        return compileResult;
+        Module module = currentPackage.getDefaultModule();
+        DocumentId docId = module.documentIds().iterator().next();
+        return new PackageSyntaxTreePair(currentPackage.getCompilation().defaultModuleBLangPackage(),
+                module.document(docId).syntaxTree());
     }
 
     public static BIRCompileResult generateBIR(String sourceFilePath) {
@@ -117,12 +133,12 @@ public class BCompileUtil {
             return null;
         }
 
-        CompiledBinaryFile.BIRPackageFile birPackageFile = bPackageSymbol.birPackageFile;
+        BIRPackageFile birPackageFile = bPackageSymbol.birPackageFile;
         if (birPackageFile == null) {
             return null;
         }
 
-        return new BIRCompileResult(bPackageSymbol.bir, birPackageFile.pkgBirBinaryContent);
+        return new BIRCompileResult(bPackageSymbol.bir, birPackageFile.getPkgBirBinaryContent());
     }
 
     public static CompileResult compileWithoutInitInvocation(String sourceFilePath) {
@@ -138,7 +154,7 @@ public class BCompileUtil {
     }
 
     public static CompileResult compileAndCacheBala(String sourceFilePath) {
-        return compileAndCacheBala(sourceFilePath, testBuildDirectory.resolve(DIST_CACHE_DIRECTORY));
+        return compileAndCacheBala(sourceFilePath, TEST_BUILD_DIRECTORY.resolve(DIST_CACHE_DIRECTORY));
     }
 
     public static CompileResult compileAndCacheBala(String sourceFilePath, Path repoPath) {
@@ -147,11 +163,10 @@ public class BCompileUtil {
 
     public static CompileResult compileAndCacheBala(String sourceFilePath, Path repoPath,
                                              ProjectEnvironmentBuilder projectEnvironmentBuilder) {
-        Path sourcePath = Paths.get(sourceFilePath);
+        Path sourcePath = Path.of(sourceFilePath);
         String sourceFileName = sourcePath.getFileName().toString();
-        Path sourceRoot = testSourcesDirectory.resolve(sourcePath.getParent());
-        Path projectPath = Paths.get(sourceRoot.toString(), sourceFileName);
-
+        Path sourceRoot = TEST_SOURCES_DIRECTORY.resolve(sourcePath.getParent());
+        Path projectPath = Path.of(sourceRoot.toString(), sourceFileName);
         return compileAndCacheBala(projectPath, repoPath, projectEnvironmentBuilder);
     }
 
@@ -174,8 +189,8 @@ public class BCompileUtil {
                 currentPackage.packageName().toString(), currentPackage.packageVersion().toString(), repoPath);
         jBallerinaBackend.emit(JBallerinaBackend.OutputType.BALA, balaCachePath);
         Path balaFilePath;
-        try {
-            balaFilePath = Files.list(balaCachePath).filter(path ->
+        try (Stream<Path> paths = Files.list(balaCachePath)) {
+            balaFilePath = paths.filter(path ->
                     path.toString().endsWith(ProjectConstants.BLANG_COMPILED_PKG_BINARY_EXT)).findAny().orElseThrow();
             String platform = getPlatformFromBala(balaFilePath.getFileName().toString(),
                     currentPackage.packageName().toString(), currentPackage.packageVersion().toString());
@@ -196,9 +211,9 @@ public class BCompileUtil {
     private static JBallerinaBackend jBallerinaBackend(Package currentPackage) {
         PackageCompilation packageCompilation = currentPackage.getCompilation();
         if (packageCompilation.diagnosticResult().errorCount() > 0) {
-            logger.error("compilation failed with errors: " + currentPackage.project().sourceRoot());
+            LOGGER.error("compilation failed with errors: " + currentPackage.project().sourceRoot());
         }
-        return JBallerinaBackend.from(packageCompilation, JvmTarget.JAVA_11);
+        return JBallerinaBackend.from(packageCompilation, JvmTarget.JAVA_21);
     }
 
     /**
@@ -214,8 +229,17 @@ public class BCompileUtil {
                                                 String org,
                                                 String pkgName,
                                                 String version) throws IOException {
-        Path targetPath = balaCachePath(org, pkgName, version, testBuildDirectory.resolve(DIST_CACHE_DIRECTORY))
+        Path targetPath = balaCachePath(org, pkgName, version, TEST_BUILD_DIRECTORY.resolve(DIST_CACHE_DIRECTORY))
                 .resolve("any");
+        if (Files.isDirectory(targetPath)) {
+            ProjectUtils.deleteDirectory(targetPath);
+        }
+        ProjectUtils.extractBala(srcPath, targetPath);
+    }
+
+    public static void copyBalaToExtractedDist(Path srcPath, String org, String pkgName, String version,
+                                               Path tempDistPath) throws IOException {
+        Path targetPath = balaCachePath(org, pkgName, version, tempDistPath).resolve("any");
         if (Files.isDirectory(targetPath)) {
             ProjectUtils.deleteDirectory(targetPath);
         }
@@ -257,7 +281,7 @@ public class BCompileUtil {
             return balaDirPath;
         } catch (IOException e) {
             throw new RuntimeException("error while creating the bala distribution cache directory at " +
-                    testBuildDirectory, e);
+                    TEST_BUILD_DIRECTORY, e);
         }
     }
 
@@ -271,7 +295,7 @@ public class BCompileUtil {
         }
 
         private static TestCompilationCache from(Project project) {
-            Path testCompilationCachePath = testBuildDirectory.resolve(DIST_CACHE_DIRECTORY);
+            Path testCompilationCachePath = TEST_BUILD_DIRECTORY.resolve(DIST_CACHE_DIRECTORY);
             return new TestCompilationCache(project, testCompilationCachePath);
         }
     }
@@ -281,8 +305,8 @@ public class BCompileUtil {
      */
     public static class BIRCompileResult {
 
-        private BIRNode.BIRPackage expectedBIR;
-        private byte[] actualBIRBinary;
+        private final BIRNode.BIRPackage expectedBIR;
+        private final byte[] actualBIRBinary;
 
         BIRCompileResult(BIRNode.BIRPackage expectedBIR, byte[] actualBIRBinary) {
             this.expectedBIR = expectedBIR;
@@ -300,5 +324,33 @@ public class BCompileUtil {
 
     public static String getPlatformFromBala(String balaName, String packageName, String version) {
         return balaName.split(packageName + "-")[1].split("-" + version)[0];
+    }
+
+    /**
+     * Contain compiled {@code BLangPackage} and Syntax tree.
+     * This result is used to test sem-type relationships.
+     *
+     * @since 3.0.0
+     */
+    public static class PackageSyntaxTreePair {
+        public final BLangPackage bLangPackage;
+        public final SyntaxTree syntaxTree;
+
+        public PackageSyntaxTreePair(BLangPackage bLangPackage, SyntaxTree syntaxTree) {
+            this.bLangPackage = bLangPackage;
+            this.syntaxTree = syntaxTree;
+        }
+    }
+
+    private static CompileResult compileProject(Project project) {
+        Package currentPackage = project.currentPackage();
+        JBallerinaBackend jBallerinaBackend = jBallerinaBackend(currentPackage);
+        if (jBallerinaBackend.diagnosticResult().hasErrors()) {
+            return new CompileResult(currentPackage, jBallerinaBackend);
+        }
+
+        CompileResult compileResult = new CompileResult(currentPackage, jBallerinaBackend);
+        invokeModuleInit(compileResult);
+        return compileResult;
     }
 }

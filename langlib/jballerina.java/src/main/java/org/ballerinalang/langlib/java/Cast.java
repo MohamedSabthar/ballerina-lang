@@ -22,6 +22,7 @@ import io.ballerina.runtime.api.types.Field;
 import io.ballerina.runtime.api.types.ObjectType;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BHandle;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BObject;
@@ -37,7 +38,7 @@ import static io.ballerina.runtime.api.creators.ValueCreator.createObjectValue;
  *
  * @since 1.2.5
  */
-public class Cast {
+public final class Cast {
 
     private static final String moduleName = "{ballerina/jballerina.java}";
     private static final String annotationName = "@java:Binding";
@@ -45,9 +46,12 @@ public class Cast {
     private static final String classAttribute = "class";
     private static final String jObjField = "jObj";
 
+    private Cast() {
+    }
+
     public static Object cast(BObject value, BTypedesc castType) {
         BHandle handleObj;
-        ObjectType objType = value.getType();
+        ObjectType objType = (ObjectType) TypeUtils.getImpliedType(value.getType());
         String valueObjName = objType.getName();
         handleObj = (BHandle) value.get(StringUtils.fromString(jObjField));
         Object jObj = handleObj.getValue();
@@ -56,10 +60,10 @@ public class Cast {
                     + jObjField + "` field in `" + valueObjName + "`"));
         }
         try {
-            BMap objAnnotation;
+            BMap<?, ?> objAnnotation;
             BString objClass;
             try {
-                objAnnotation = (BMap) objType.getAnnotation(StringUtils.fromString(annotationType));
+                objAnnotation = (BMap<?, ?>) objType.getAnnotation(StringUtils.fromString(annotationType));
                 objClass = objAnnotation.getStringValue(StringUtils.fromString(classAttribute));
             } catch (Exception e) {
                 return createError(StringUtils.fromString(moduleName + " Error while retrieving details of the `" +
@@ -82,7 +86,7 @@ public class Cast {
                         "parameter: " + e));
             }
             try {
-                BMap castObjAnnotation = (BMap) castObjType.getAnnotation(StringUtils.fromString(annotationType));
+                var castObjAnnotation = (BMap<?, ?>) castObjType.getAnnotation(StringUtils.fromString(annotationType));
                 castObjClass = castObjAnnotation.getStringValue(StringUtils.fromString(classAttribute));
             } catch (Exception e) {
                 return createError(StringUtils.fromString(moduleName + " Error while retrieving details of the `" +
@@ -105,7 +109,7 @@ public class Cast {
                 return createError(StringUtils.fromString(moduleName + " Cannot cast `" + valueObjName + "` to `" +
                         castObjTypeName + "`"));
             }
-        } catch (Exception e) {
+        } catch (ClassNotFoundException e) {
             return createError(StringUtils.fromString(moduleName + " Error while casting `" + valueObjName +
                     "` object to the typedesc provided: " + e));
         }

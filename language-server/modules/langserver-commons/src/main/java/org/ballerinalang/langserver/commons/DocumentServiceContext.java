@@ -66,7 +66,7 @@ public interface DocumentServiceContext {
     /**
      * Get the file path.
      *
-     * @return {@link java.nio.file.Path} file path
+     * @return {@link Path} file path
      */
     Path filePath();
 
@@ -76,12 +76,13 @@ public interface DocumentServiceContext {
      * @return {@link LSOperation}
      */
     LSOperation operation();
-
+    
     /**
      * Get the imports in the current document.
      * This API is deprecated. Instead, use {@link #currentDocImportsMap}
      *
      * @return {@link List} of import nodes
+     * @deprecated Use {@link #currentDocImportsMap()} instead
      */
     @Deprecated(forRemoval = true)
     List<ImportDeclarationNode> currentDocImports();

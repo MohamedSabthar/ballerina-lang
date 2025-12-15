@@ -25,7 +25,6 @@ import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * Contains tests related to the target directory of a project.
@@ -33,7 +32,7 @@ import java.nio.file.Paths;
  * @since 2.0.0
  */
 public class TestTarget {
-    private static final Path RESOURCE_DIRECTORY = Paths.get("src/test/resources/");
+    private static final Path RESOURCE_DIRECTORY = Path.of("src/test/resources/");
 
     @Test(description = "tests writing of the BIR")
     public void testTarget() throws IOException {
@@ -56,12 +55,12 @@ public class TestTarget {
         Path executablePath = projectTarget.getExecutablePath(currentPackage);
 
         Assert.assertEquals(balaCachePath.toString(),
-                projectPath.resolve("target").resolve("bala").toString());
+                project.targetDir().resolve("bala").toString());
         Assert.assertEquals(birCachePath.toString(),
-                projectPath.resolve("target").resolve("cache").resolve("bir_cache").toString());
+                project.targetDir().resolve("cache").resolve("bir_cache").toString());
         Assert.assertEquals(jarCachePath.toString(),
-                projectPath.resolve("target").resolve("cache").resolve("jar_cache").toString());
+                project.targetDir().resolve("cache").resolve("jar_cache").toString());
         Assert.assertEquals(executablePath.toString(),
-                projectPath.resolve("target").resolve("bin").resolve("myproject.jar").toString());
+                project.targetDir().resolve("bin").resolve("myproject.jar").toString());
     }
 }

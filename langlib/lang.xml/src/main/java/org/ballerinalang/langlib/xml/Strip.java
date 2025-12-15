@@ -19,7 +19,7 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 /**
  * Strips the insignificant parts of the an xml value.
@@ -30,21 +30,17 @@ import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
  * 
  * @since 0.88
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "strip",
-//        returnType = {@ReturnType(type = TypeKind.XML)},
-//        isPublic = true
-//)
 public class Strip {
-
     private static final String OPERATION = "strip xml";
+
+    private Strip() {
+    }
 
     public static BXml strip(BXml xml) {
         try {
-            return (BXml) xml.strip();
+            return xml.strip();
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
         return null;
     }

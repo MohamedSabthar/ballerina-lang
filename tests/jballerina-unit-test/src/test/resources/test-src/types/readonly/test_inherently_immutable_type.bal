@@ -16,6 +16,7 @@
 
 import ballerina/jballerina.java;
 import ballerina/lang.'xml;
+import ballerina/lang.regexp;
 
 // readonly-type-descriptor := readonly
 // A shape belongs to the type readonly if its read-only bit is on.
@@ -106,6 +107,16 @@ function testSimpleAssignmentForInherentlyImmutableBasicTypes() {
     readonly n = xmlText;
     assertTrue(n is 'xml:Text);
     assertEquality(n, xml `xml text`);
+
+    readonly roInt = 1;
+    readonly|string o = roInt;
+    assertTrue(o is int);
+    assertEquality(o, 1);
+
+    readonly roStr = "s";
+    any|error p = roStr;
+    assertTrue(p is string);
+    assertEquality(p, "s");
 }
 
 function testRuntimeIsTypeForInherentlyImmutableBasicTypes() {
@@ -153,6 +164,14 @@ function testRuntimeIsTypeForInherentlyImmutableBasicTypes() {
     'xml:Text xmlText = xml `xml text`;
     any n = xmlText;
     assertTrue(n is readonly);
+    
+    any reg1 = re `pattern`;
+    assertTrue(reg1 is readonly);
+    
+    readonly reg2 = re `pattern`;
+    assertTrue(reg2 is readonly);
+    
+    assertTrue(regexp:fromString("pattern") is readonly);
 }
 
 function testRuntimeIsTypeForNeverImmutableBasicTypes() {

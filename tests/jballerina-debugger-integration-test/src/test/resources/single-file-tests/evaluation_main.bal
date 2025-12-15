@@ -316,7 +316,8 @@ public function main() {
             maths: 80,
             physics: 75,
             chemistry: 65
-        }
+        },
+        "course": "ballerina"
     };
 
     record {|string city; string country;|} anonRecord = {city: "London", country: "UK"};
@@ -363,6 +364,7 @@ public function main() {
     byte byteVar = 128;
     json jsonVar = {name: "apple", color: "red", price: 40};
     xml<never> neverVar = <xml<never>>'xml:concat();
+    string:RegExp regexVar  = re `[a-zA-Z0-9]`;
 
     // quoted identifiers
     string '\ \/\:\@\[\`\{\~\u{03C0}_var = "IL with special characters in var";
@@ -447,4 +449,8 @@ function getSampleError() returns SampleError {
 function getRecordConstrainedError() returns FooError {
     FooError e = error FooError("Some Error", detailMsg = "Failed Message", isFatal = true);
     return e;
+}
+
+function processTypeDesc(typedesc t) returns typedesc {
+    return t;
 }

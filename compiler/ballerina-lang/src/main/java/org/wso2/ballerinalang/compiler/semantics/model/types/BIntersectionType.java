@@ -17,9 +17,12 @@
  */
 package org.wso2.ballerinalang.compiler.semantics.model.types;
 
-import org.ballerinalang.model.types.IntersectableReferenceType;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
+import io.ballerina.types.SemTypes;
 import org.ballerinalang.model.types.IntersectionType;
 import org.ballerinalang.model.types.TypeKind;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
 import org.wso2.ballerinalang.compiler.semantics.model.TypeVisitor;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
@@ -29,7 +32,6 @@ import org.wso2.ballerinalang.util.Flags;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
 
@@ -39,33 +41,33 @@ import java.util.StringJoiner;
  * @since 2.0.0
  */
 public class BIntersectionType extends BType implements IntersectionType {
-
     public BType effectiveType;
 
     private LinkedHashSet<BType> constituentTypes;
-    private BIntersectionType intersectionType;
 
     public BIntersectionType(BTypeSymbol tsymbol, LinkedHashSet<BType> types,
-                             IntersectableReferenceType effectiveType) {
+                             BType effectiveType) {
         super(TypeTags.INTERSECTION, tsymbol);
         this.constituentTypes = toFlatTypeSet(types);
-        this.effectiveType = (BType) effectiveType;
 
         for (BType constituentType : this.constituentTypes) {
             if (constituentType.tag == TypeTags.READONLY) {
-                this.flags |= Flags.READONLY;
+                this.addFlags(Flags.READONLY);
                 break;
             }
         }
-        effectiveType.setIntersectionType(this);
+        this.effectiveType = effectiveType;
     }
 
-    public BIntersectionType(BTypeSymbol tsymbol, LinkedHashSet<BType> types, IntersectableReferenceType effectiveType,
+    public BIntersectionType(BTypeSymbol tsymbol) {
+        super(TypeTags.INTERSECTION, tsymbol);
+    }
+
+    public BIntersectionType(BTypeSymbol tsymbol, LinkedHashSet<BType> types, BType effectiveType,
                              long flags) {
         super(TypeTags.INTERSECTION, tsymbol, flags);
         this.constituentTypes = toFlatTypeSet(types);
-        this.effectiveType = (BType) effectiveType;
-        effectiveType.setIntersectionType(this);
+        this.effectiveType = effectiveType;
     }
 
     @Override
@@ -84,17 +86,12 @@ public class BIntersectionType extends BType implements IntersectionType {
     }
 
     @Override
-    public boolean isNullable() {
-        return this.effectiveType.isNullable();
-    }
-
-    @Override
     public <T, R> R accept(BTypeVisitor<T, R> visitor, T t) {
         return visitor.visit(this, t);
     }
 
     public void setConstituentTypes(LinkedHashSet<BType> constituentTypes) {
-        this.constituentTypes =  toFlatTypeSet(constituentTypes);
+        this.constituentTypes = toFlatTypeSet(constituentTypes);
     }
 
     @Override
@@ -137,22 +134,33 @@ public class BIntersectionType extends BType implements IntersectionType {
         return this.effectiveType;
     }
 
-    @Override
-    public BIntersectionType getImmutableType() {
-        return Symbols.isFlagOn(this.flags, Flags.READONLY) ? this : null;
+    /**
+     * When the type is mutated we need to reset resolved semType.
+     */
+    public void resetSemType() {
+        this.semType = null;
     }
 
     @Override
-    public void unsetImmutableType() {
+    public SemType semType() {
+        // We have to recalculate this everytime since the actual BTypes inside constituent types do mutate and we
+        // can't detect those mutations.
+        return computeResultantIntersection();
     }
 
-    @Override
-    public Optional<BIntersectionType> getIntersectionType() {
-        return Optional.ofNullable(this.intersectionType);
-    }
+    private SemType computeResultantIntersection() {
+        SemType t = PredefinedType.VAL;
+        for (BType constituentType : this.getConstituentTypes()) {
+            t = SemTypes.intersect(t, constituentType.semType());
+        }
 
-    @Override
-    public void setIntersectionType(BIntersectionType intersectionType) {
-        this.intersectionType = intersectionType;
+        // TODO: this is a temporary workaround to propagate effective typeIds
+        BType referredType = Types.getReferredType(this.effectiveType);
+        if (referredType instanceof BErrorType effErr) {
+            t = effErr.distinctIdWrapper(t);
+        } else if (referredType instanceof BObjectType effObj) {
+            t = effObj.distinctIdWrapper(t);
+        }
+        return t;
     }
 }

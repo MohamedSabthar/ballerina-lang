@@ -18,8 +18,12 @@ package io.ballerina.runtime.api.values;
 
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.types.XmlNodeType;
+import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.internal.values.JIteratorValue;
 
 import java.util.List;
+
+import javax.xml.XMLConstants;
 
 /**
  * {@code BXML} represents an XML in Ballerina. An XML could be one of:
@@ -36,7 +40,7 @@ import java.util.List;
  *
  * @since 1.1.0
  */
-public interface BXml extends BRefValue, BCollection {
+public interface BXml extends BRefValue, BCollection, JIteratorValue {
 
     /**
      * Start of a XML comment.
@@ -57,6 +61,17 @@ public interface BXml extends BRefValue, BCollection {
      * End of a XML processing instruction.
      */
     String PI_END = "?>";
+
+    /**
+     * Xmlns namespace uri prefix.
+     */
+    String XMLNS_NS_URI_PREFIX = "{" + XMLConstants.XMLNS_ATTRIBUTE_NS_URI + "}";
+
+    /**
+     * Xmlns prefix.
+     */
+    BString XMLNS_PREFIX = StringUtils.fromString(XMLNS_NS_URI_PREFIX + XMLConstants.XMLNS_ATTRIBUTE);
+
 
     /**
      * Check whether the XML sequence is empty.
@@ -253,6 +268,7 @@ public interface BXml extends BRefValue, BCollection {
      * 
      * @return length of this XML sequence.
      */
+    @Override
     int size();
 
     /**

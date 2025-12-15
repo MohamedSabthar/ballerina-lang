@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Reads repository dot files and build test package repository instances.
@@ -47,11 +47,13 @@ public class PackageRepositoryBuilder {
     private final DefaultPackageRepository centralRepo;
     private final DefaultPackageRepository distRepo;
     private final LocalPackageRepository localRepo;
+    private final WorkspaceRepository workspaceRepo;
 
     public PackageRepositoryBuilder(TestCaseFilePaths filePaths) {
         this.centralRepo = (DefaultPackageRepository) buildInternal(filePaths, RepositoryKind.CENTRAL);
         this.distRepo = (DefaultPackageRepository) buildInternal(filePaths, RepositoryKind.DIST);
         this.localRepo = (LocalPackageRepository) buildLocalRepo(filePaths.localRepoDirPath().orElse(null));
+        this.workspaceRepo = (WorkspaceRepository) buildInternal(filePaths, RepositoryKind.WORKSPACE);
     }
 
     public AbstractPackageRepository buildCentralRepo() {
@@ -69,6 +71,9 @@ public class PackageRepositoryBuilder {
     private PackageRepository buildInternal(TestCaseFilePaths filePaths, RepositoryKind repoKind) {
         Optional<Path> repoDotFilePath = getRepPath(filePaths, repoKind);
         if (repoDotFilePath.isEmpty()) {
+            if (repoKind == RepositoryKind.WORKSPACE) {
+                return WorkspaceRepository.EMPTY_REPO;
+            }
             return DefaultPackageRepository.EMPTY_REPO;
         }
 
@@ -76,25 +81,21 @@ public class PackageRepositoryBuilder {
     }
 
     private Optional<Path> getRepPath(TestCaseFilePaths filePaths, RepositoryKind repoKind) {
-        switch (repoKind) {
-            case DIST:
-                return filePaths.distRepoPath();
-            case CENTRAL:
-                return filePaths.centralRepoPath();
-            case LOCAL:
-                return filePaths.localRepoDirPath();
-            default:
-                throw new IllegalStateException("Unsupported package repository kind " + repoKind);
-        }
+        return switch (repoKind) {
+            case DIST -> filePaths.distRepoPath();
+            case CENTRAL -> filePaths.centralRepoPath();
+            case LOCAL -> filePaths.localRepoDirPath();
+            case WORKSPACE -> filePaths.workspaceRepoPath();
+        };
     }
 
     private PackageRepository buildLocalRepo(Path localRepoDirPath) {
         if (localRepoDirPath == null) {
-            return DefaultPackageRepository.EMPTY_REPO;
+            return LocalPackageRepository.EMPTY_REPO;
         }
 
-        try {
-            return buildLocalRepo(Files.list(localRepoDirPath).collect(Collectors.toList()));
+        try (Stream<Path> paths = Files.list(localRepoDirPath)) {
+            return buildLocalRepo(paths.toList());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -190,15 +191,15 @@ public class PackageRepositoryBuilder {
     private PackageRepository buildInternal(PackageVersionContainer<PackageDescWrapper> pkgContainer,
                                             Map<PackageDescriptor, DependencyGraph<PackageDescriptor>> graphMap,
                                             RepositoryKind repoKind) {
-        switch (repoKind) {
-            case LOCAL:
-                return new LocalPackageRepository(pkgContainer, graphMap);
-            case CENTRAL:
-            case DIST:
-                return new DefaultPackageRepository(pkgContainer, graphMap);
-            default:
-                throw new IllegalStateException("Unsupported package repository kind " + repoKind);
-        }
+        return switch (repoKind) {
+            case LOCAL -> new LocalPackageRepository(pkgContainer, graphMap);
+            case CENTRAL, DIST -> new DefaultPackageRepository(pkgContainer, graphMap);
+            case WORKSPACE ->  new WorkspaceRepository(pkgContainer, graphMap);
+        };
+    }
+
+    public AbstractPackageRepository buildWorkspaceRepo() {
+        return workspaceRepo;
     }
 
     private static class GraphNodeMarker {
@@ -220,7 +221,7 @@ public class PackageRepositoryBuilder {
             return marker.entrySet().stream()
                     .filter(entry -> entry.getValue() == Boolean.FALSE)
                     .map(Map.Entry::getKey)
-                    .collect(Collectors.toList());
+                    .toList();
         }
     }
 }

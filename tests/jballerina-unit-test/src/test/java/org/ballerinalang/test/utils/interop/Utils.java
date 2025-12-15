@@ -18,28 +18,35 @@
 package org.ballerinalang.test.utils.interop;
 
 import io.ballerina.runtime.api.Environment;
-import io.ballerina.runtime.api.Future;
+import io.ballerina.runtime.api.creators.ErrorCreator;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.internal.scheduling.Scheduler;
 
 import java.io.PrintStream;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Extern function sleep.
  *
  * @since 2.0.0
  */
-public class Utils {
+public final class Utils {
 
-    private static final int CORE_THREAD_POOL_SIZE = 1;
-
-    private static ScheduledExecutorService executor = Executors.newScheduledThreadPool(CORE_THREAD_POOL_SIZE);
+    private Utils() {
+    }
 
     public static void sleep(Environment env, long delayMillis) {
-        Future balFuture = env.markAsync();
-        executor.schedule(() -> balFuture.complete(null), delayMillis, TimeUnit.MILLISECONDS);
+        env.yieldAndRun(() -> {
+            try {
+                Thread.sleep(delayMillis);
+                return null;
+            } catch (InterruptedException e) {
+                throw ErrorCreator.createError(e);
+            }
+        });
+    }
+
+    public static boolean isIsolated() {
+        return Scheduler.getStrand().isIsolated;
     }
 
     public static void print(Object... values) {
@@ -50,7 +57,7 @@ public class Utils {
         }
         for (Object value : values) {
             if (value != null) {
-                out.print(StringUtils.getStringValue(value, null));
+                out.print(StringUtils.getStringValue(value));
             }
         }
     }
@@ -64,7 +71,7 @@ public class Utils {
         StringBuilder content = new StringBuilder();
         for (Object value : values) {
             if (value != null) {
-                content.append(StringUtils.getStringValue(value, null));
+                content.append(StringUtils.getStringValue(value));
             }
         }
         out.println(content);

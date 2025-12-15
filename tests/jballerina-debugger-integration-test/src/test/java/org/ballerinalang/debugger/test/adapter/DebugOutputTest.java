@@ -42,6 +42,7 @@ public class DebugOutputTest extends BaseTestCase {
 
     DebugTestRunner debugTestRunner;
 
+    @Override
     @BeforeClass
     public void setup() {
         String testProjectName = "debug-output-tests";
@@ -61,7 +62,7 @@ public class DebugOutputTest extends BaseTestCase {
 
         // Validates initial debug outputs which uses `CONSOLE` category.
         Assert.assertEquals(outputs.get(0).getRight().getCategory(), OutputEventArgumentsCategory.CONSOLE);
-        Assert.assertEquals(outputs.get(0).getLeft(), "Waiting for debug process to start..." +
+        Assert.assertEquals(outputs.get(0).getLeft(), "Waiting for the debug process to start..." +
                 System.lineSeparator() + System.lineSeparator());
 
         Assert.assertEquals(outputs.get(1).getRight().getCategory(), OutputEventArgumentsCategory.CONSOLE);
@@ -92,6 +93,7 @@ public class DebugOutputTest extends BaseTestCase {
                 "'localhost:"));
     }
 
+    @Override
     @AfterMethod(alwaysRun = true)
     public void cleanUp() {
         debugTestRunner.terminateDebugSession();

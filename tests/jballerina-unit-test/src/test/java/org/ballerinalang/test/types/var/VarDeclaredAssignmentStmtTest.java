@@ -153,7 +153,7 @@ public class VarDeclaredAssignmentStmtTest {
         BRunUtil.invoke(result, "testObjectToVarAssignment2");
     }
 
-    @Test(description = "Test var in variable def.", groups = {"disableOnOldParser"})
+    @Test(description = "Test var in variable def.")
     public void testVarTypeInVariableDefStatement() {
         //var type is not not allowed in variable def statements
         CompileResult res = BCompileUtil.compile("test-src/types/var/var-type-variable-def-negative.bal");
@@ -206,16 +206,18 @@ public class VarDeclaredAssignmentStmtTest {
         Assert.assertEquals(
                 ((BMap<String, Object>) ((BError) returns).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<json>' value cannot be converted to 'Person': " +
-                        "\n\t\tmissing required field 'a' of type 'anydata' in record 'Person'" +
-                        "\n\t\tmissing required field 'score' of type 'float' in record 'Person'" +
-                        "\n\t\tmissing required field 'alive' of type 'boolean' in record 'Person'" +
-                        "\n\t\tmissing required field 'parent.a' of type 'anydata' in record 'Person'" +
-                        "\n\t\tmissing required field 'parent.score' of type 'float' in record 'Person'" +
-                        "\n\t\tmissing required field 'parent.alive' of type 'boolean' in record 'Person'" +
-                        "\n\t\tfield 'parent.parent' in record 'Person' should be of type 'Person?', found " +
-                        "'\"Parent\"'\n\t\tfield 'parent.marks' in record 'Person' should be of type 'int[]', found '" +
-                        "()'");
+                """
+                        'map<json>' value cannot be converted to 'Person':\s
+                        \t\tmissing required field 'a' of type 'anydata' in record 'Person'
+                        \t\tmissing required field 'score' of type 'float' in record 'Person'
+                        \t\tmissing required field 'alive' of type 'boolean' in record 'Person'
+                        \t\t{
+                        \t\t  missing required field 'parent.a' of type 'anydata' in record 'Person'
+                        \t\t  missing required field 'parent.score' of type 'float' in record 'Person'
+                        \t\t  missing required field 'parent.alive' of type 'boolean' in record 'Person'
+                        \t\t  field 'parent.parent' in record 'Person' should be of type 'Person?', found '"Parent"'
+                        \t\t  field 'parent.marks' in record 'Person' should be of type 'int[]', found '()'
+                        \t\t}""");
     }
 
     @Test(description = "Test incompatible json to struct with errors.")

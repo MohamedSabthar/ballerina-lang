@@ -406,3 +406,33 @@ service / on new Listener(1234) {
         int _ = y[0];
     }
 }
+
+type AnnotTupleOne record {|
+   string value;
+|};
+
+annotation AnnotTupleOne annotOne on type, field;
+
+function f19() {
+    string n3 = "n3"; // used `n3`
+    [@annotOne {value: n3} int] k1 = []; // unused `k1`
+
+    string n4 = "n4"; // used `n4`
+    record {@annotOne {value: n4} string x;} k2 = {x: ""}; // unused `k2`
+}
+
+type SampleError error<record {|int code; string reason;|}>;
+
+function testUnusedVariablesInErrorBindingPatternsOfOnFailClauses() {
+    int i = 2;
+
+    while i <= 2 {
+        do {
+            fail error SampleError("error!", code = 20, reason = "deadlock condition");
+        } on fail var error(msg1, code = errCode1, reason = errReason1) {
+
+        }
+        i = i + 1;
+    } on fail SampleError error(msg2, cause, code = errCode2, reason = errReason2) {
+    }
+}

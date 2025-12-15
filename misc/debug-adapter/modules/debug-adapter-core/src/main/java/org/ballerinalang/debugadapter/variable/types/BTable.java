@@ -34,11 +34,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.ballerinalang.debugadapter.variable.VariableUtils.FIELD_REFERRED_TYPE;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.FIELD_TYPE;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.FIELD_TYPENAME;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.UNKNOWN_VALUE;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.getFieldValue;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.getStringFrom;
+import static org.ballerinalang.debugadapter.variable.VariableUtils.isTypeReferenceType;
 
 /**
  * Ballerina table variable type.
@@ -96,20 +98,30 @@ public class BTable extends IndexedCompoundVariable {
     /**
      * Retrieves the constraint type of the table variable, in string format.
      */
-    private String getConstrainedTypeName() throws DebugVariableException {
-        Optional<Value> type = getFieldValue(jvmValue, FIELD_TYPE);
-        if (type.isEmpty()) {
+    private String getConstrainedTypeName() {
+        try {
+            Optional<Value> type = getFieldValue(jvmValue, FIELD_TYPE);
+            if (type.isPresent() && isTypeReferenceType(type.get())) {
+                type = getFieldValue(type.get(), FIELD_REFERRED_TYPE);
+            }
+            if (type.isEmpty()) {
+                return UNKNOWN_VALUE;
+            }
+
+            Optional<Value> constraint = getFieldValue(type.get(), FIELD_CONSTRAINT);
+            if (constraint.isEmpty()) {
+                return UNKNOWN_VALUE;
+            }
+
+            Optional<Value> constraintTypeName = getFieldValue(constraint.get(), FIELD_TYPENAME);
+            if (constraintTypeName.isEmpty()) {
+                return UNKNOWN_VALUE;
+            }
+
+            return getStringFrom(constraintTypeName.get());
+        } catch (DebugVariableException e) {
             return UNKNOWN_VALUE;
         }
-        Optional<Value> constraint = getFieldValue(type.get(), FIELD_CONSTRAINT);
-        if (constraint.isEmpty()) {
-            return UNKNOWN_VALUE;
-        }
-        Optional<Value> constraintTypeName = getFieldValue(constraint.get(), FIELD_TYPENAME);
-        if (constraintTypeName.isEmpty()) {
-            return UNKNOWN_VALUE;
-        }
-        return getStringFrom(constraintTypeName.get());
     }
 
     private int getTableSize() {
@@ -132,8 +144,7 @@ public class BTable extends IndexedCompoundVariable {
                 tableSize = -1;
                 return;
             }
-            Value size = ((ObjectReference) jvmValue).invokeMethod(getContext().getOwningThread().getThreadReference(),
-                    method.get(), new ArrayList<>(), ObjectReference.INVOKE_SINGLE_THREADED);
+            Value size = VariableUtils.invokeRemoteVMMethod(context, jvmValue, method.get(), null);
             tableSize = ((IntegerValue) size).intValue();
         } catch (Exception e) {
             this.tableSize = -1;
@@ -174,8 +185,7 @@ public class BTable extends IndexedCompoundVariable {
         if (getIteratorMethod.isEmpty()) {
             return null;
         }
-        return ((ObjectReference) jvmValue).invokeMethod(getContext().getOwningThread().getThreadReference(),
-                getIteratorMethod.get(), new ArrayList<>(), ObjectReference.INVOKE_SINGLE_THREADED);
+        return VariableUtils.invokeRemoteVMMethod(context, jvmValue, getIteratorMethod.get(), null);
     }
 
     private boolean hasNext(Value iterator) throws Exception {
@@ -183,8 +193,7 @@ public class BTable extends IndexedCompoundVariable {
         if (hasNextMethod.isEmpty()) {
             return false;
         }
-        Value hasNext = ((ObjectReference) iterator).invokeMethod(getContext().getOwningThread().getThreadReference(),
-                hasNextMethod.get(), new ArrayList<>(), ObjectReference.INVOKE_SINGLE_THREADED);
+        Value hasNext = VariableUtils.invokeRemoteVMMethod(context, iterator, hasNextMethod.get(), null);
         return Boolean.parseBoolean(hasNext.toString());
     }
 
@@ -193,8 +202,7 @@ public class BTable extends IndexedCompoundVariable {
         if (nextMethod.isEmpty()) {
             return null;
         }
-        return ((ObjectReference) iterator).invokeMethod(getContext().getOwningThread().getThreadReference(),
-                nextMethod.get(), new ArrayList<>(), ObjectReference.INVOKE_SINGLE_THREADED);
+        return VariableUtils.invokeRemoteVMMethod(context, iterator, nextMethod.get(), null);
     }
 
     private Value getValues(Value next) throws Exception {
@@ -202,7 +210,6 @@ public class BTable extends IndexedCompoundVariable {
         if (getValuesMethod.isEmpty()) {
             return null;
         }
-        return ((ObjectReference) next).invokeMethod(getContext().getOwningThread().getThreadReference(),
-                getValuesMethod.get(), new ArrayList<>(), ObjectReference.INVOKE_SINGLE_THREADED);
+        return VariableUtils.invokeRemoteVMMethod(context, next, getValuesMethod.get(), null);
     }
 }

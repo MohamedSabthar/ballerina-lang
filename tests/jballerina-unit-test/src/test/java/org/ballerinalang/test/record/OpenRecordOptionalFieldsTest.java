@@ -17,15 +17,15 @@
  */
 package org.ballerinalang.test.record;
 
-import io.ballerina.runtime.api.TypeTags;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -52,22 +52,24 @@ public class OpenRecordOptionalFieldsTest {
         CompileResult negativeResult = BCompileUtil.compile(
                 "test-src/record/open_record_optional_fields_negatives.bal");
         int i = 0;
-        Assert.assertEquals(negativeResult.getErrorCount(), 3);
-        BAssertUtil.validateError(negativeResult, i++, "invalid token '='", 22, 14);
-        BAssertUtil.validateError(negativeResult, i++, "invalid token '999'", 22, 16);
-        BAssertUtil.validateError(negativeResult, i, "missing non-defaultable required record field 'adrs'", 33, 17);
+        Assert.assertEquals(negativeResult.getErrorCount(), 4);
+        BAssertUtil.validateError(negativeResult, i++, "invalid token '='", 25, 14);
+        BAssertUtil.validateError(negativeResult, i++, "invalid token '999'", 25, 16);
+        BAssertUtil.validateError(negativeResult, i++, "missing non-defaultable required record field 'adrs'", 36, 17);
+        BAssertUtil.validateError(negativeResult, i++, "invalid operation: type 'CustomRecord3' " +
+                "does not support optional field access for field 'name'", 42, 19);
     }
 
     @Test(description = "Test creating a record with a non-defaultable required field")
     public void testNonDefReqField() {
         Object returns = BRunUtil.invoke(compileResult, "testNonDefReqField");
 
-        BMap person = (BMap) returns;
+        BMap<?, ?> person = (BMap<?, ?>) returns;
         Assert.assertEquals(person.get(StringUtils.fromString("fname")).toString(), "default");
         Assert.assertNull(person.get(StringUtils.fromString("lname")));
         Assert.assertNull(person.get(StringUtils.fromString("age")));
 
-        BMap adrs = (BMap) person.get(StringUtils.fromString("adrs"));
+        BMap<?, ?> adrs = (BMap<?, ?>) person.get(StringUtils.fromString("adrs"));
         Assert.assertEquals(adrs.get(StringUtils.fromString("street")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("city")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("country")).toString(), "LK");
@@ -78,12 +80,12 @@ public class OpenRecordOptionalFieldsTest {
     public void testNonDefReqField2() {
         Object returns = BRunUtil.invoke(compileResult, "testNonDefReqField2");
 
-        BMap person = (BMap) returns;
+        BMap<?, ?> person = (BMap<?, ?>) returns;
         Assert.assertEquals(person.get(StringUtils.fromString("fname")).toString(), "John");
         Assert.assertEquals(person.get(StringUtils.fromString("lname")).toString(), "Doe");
         Assert.assertNull(person.get(StringUtils.fromString("age")));
 
-        BMap adrs = (BMap) person.get(StringUtils.fromString("adrs"));
+        BMap<?, ?> adrs = (BMap<?, ?>) person.get(StringUtils.fromString("adrs"));
         Assert.assertEquals(adrs.get(StringUtils.fromString("street")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("city")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("country")).toString(), "LK");
@@ -93,12 +95,12 @@ public class OpenRecordOptionalFieldsTest {
     public void testDefaultableReqField() {
         Object returns = BRunUtil.invoke(compileResult, "testDefaultableReqField");
 
-        BMap person = (BMap) returns;
+        BMap<?, ?> person = (BMap<?, ?>) returns;
         Assert.assertEquals(person.get(StringUtils.fromString("fname")).toString(), "default");
         Assert.assertNull(person.get(StringUtils.fromString("lname")));
         Assert.assertNull(person.get(StringUtils.fromString("age")));
 
-        BMap adrs = (BMap) person.get(StringUtils.fromString("adrs"));
+        BMap<?, ?> adrs = (BMap<?, ?>) person.get(StringUtils.fromString("adrs"));
         Assert.assertEquals(adrs.get(StringUtils.fromString("street")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("city")).toString(), "");
         Assert.assertEquals(adrs.get(StringUtils.fromString("country")).toString(), "LK");
@@ -107,7 +109,7 @@ public class OpenRecordOptionalFieldsTest {
     @Test(description = "Test non-defaultable user defined type as an optional field")
     public void testOptionalNonDefField() {
         Object returns = BRunUtil.invoke(compileResult, "testOptionalNonDefField");
-        BMap person = (BMap) returns;
+        BMap<?, ?> person = (BMap<?, ?>) returns;
         Assert.assertEquals(person.get(StringUtils.fromString("fname")).toString(), "default");
         Assert.assertNull(person.get(StringUtils.fromString("lname")));
         Assert.assertNull(person.get(StringUtils.fromString("age")));
@@ -115,7 +117,7 @@ public class OpenRecordOptionalFieldsTest {
     }
 
     @Test(description = "Test non-defaultable optional field access",
-            expectedExceptions = BLangRuntimeException.class,
+            expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = ".*TypeCastError \\{\"message\":\"incompatible types: '\\(\\)' " +
                     "cannot be cast to 'Address3'.*")
     public void testOptionalNonDefField2() {
@@ -123,7 +125,7 @@ public class OpenRecordOptionalFieldsTest {
     }
 
     @Test(description = "Test non-defaultable optional field access",
-            expectedExceptions = BLangRuntimeException.class,
+            expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = ".*KeyNotFound \\{\"message\":\"cannot find key 'adrs'.*")
     public void testOptionalNonDefField3() {
         BRunUtil.invoke(compileResult, "testOptionalNonDefField3");
@@ -146,7 +148,7 @@ public class OpenRecordOptionalFieldsTest {
     public void testOptionalDefaultableField() {
         Object returns = BRunUtil.invoke(compileResult, "testOptionalDefaultableField");
 
-        BMap person = (BMap) returns;
+        BMap<?, ?> person = (BMap<?, ?>) returns;
         Assert.assertEquals(person.get(StringUtils.fromString("fname")).toString(), "default");
         Assert.assertNull(person.get(StringUtils.fromString("lname")));
         Assert.assertNull(person.get(StringUtils.fromString("age")));

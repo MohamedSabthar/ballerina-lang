@@ -17,16 +17,21 @@
  */
 package io.ballerina.tools.text;
 
+import java.util.function.Supplier;
+
 /**
  * Contains a set of helper methods.
  */
-public class TextDocuments {
+public final class TextDocuments {
 
     private TextDocuments() {
     }
 
     public static TextDocument from(String text) {
-        return new StringTextDocument(text);
+        return new StringTextDocument.EagerStringTextDocument(text);
     }
 
+    public static TextDocument from(Supplier<String> text) {
+        return new StringTextDocument.LazyStringTextDocument(text);
+    }
 }

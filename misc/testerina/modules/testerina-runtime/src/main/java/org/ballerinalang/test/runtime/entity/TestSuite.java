@@ -37,8 +37,9 @@ public class TestSuite {
     private String version;
     private String packageName;
     private String moduleName;
-    private String packageId;
-    private String testPackageId;
+    private final String packageId;
+    private final String testPackageId;
+    private String executeFilePath;
 
     private String initFunctionName;
     private String startFunctionName;
@@ -51,14 +52,14 @@ public class TestSuite {
     private String sourceRootPath;
     private String sourceFileName;
 
-    private Map<String, String> testUtilityFunctions = new HashMap<>();
-    private List<String> beforeSuiteFunctionNames = new ArrayList<>();
-    private Map<String, AtomicBoolean> afterSuiteFunctionNames = new TreeMap<>();
-    private List<String> beforeEachFunctionNames = new ArrayList<>();
-    private List<String> afterEachFunctionNames = new ArrayList<>();
+    private final Map<String, String> testUtilityFunctions = new HashMap<>();
+    private final List<String> beforeSuiteFunctionNames = new ArrayList<>();
+    private final Map<String, AtomicBoolean> afterSuiteFunctionNames = new TreeMap<>();
+    private final List<String> beforeEachFunctionNames = new ArrayList<>();
+    private final List<String> afterEachFunctionNames = new ArrayList<>();
     private List<Test> tests = new ArrayList<>();
-    private Map<String, TestGroup> groups = new TreeMap<>();
-    private List<String> testExecutionDependencies = new ArrayList<>();
+    private final Map<String, TestGroup> groups = new TreeMap<>();
+    private final List<String> testExecutionDependencies = new ArrayList<>();
 
     private boolean isReportRequired;
     private boolean isSingleDDTExecution;
@@ -70,13 +71,14 @@ public class TestSuite {
      */
     private Map<String, String> mockFunctionNamesMap = new HashMap<>();
 
-    public TestSuite(String packageId, String testPackageId, String packageName, String orgName, String version) {
+    public TestSuite(String packageId, String testPackageId, String packageName,
+                     String orgName, String version, String executeFilePath) {
         this.packageId = packageId;
         this.testPackageId = testPackageId;
-        this.packageId = packageId;
         this.packageName = packageName;
         this.orgName = orgName;
         this.version = version;
+        this.executeFilePath = executeFilePath;
     }
 
     public String getPackageID() {
@@ -117,6 +119,14 @@ public class TestSuite {
 
     public void setVersion(String version) {
         this.version = version;
+    }
+
+    public void setExecuteFilePath(String executeFilePath) {
+        this.executeFilePath = executeFilePath;
+    }
+
+    public String getExecuteFilePath() {
+        return this.executeFilePath;
     }
 
     public String getInitFunctionName() {
@@ -235,6 +245,10 @@ public class TestSuite {
         return this.mockFunctionNamesMap;
     }
 
+    public void removeAllMockFunctions() {
+        this.mockFunctionNamesMap = new HashMap<>();
+    }
+
     public void addTestUtilityFunction(String functionName, String functionClassName) {
         this.testUtilityFunctions.put(functionName, functionClassName);
     }
@@ -322,13 +336,15 @@ public class TestSuite {
     }
 
     public void addTestExecutionDependencies(Collection<Path> dependencies) {
-        dependencies.forEach((path) -> {
-            this.testExecutionDependencies.add(path.toString());
-        });
+        dependencies.forEach((path) -> this.testExecutionDependencies.add(path.toString()));
     }
 
     public List<String> getTestExecutionDependencies() {
         return this.testExecutionDependencies;
+    }
+
+    public void removeAllTestExecutionDependencies() {
+        this.testExecutionDependencies.clear();
     }
 
     public boolean isSingleDDTExecution() {

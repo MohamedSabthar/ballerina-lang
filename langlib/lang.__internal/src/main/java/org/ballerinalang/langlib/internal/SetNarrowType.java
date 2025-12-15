@@ -23,25 +23,36 @@ import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.flags.SymbolFlags;
 import io.ballerina.runtime.api.types.RecordType;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BTypedesc;
 
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Native implementation of lang.internal:setNarrowType(typedesc, (any|error)[]).
  *
  * @since 1.2.0
  */
-public class SetNarrowType {
+public final class SetNarrowType {
 
-    public static BMap setNarrowType(BTypedesc td, BMap value) {
-        RecordType recordType = (RecordType) value.getType();
+    private static final AtomicLong nextNarrowTypeId = new AtomicLong(0);
+
+    private SetNarrowType() {
+    }
+
+    private static String getTypeName() {
+        return "narrowType" + nextNarrowTypeId.getAndIncrement();
+    }
+
+    public static BMap<?, ?> setNarrowType(BTypedesc td, BMap<?, ?> value) {
+        RecordType recordType = (RecordType) TypeUtils.getImpliedType(value.getType());
         RecordType newRecordType =
-                TypeCreator.createRecordType("narrowType", recordType.getPackage(), recordType.getTypeFlags(),
+                TypeCreator.createRecordType(getTypeName(), recordType.getPackage(), recordType.getTypeFlags(),
                                              recordType.isSealed(), recordType.getTypeFlags());
-        newRecordType.setFields(new HashMap() {{
+        newRecordType.setFields(new HashMap<>() {{
             put("value", TypeCreator.createField(td.getDescribingType(), "value",
                                                  SymbolFlags.PUBLIC + SymbolFlags.REQUIRED));
         }});

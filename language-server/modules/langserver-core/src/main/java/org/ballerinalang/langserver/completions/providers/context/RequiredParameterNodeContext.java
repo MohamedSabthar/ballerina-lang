@@ -22,12 +22,11 @@ import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.RequiredParameterNode;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
-import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 
@@ -36,7 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Handles the completions for the {@link io.ballerina.compiler.syntax.tree.RequiredParameterNode}.
+ * Handles the completions for the {@link RequiredParameterNode}.
  *
  * @since 2.0.0
  */
@@ -48,19 +47,18 @@ public class RequiredParameterNodeContext extends AbstractCompletionProvider<Req
     }
 
     @Override
-    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, RequiredParameterNode node)
-            throws LSCompletionException {
+    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, RequiredParameterNode node) {
 
         List<LSCompletionItem> completionItems = new ArrayList<>();
         NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
             /*
                 Covers the Following
                 (1) function(mod:<cursor>)
                 (2) function(mod:T<cursor>)
             */
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            completionItems.addAll(this.getCompletionItemList(QNameReferenceUtil
+            completionItems.addAll(this.getCompletionItemList(QNameRefCompletionUtil
                     .getTypesInModule(context, qNameRef), context));
         } else {
             /*

@@ -22,6 +22,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -105,6 +106,11 @@ public class RefEqualAndNotEqualOperationsTest {
         Assert.assertSame(returns.getClass(), Boolean.class);
         Assert.assertTrue((Boolean) returns,
                           "Expected floats to be identified as reference equal");
+    }
+
+    @Test
+    public void testDecimalRefEqualityPositive() {
+        BRunUtil.invoke(result, "checkDecimalRefEquality");
     }
 
     @Test(dataProvider = "unequalFloatValues")
@@ -328,14 +334,18 @@ public class RefEqualAndNotEqualOperationsTest {
                            "Expected values to be identified as not reference equal");
     }
 
-    @Test
-    public void testTupleJSONRefEquality() {
-        BRunUtil.invoke(result, "testTupleJSONRefEquality");
+    @Test(dataProvider = "function-provider")
+    public void testRefEqualsFunctions(String funcName) {
+        BRunUtil.invoke(result, funcName);
     }
 
-    @Test
-    public void testIntersectingUnionRefEquality() {
-        BRunUtil.invoke(result, "testIntersectingUnionRefEquality");
+    @DataProvider(name = "function-provider")
+    public Object[] getRefEqualsFunctions() {
+        return new String[] {
+                "testTupleJSONRefEquality",
+                "testIntersectingUnionRefEquality",
+                "testFPValueEquality"
+        };
     }
 
     @Test(dataProvider = "functionsWithXmlExactEqualityChecks")
@@ -366,16 +376,6 @@ public class RefEqualAndNotEqualOperationsTest {
         validateError(resultNegative, i++, "operator '!==' not defined for 'int' and 'string'", 20, 25);
         validateError(resultNegative, i++, "operator '===' not defined for 'int[2]' and 'string[2]'", 26, 21);
         validateError(resultNegative, i++, "operator '!==' not defined for 'int[2]' and 'string[2]'", 26, 34);
-        validateError(resultNegative, i++, "operator '===' not defined for '(float|int)?[]' and '(boolean|xml)?[]'", 30,
-                      21);
-        validateError(resultNegative, i++, "operator '!==' not defined for '(float|int)?[]' and '(boolean|xml)?[]'", 30,
-                      34);
-        validateError(resultNegative, i++, "operator '===' not defined for 'map<int>' and 'map<float>'", 38, 21);
-        validateError(resultNegative, i++, "operator '!==' not defined for 'map<int>' and 'map<float>'", 38, 34);
-        validateError(resultNegative, i++, "operator '===' not defined for 'map<(string|int)>' and 'map<float>'", 42,
-                      21);
-        validateError(resultNegative, i++, "operator '!==' not defined for 'map<(string|int)>' and 'map<float>'", 42,
-                      34);
         validateError(resultNegative, i++, "operator '===' not defined for '[string,int]' and '[boolean,float]'", 50,
                       21);
         validateError(resultNegative, i++, "operator '!==' not defined for '[string,int]' and '[boolean,float]'", 50,
@@ -390,8 +390,6 @@ public class RefEqualAndNotEqualOperationsTest {
                         "xml])' and 'json'", 68, 21);
         validateError(resultNegative, i++, "operator '!==' not defined for '(record {| xml x; anydata...; |}|[string," +
                         "xml])' and 'json'", 68, 34);
-        validateError(resultNegative, i++, "operator '===' not defined for 'Abc' and 'Def'", 76, 12);
-        validateError(resultNegative, i++, "operator '!==' not defined for 'Def' and 'Abc'", 76, 25);
         Assert.assertEquals(resultNegative.getErrorCount(), i);
     }
 
@@ -487,5 +485,11 @@ public class RefEqualAndNotEqualOperationsTest {
                 {StringUtils.fromString("Hi from Ballerina!")},
                 {ValueCreator.createMapValue()}
         };
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
+        resultNegative = null;
     }
 }

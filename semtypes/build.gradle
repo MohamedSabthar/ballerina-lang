@@ -1,10 +1,15 @@
-apply from: "$rootDir/gradle/javaProject.gradle"
+plugins {
+    id 'javaProject'
+}
 
 dependencies {
-    testImplementation 'org.testng:testng'
+    testImplementation libs.testng
 }
 
 test {
+    // Add additional system property to distinguish tests requiring all basic types
+    systemProperty "ballerina.semtype.all.types.test", "true"
+
     useTestNG() {
         suites 'src/test/resources/testng.xml'
     }

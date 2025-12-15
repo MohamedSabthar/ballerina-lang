@@ -18,12 +18,14 @@ package org.ballerinalang.debugadapter;
 
 import com.sun.jdi.ClassLoaderReference;
 import com.sun.jdi.InvalidStackFrameException;
+import com.sun.jdi.Value;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.Project;
 import org.ballerinalang.debugadapter.evaluation.DebugExpressionCompiler;
+import org.ballerinalang.debugadapter.evaluation.EvaluationException;
 import org.ballerinalang.debugadapter.jdi.JdiProxyException;
 import org.ballerinalang.debugadapter.jdi.StackFrameProxyImpl;
 import org.ballerinalang.debugadapter.jdi.ThreadReferenceProxyImpl;
@@ -36,6 +38,9 @@ import java.util.Optional;
 import static org.ballerinalang.debugadapter.DebugSourceType.DEPENDENCY;
 import static org.ballerinalang.debugadapter.DebugSourceType.PACKAGE;
 import static org.ballerinalang.debugadapter.DebugSourceType.SINGLE_FILE;
+import static org.ballerinalang.debugadapter.evaluation.EvaluationException.createEvaluationException;
+import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.STRAND_NOT_FOUND;
+import static org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils.STRAND_VAR_NAME;
 import static org.ballerinalang.debugadapter.utils.PackageUtils.getFileNameFrom;
 import static org.ballerinalang.debugadapter.utils.PackageUtils.getStackFrameSourcePath;
 
@@ -150,12 +155,9 @@ public class SuspendedContext {
 
     private Optional<Path> getSourcePath(Project sourceProject, StackFrameProxyImpl frame) {
         try {
-            Optional<Map.Entry<Path, DebugSourceType>> pathAndType = getStackFrameSourcePath(frame.location(),
-                    sourceProject);
-            if (pathAndType.isEmpty()) {
-                return Optional.empty();
-            }
-            return Optional.ofNullable(pathAndType.get().getKey());
+            Optional<Map.Entry<Path, DebugSourceType>> pathAndType = getStackFrameSourcePath(executionContext,
+                    sourceProject, frame.location());
+            return pathAndType.map(Map.Entry::getKey);
         } catch (InvalidStackFrameException | JdiProxyException e) {
             // Todo - How to handle InvalidStackFrameException?
             return Optional.empty();
@@ -173,6 +175,24 @@ public class SuspendedContext {
 
     public SemanticModel getSemanticInfo() {
         return getDebugCompiler().getSemanticInfo();
+    }
+
+    /**
+     * Returns the JDI value of the strand instance that is being used, by visiting visible variables of the given
+     * debug context.
+     *
+     * @return JDI value of the strand instance that is being used
+     */
+    public Value getCurrentStrand() throws EvaluationException {
+        try {
+            Value strand = getFrame().getValue(getFrame().visibleVariableByName(STRAND_VAR_NAME));
+            if (strand == null) {
+                throw createEvaluationException(STRAND_NOT_FOUND);
+            }
+            return strand;
+        } catch (JdiProxyException e) {
+            throw createEvaluationException(STRAND_NOT_FOUND);
+        }
     }
 
     public Optional<String> getFileName() {
@@ -239,7 +259,7 @@ public class SuspendedContext {
     private Project resolveCurrentProject(Project sourceProject) {
         Optional<Path> breakPointSourcePath = getBreakPointSourcePath(sourceProject);
         if (breakPointSourcePath.isPresent()) {
-            return executionContext.getProjectCache().getProject(breakPointSourcePath.get());
+            return executionContext.getProjectCache().getOrLoadProject(breakPointSourcePath.get());
         }
         return sourceProject;
     }

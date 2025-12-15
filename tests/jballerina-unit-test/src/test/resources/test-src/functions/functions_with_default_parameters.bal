@@ -35,7 +35,7 @@ function getBoolean() returns boolean {
 }
 
 function getRecord() returns FooRecord {
-    return { a: "default2", b: 150, c: true, d: 33.3 };
+    return {a: "default2", b: 150, c: true, d: 33.3};
 }
 
 type FooRecord record {
@@ -96,19 +96,19 @@ function foo(int a = getInt(), string b = getString(), float c = getFloat(), boo
 
 // Test 2
 function testRecordAsDefaultExpr() returns [FooRecord, FooRecord, FooRecord, FooRecord] {
-    FooRecord fRec1 = { a: "f1", b: 100, c: true, d: 22.2 };
-    FooRecord fRec2 = { a: "f2", b: 200, c: false, d: 44.4 };
+    FooRecord fRec1 = {a: "f1", b: 100, c: true, d: 22.2};
+    FooRecord fRec2 = {a: "f2", b: 200, c: false, d: 44.4};
     [FooRecord, FooRecord] x = bar(fRec2 = fRec2);
     [FooRecord, FooRecord] y = bar(fRec1 = fRec1);
     return [x[0], x[1], y[0], y[1]];
 }
 
-function bar(FooRecord fRec1 = { a: "default", b: 50, c: false, d: 11.1 }, FooRecord fRec2 = getRecord()) returns [FooRecord, FooRecord] {
+function bar(FooRecord fRec1 = {a: "default", b: 50, c: false, d: 11.1}, FooRecord fRec2 = getRecord()) returns [FooRecord, FooRecord] {
     return [fRec1, fRec2];
 }
 
 // Test 3
-function testDefaultExprInFunctionPointers() returns [int, string, float, boolean]  {
+function testDefaultExprInFunctionPointers() returns [int, string, float, boolean] {
     function (int, string, float, boolean) returns [int, string, float, boolean] fp1 = foo;
     [int, string, float, boolean] y = fp1(200, "given", 4.4, false);
     return y;
@@ -181,11 +181,11 @@ function foo5(int a = getIntOrPanic()) returns int {
 // Test 8
 function testDefaultObject() returns [[string, int], [string, int]] {
     [string, float, FooObject] a = foo7("fp");
-    [string, float, FooObject] b = foo7("fp", o = new("given", 200));
+    [string, float, FooObject] b = foo7("fp", o = new ("given", 200));
     return [a[2].getValues(), b[2].getValues()];
 }
 
-function foo7(string s, float b = 1.1, FooObject o = new("default", 100)) returns [string, float, FooObject] {
+function foo7(string s, float b = 1.1, FooObject o = new ("default", 100)) returns [string, float, FooObject] {
     return [s, b, o];
 }
 
@@ -198,9 +198,7 @@ function testDefaultByteValueInFunctionPointers() {
     function (byte b = 5) returns byte fp = funcWithDefaultByteValue;
     test:assertEquals(fp(15), 15);
     test:assertEquals(fp(funcWithDefaultByteValue()), 10);
-
-    //TODO : Enable this after merge #31589
-    //test:assertEquals(fp(), 5);
+    test:assertEquals(fp(), 5);
 }
 
 function funcWithDefaultByteValue(byte b = 10) returns byte {
@@ -244,6 +242,18 @@ public class Person {
     }
 }
 
+client class MyClient {
+    resource function get [string... path](map<string|string[]>? headers = ()) returns string {
+        return path[0];
+    }
+}
+
+final MyClient clientEP = new ();
+
+function testResourceFunctionDefaultParam() returns string|error {
+    return check clientEP->/foo/bar();
+}
+
 function testAttachedAsyncDefaultParam() returns string {
     Person p = new;
     return p.funcWithAsyncDefaultParamExpression() + p.funcWithAsyncDefaultParamExpression("world") + p.funcWithAsyncDefaultParamExpression("sample", "value");
@@ -257,6 +267,132 @@ function testUsingParamValuesInAttachedFunc() returns string {
 public function sleep(int millis) = @java:Method {
     'class: "org.ballerinalang.test.utils.interop.Utils"
 } external;
+
+function testFuncWithVariableNameFieldInMappingConstructorForDefaultValue() {
+    int a = 10;
+    function (record {|int a;|} x = {a}) returns int y = value1;
+    assertEquality(y(), 10);
+}
+
+function testFuncWithComputedNameFieldInMappingConstructorForDefaultValue() {
+    int a = 100;
+    string b = "a";
+    function (record {|int a;|} x = {a: 10, [b] : a}) returns int y = value1;
+    assertEquality(y(), 100);
+}
+
+function value1(record {|int a;|} x) returns int {
+    return x.a;
+}
+
+function testFuncWithSpreadFieldInMappingConstructorForDefaultValue() {
+    int a = 10;
+    int b = 20;
+
+    record {|int a; int b;|} r = {a: a, b: b};
+    function (record {|int a; int b;|} x = {...r}) returns int y = value2;
+    assertEquality(y(), 30);
+}
+
+function value2(record {|int a; int b;|} x) returns int {
+    return x.a + x.b;
+}
+
+type F1 function() returns int;
+
+type F2 function() returns function() returns int;
+
+function baz(int a, F1 b = function() returns int { return a + 1; }) returns int {
+    return a + b();
+}
+
+function baz1(int a, F2 b = function() returns function() returns int {
+            return function() returns int {
+                return a;
+            };
+        }) returns int {
+    F1 f = b();
+    return a + f();
+}
+
+function baz2(int a, function() returns int b = function() returns int {
+            function (int x = a) returns int f = function(int p) returns int {
+                return p + 1;
+            };
+            return f();
+        }) returns int {
+    return a + b();
+}
+
+function baz3(int a, int c, function() returns int b = function() returns int {
+            function (int x = a + c) returns int f = function(int p) returns int {
+                return p + 1;
+            };
+            return f();
+        }) returns int {
+    return a + b() + c;
+}
+
+function baz4(int a, function() returns int b = function() returns int {
+            function(int x = a) returns int f = function(int p) returns int => p + 1 + a;
+            return f();
+        }) returns int {
+    return a + b();
+}
+
+function testUsingParamInAnonFuncDefaultValueOfSubsequentParam() {
+    assertEquality(baz(10), 21);
+    assertEquality(baz1(100), 200);
+    assertEquality(baz2(10), 21);
+    assertEquality(baz3(10, 20), 61);
+    assertEquality(baz4(10), 31);
+}
+
+isolated function intOrErrorError() returns int|error => error("err!");
+isolated function intOrErrorInt() returns int|error => 4;
+
+function functionWithIndirectUsageOfCheckInParamDefault(
+    function () returns int|error fn = function () returns int|error {
+        int intResult = check intOrErrorError();
+        return intResult + 1;
+    }) returns int|error => fn();
+
+function testValidCheckUsageViaDefaults() {
+    int|error res = functionWithIndirectUsageOfCheckInParamDefault();
+    assertEquality(true, res is error);
+    error err = <error> res;
+    assertEquality("err!", err.message());
+
+    record {|
+        function (int intP = checkpanic intOrErrorError()) returns int|error x = function (int intP) returns int|error {
+            int val = check intOrErrorInt();
+            return val + intP;
+        };
+        string y;
+    |} rec = {y: "test"};
+    function (int intP = 1 + checkpanic intOrErrorInt()) returns int|error x = rec.x;
+    assertEquality(9, x());
+    assertEquality("test", rec.y);
+}
+
+public type Employee record {|
+    string firstName;
+    string lastName;
+|};
+
+public type RT object {
+    *object:RawTemplate;
+    public string[] & readonly strings;
+    public [Employee] insertions;
+};
+
+function funcWithRawTemplate(Employee e, RT fullName = `${e}`) returns string {
+    return fullName.insertions[0].firstName + " " + fullName.insertions[0].lastName;
+}
+
+function testFuncWithRawTemplate() {
+    assertEquality("Chiran Sachintha", funcWithRawTemplate({firstName: "Chiran", lastName: "Sachintha"}));
+}
 
 const ASSERTION_ERROR_REASON = "AssertionError";
 

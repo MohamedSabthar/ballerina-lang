@@ -18,7 +18,6 @@ package org.ballerinalang.docgen.generator.model;
 import com.google.gson.annotations.Expose;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Represent documentation for a Client.
@@ -27,24 +26,34 @@ public class Client extends BClass {
 
     @Expose
     public List<Function> remoteMethods;
+    @Expose
+    public List<Function> resourceMethods;
 
-    public Client(String name, String description, boolean isDeprecated, List<DefaultableVariable> fields,
-            List<Function> methods, boolean isReadOnly, boolean isIsolated) {
-        super(name, description, isDeprecated, fields, methods, isReadOnly, isIsolated);
+    public Client(String name, String description, List<String> descriptionSections, boolean isDeprecated,
+                  List<DefaultableVariable> fields, List<Function> methods, boolean isReadOnly, boolean isIsolated,
+                  boolean isService) {
+        super(name, description, descriptionSections, isDeprecated, fields, methods, isReadOnly, isIsolated, isService);
         this.remoteMethods = getRemoteMethods();
+        this.resourceMethods = getResourceMethods();
         this.otherMethods = getOtherMethods(methods);
     }
 
     @Override
     public List<Function> getOtherMethods(List<Function> methods) {
         return super.getOtherMethods(methods).stream()
-                .filter(function -> !function.isRemote)
-                .collect(Collectors.toList());
+                .filter(function -> !function.isRemote && !function.isResource)
+                .toList();
     }
 
-    public List<Function> getRemoteMethods() {
+    private List<Function> getRemoteMethods() {
         return this.methods.stream()
                 .filter(function -> function.isRemote)
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    private List<Function> getResourceMethods() {
+        return this.methods.stream()
+                .filter(function -> function.isResource)
+                .toList();
     }
 }

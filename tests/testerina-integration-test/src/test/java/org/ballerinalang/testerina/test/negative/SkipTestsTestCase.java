@@ -19,11 +19,14 @@ package org.ballerinalang.testerina.test.negative;
 
 import org.ballerinalang.test.context.BMainInstance;
 import org.ballerinalang.test.context.BallerinaTestException;
+import org.ballerinalang.test.context.Utils;
 import org.ballerinalang.testerina.test.BaseTestCase;
+import org.ballerinalang.testerina.test.utils.AssertionUtils;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.HashMap;
 
 /**
@@ -35,101 +38,114 @@ public class SkipTestsTestCase extends BaseTestCase {
     private String projectPath;
 
     @BeforeClass
-    public void setup() throws BallerinaTestException {
+    public void setup() {
         balClient = new BMainInstance(balServer);
         projectPath = singleFileTestsPath.resolve("skip-tests").toString();
     }
 
     @Test
-    public void testSkipWhenDependsOnFunctionFails() throws BallerinaTestException {
+    public void testSkipWhenDependsOnFunctionFails() throws BallerinaTestException, IOException {
         String msg1 = "2 passing";
         String msg2 = "1 failing";
         String msg3 = "2 skipped";
         String[] args = mergeCoverageArgs(new String[]{"dependson-skip-test.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when using dependsOn.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenDependsOnFunctionFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
     @Test
-    public void testSkipWhenBeforeFails() throws BallerinaTestException {
+    public void testSkipWhenBeforeFails() throws BallerinaTestException, IOException {
         String msg1 = "1 passing";
         String msg2 = "0 failing";
         String msg3 = "2 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-before-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when before test fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenBeforeFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
     @Test
-    public void testSkipWhenAfterFails() throws BallerinaTestException {
+    public void testSkipWhenAfterFails() throws BallerinaTestException, IOException {
         String msg1 = "2 passing";
         String msg2 = "0 failing";
         String msg3 = "1 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-after-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when after test fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenAfterFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
     @Test
-    public void testSkipWhenBeforeEachFails() throws BallerinaTestException {
+    public void testSkipWhenBeforeEachFails() throws BallerinaTestException, IOException {
         String msg1 = "0 passing";
         String msg2 = "0 failing";
         String msg3 = "3 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-beforeEach-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when before " +
-                    "each test fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenBeforeEachFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
 
     @Test
-    public void testSkipWhenAfterEachFails() throws BallerinaTestException {
+    public void testSkipWhenAfterEachFails() throws BallerinaTestException, IOException {
         String msg1 = "1 passing";
         String msg2 = "0 failing";
         String msg3 = "2 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-afterEach-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when after each fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenAfterEachFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
     @Test
-    public void testSkipWhenBeforeSuiteFails() throws BallerinaTestException {
+    public void testSkipWhenBeforeSuiteFails() throws BallerinaTestException, IOException {
         String msg1 = "0 passing";
         String msg2 = "0 failing";
         String msg3 = "3 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-beforeSuite-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when before suite fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenBeforeSuiteFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 
     @Test
-    public void testSkipWhenBeforeGroupsFails() throws BallerinaTestException {
+    public void testSkipWhenBeforeGroupsFails() throws BallerinaTestException, IOException {
         String msg1 = "2 passing";
         String msg2 = "0 failing";
         String msg3 = "3 skipped";
         String[] args = mergeCoverageArgs(new String[]{"skip-when-beforeGroups-fails.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        if (!output.contains(msg1) || !output.contains(msg2) || !output.contains(msg3)) {
-            Assert.fail("Test failed due to error while skipping test when before groups fails.");
+        AssertionUtils.assertOutput("SkipTestsTestCase-testSkipWhenBeforeGroupsFails.txt", output);
+        if (!Utils.isWindowsOS()) {
+            //  Skip the exit code check on Windows due to PowerShell always setting the exit code to 0.
+            Assert.assertEquals(balClient.getLastExitCode(), 1, "The exit code is not as expected.");
         }
     }
 

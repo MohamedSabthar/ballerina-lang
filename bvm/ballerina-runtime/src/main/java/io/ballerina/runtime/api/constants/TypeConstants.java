@@ -25,7 +25,7 @@ import io.ballerina.runtime.api.values.BString;
  *
  * @since 0.995.0
  */
-public class TypeConstants {
+public final class TypeConstants {
 
     public static final String INT_TNAME = "int";
     public static final String BYTE_TNAME = "byte";
@@ -59,6 +59,7 @@ public class TypeConstants {
     public static final String FINITE_TNAME = "finite";
     public static final String FUNCTION_TNAME = "function";
     public static final String READONLY_TNAME = "readonly";
+    public static final String INTERSECTION_TNAME = "intersection";
 
     // SubTypes
     public static final String SIGNED32 = "Signed32";
@@ -68,6 +69,7 @@ public class TypeConstants {
     public static final String UNSIGNED16 = "Unsigned16";
     public static final String UNSIGNED8 = "Unsigned8";
     public static final String CHAR = "Char";
+    public static final String REG_EXP = "RegExp";
     public static final String XML_ELEMENT = "Element";
     public static final String READONLY_XML_ELEMENT = "Element & readonly";
     public static final String XML_PI = "ProcessingInstruction";
@@ -86,4 +88,6 @@ public class TypeConstants {
 
     // Return type of the next function in iterators
     public static final String ITERATOR_NEXT_RETURN_TYPE = "$$returnType$$";
+
+    private TypeConstants() {}
 }

@@ -19,7 +19,6 @@ package org.ballerinalang.debugadapter.evaluation.engine.expression;
 import com.sun.jdi.Value;
 import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.api.symbols.FunctionSymbol;
-import io.ballerina.compiler.api.symbols.FunctionTypeSymbol;
 import io.ballerina.compiler.syntax.tree.FunctionCallExpressionNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
@@ -29,13 +28,13 @@ import org.ballerinalang.debugadapter.evaluation.BExpressionValue;
 import org.ballerinalang.debugadapter.evaluation.EvaluationException;
 import org.ballerinalang.debugadapter.evaluation.IdentifierModifier;
 import org.ballerinalang.debugadapter.evaluation.engine.Evaluator;
+import org.ballerinalang.debugadapter.evaluation.engine.SymbolBasedArgProcessor;
 import org.ballerinalang.debugadapter.evaluation.engine.invokable.GeneratedStaticMethod;
 import org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static io.ballerina.compiler.api.symbols.SymbolKind.FUNCTION;
 import static org.ballerinalang.debugadapter.evaluation.EvaluationException.createEvaluationException;
@@ -45,7 +44,6 @@ import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.
 import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.NON_PUBLIC_OR_UNDEFINED_ACCESS;
 import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.NON_PUBLIC_OR_UNDEFINED_FUNCTION;
 import static org.ballerinalang.debugadapter.evaluation.engine.EvaluationTypeResolver.isPublicSymbol;
-import static org.ballerinalang.debugadapter.evaluation.engine.InvocationArgProcessor.generateNamedArgs;
 import static org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils.constructQualifiedClassName;
 
 /**
@@ -75,9 +73,12 @@ public class FunctionInvocationExpressionEvaluator extends Evaluator {
             FunctionSymbol functionDef = resolveFunctionDefinitionSymbol();
             String className = constructQualifiedClassName(functionDef);
             GeneratedStaticMethod jvmMethod = EvaluationUtils.getGeneratedMethod(context, className, functionName);
-            FunctionTypeSymbol functionTypeDesc = functionDef.typeDescriptor();
-            Map<String, Value> argValueMap = generateNamedArgs(context, functionName, functionTypeDesc, argEvaluators);
-            jvmMethod.setNamedArgValues(argValueMap);
+
+            SymbolBasedArgProcessor argProcessor = new SymbolBasedArgProcessor(context, functionName, jvmMethod
+                    .getJDIMethodRef(), functionDef);
+            List<Value> orderedArgsList = argProcessor.process(argEvaluators);
+
+            jvmMethod.setArgValues(orderedArgsList);
             Value result = jvmMethod.invokeSafely();
             return new BExpressionValue(context, result);
         } catch (EvaluationException e) {
@@ -100,7 +101,7 @@ public class FunctionInvocationExpressionEvaluator extends Evaluator {
             functionMatches = resolvedImports.get(modulePrefix.get()).getResolvedSymbol().functions().stream()
                     .filter(symbol -> symbol.getName().isPresent() &&
                             modifyName(symbol.getName().get()).equals(functionName))
-                    .collect(Collectors.toList());
+                    .toList();
 
             if (functionMatches.size() == 1 && !isPublicSymbol(functionMatches.get(0))) {
                 throw createEvaluationException(NON_PUBLIC_OR_UNDEFINED_ACCESS, functionName);
@@ -113,7 +114,7 @@ public class FunctionInvocationExpressionEvaluator extends Evaluator {
                     .filter(symbol -> symbol.kind() == FUNCTION && symbol.getName().isPresent()
                             && modifyName(symbol.getName().get()).equals(functionName))
                     .map(symbol -> (FunctionSymbol) symbol)
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         if (functionMatches.isEmpty()) {

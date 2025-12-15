@@ -104,7 +104,7 @@ public class DiagnosticsTest {
                 {"too many arguments in call to 'map()'", 27, 18},
                 {"missing close parenthesis token", 27, 39},
 
-                {"invalid usage of receive expression, var not allowed", 37, 8},
+                {"receive action not supported wth 'var' type", 37, 8},
                 {"variable assignment is required", 37, 8},
                 {"missing identifier", 38, 0},
                 {"missing semicolon token", 38, 0},
@@ -133,7 +133,7 @@ public class DiagnosticsTest {
                 {"()", NIL},
                 {"map<string>", MAP},
                 {"map<$UndefinedType$>", MAP},
-                {"function ()", FUNCTION},
+                {"function (ballerina/lang.map:0.0.0:Type val) returns ballerina/lang.map:0.0.0:Type1", FUNCTION},
                 {"string", STRING},
                 {"$UndefinedType$", NONE},
         };

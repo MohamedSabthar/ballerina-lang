@@ -15,25 +15,35 @@
  */
 package org.ballerinalang.langserver.launchers.stdio;
 
+import com.google.gson.JsonObject;
 import org.ballerinalang.langserver.BallerinaLanguageServer;
+import org.ballerinalang.langserver.apispec.ApiSpecGenerator;
 import org.ballerinalang.langserver.commons.client.ExtendedLanguageClient;
 import org.eclipse.lsp4j.jsonrpc.Launcher;
+import org.eclipse.lsp4j.jsonrpc.json.JsonRpcMethod;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
 
 /**
  * Entry point of the stdio launcher.
  */
-public class Main {
+public final class Main {
+
+    private Main() {
+    }
+
     public static void main(String[] args) throws InterruptedException, ExecutionException {
         LogManager.getLogManager().reset();
-        Logger globalLogger = Logger.getLogger(java.util.logging.Logger.GLOBAL_LOGGER_NAME);
-        globalLogger.setLevel(java.util.logging.Level.OFF);
+        Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+        globalLogger.setLevel(Level.OFF);
         startServer(System.in, System.out);
     }
 
@@ -51,4 +61,17 @@ public class Main {
         Future<?> startListening = launcher.startListening();
         startListening.get();
     }
+
+    /**
+     * Generates the API specification for the supported JSON-RPC methods.
+     *
+     * @return a list of JSON objects representing the API specification.
+     */
+    public static List<JsonObject> generateApiDoc() {
+        System.getProperty("enableOutputStream", "false");
+        BallerinaLanguageServer langServer = new BallerinaLanguageServer();
+        Map<String, JsonRpcMethod> jsonRpcMethodMap = langServer.supportedMethods();
+        return jsonRpcMethodMap.values().stream().map(ApiSpecGenerator::generate).toList();
+    }
 }
+

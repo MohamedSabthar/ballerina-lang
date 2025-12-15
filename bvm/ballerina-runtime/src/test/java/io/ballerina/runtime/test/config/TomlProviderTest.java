@@ -19,13 +19,13 @@
 package io.ballerina.runtime.test.config;
 
 import io.ballerina.runtime.api.Module;
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.ArrayType;
 import io.ballerina.runtime.api.types.FiniteType;
 import io.ballerina.runtime.api.types.IntersectionType;
 import io.ballerina.runtime.api.types.MapType;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.TupleType;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.utils.StringUtils;
@@ -53,16 +53,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_ANYDATA;
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_BYTE;
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_DECIMAL;
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_FLOAT;
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_INT;
-import static io.ballerina.runtime.api.PredefinedTypes.TYPE_STRING;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_ANYDATA;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_BYTE;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_DECIMAL;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_FLOAT;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_INT;
+import static io.ballerina.runtime.api.types.PredefinedTypes.TYPE_STRING;
 import static io.ballerina.runtime.api.utils.StringUtils.fromString;
 import static io.ballerina.runtime.test.TestUtils.getConfigPath;
 import static io.ballerina.runtime.test.TestUtils.getIntersectionType;
 import static io.ballerina.runtime.test.TestUtils.getSimpleVariableKeys;
+import static io.ballerina.runtime.test.config.ConfigTest.AMBIGUOUS_UNION;
 import static io.ballerina.runtime.test.config.ConfigTest.COLOR_ENUM_UNION;
 
 /**
@@ -538,8 +539,12 @@ public class TomlProviderTest {
         VariableKey booleanArr = new VariableKey(ROOT_MODULE, "booleanArr", new BIntersectionType(ROOT_MODULE,
                 new BType[]{}, TypeCreator.createArrayType(PredefinedTypes.TYPE_BOOLEAN), 0, false), true);
         configVarMap.put(ROOT_MODULE, new VariableKey[]{intVar, stringVar, stringArr, booleanArr});
-        String tomlContent = "[rootOrg.test_module] intVar = 33 stringVar = \"xyz\" " +
-                "stringArr = [\"aa\", \"bb\", \"cc\"] booleanArr = [false, true, true, false]";
+        String tomlContent = """
+                [rootOrg.test_module]
+                intVar = 33
+                stringVar = "xyz"
+                stringArr = ["aa", "bb", "cc"]
+                booleanArr = [false, true, true, false]""";
         ConfigResolver configResolver = new ConfigResolver(configVarMap, new RuntimeDiagnosticLog(),
                 List.of(new TomlContentProvider(ROOT_MODULE, tomlContent, configVarMap.keySet())));
         Map<VariableKey, ConfigValue> configValueMap = configResolver.resolveConfigs();
@@ -566,7 +571,7 @@ public class TomlProviderTest {
 
     @Test(dataProvider = "map-data-provider")
     public void testTomlProviderMaps(String variableName, Type constraint, Map<String, Object> expectedValues) {
-        MapType type = TypeCreator.createMapType("MapType", constraint, ROOT_MODULE, false);
+        MapType type = TypeCreator.createMapType(variableName + "Type", constraint, ROOT_MODULE, false);
         IntersectionType mapType = new BIntersectionType(ROOT_MODULE, new Type[]{type, PredefinedTypes.TYPE_READONLY}
                 , type, 1, true);
         VariableKey mapVar = new VariableKey(ROOT_MODULE, variableName, mapType, true);
@@ -651,9 +656,15 @@ public class TomlProviderTest {
                                                 })},
                 // Enum value given with toml
                 {"color", COLOR_ENUM_UNION, StringUtils.fromString("RED")},
+                // union with multiple matching types
+                {"ambiguousUnionVar", AMBIGUOUS_UNION, ValueCreator
+                        .createMapValue(TypeCreator.createMapType(TYPE_STRING),
+                        new BMapInitialValueEntry[]
+                                {
+                                        ValueCreator.createKeyFieldEntry(fromString("name"), fromString("Waruna"))
+                                })},
         };
     }
-
 
     @Test(dataProvider = "finite-data-provider")
     public void testTomlProviderFiniteType(String variableName, Type type, Object expectedValues) {
@@ -674,7 +685,7 @@ public class TomlProviderTest {
         BString strVal = fromString("test");
         BDecimal decimalVal = ValueCreator.createDecimalValue("3.23");
         FiniteType stringFinite = TypeCreator.createFiniteType(typeName, Set.of(strVal), 0);
-        FiniteType intFinite = TypeCreator.createFiniteType(typeName, Set.of(2L), 0);
+        FiniteType intFinite = TypeCreator.createFiniteType(typeName, Set.of(2), 0);
         FiniteType floatFinite = TypeCreator.createFiniteType(typeName, Set.of(2.2d), 0);
         FiniteType decimalFinite = TypeCreator.createFiniteType(typeName, Set.of(decimalVal), 0);
         FiniteType booleanFinite = TypeCreator.createFiniteType(typeName, Set.of(true), 0);
@@ -683,7 +694,7 @@ public class TomlProviderTest {
         FiniteType unionFinite3 = TypeCreator.createFiniteType(typeName, Set.of(3.23d, decimalVal, strVal), 0);
         return new Object[][]{
                 {"stringSingleton", stringFinite, strVal},
-                {"intSingleton", intFinite, 2L},
+                {"intSingleton", intFinite, 2},
                 {"floatSingleton", floatFinite, 2.2d},
                 {"decimalSingleton", decimalFinite, decimalVal},
                 {"booleanSingleton", booleanFinite, true},
@@ -691,7 +702,7 @@ public class TomlProviderTest {
                 {"unionVar2", unionFinite2, decimalVal},
                 {"unionVar3", unionFinite3, strVal},
                 {"stringSingleton2", getIntersectionType(ROOT_MODULE, stringFinite), strVal},
-                {"intSingleton2", getIntersectionType(ROOT_MODULE, intFinite), 2L},
+                {"intSingleton2", getIntersectionType(ROOT_MODULE, intFinite), 2},
                 {"floatSingleton2", getIntersectionType(ROOT_MODULE, floatFinite), 2.2d},
                 {"decimalSingleton2", getIntersectionType(ROOT_MODULE, decimalFinite), decimalVal},
                 {"booleanSingleton2", getIntersectionType(ROOT_MODULE, booleanFinite), true},
@@ -746,6 +757,38 @@ public class TomlProviderTest {
         Map<VariableKey, ConfigValue> configValueMap = configResolver.resolveConfigs();
 
         Object value = configValueMap.get(intVar).getValue();
-        Assert.assertEquals(12L, value);
+        Assert.assertEquals(value, 12L);
+    }
+
+    @Test(dataProvider = "array-size-tests")
+    public void testArraySize(Type elementType, String varName, String stringValue) {
+        ArrayType arrayType = TypeCreator.createArrayType(elementType, 4, true);
+        VariableKey arr = new VariableKey(ROOT_MODULE, varName,
+                new BIntersectionType(ROOT_MODULE, new Type[]{arrayType, PredefinedTypes.TYPE_READONLY}, arrayType, 0,
+                        true), true);
+        Map<Module, VariableKey[]> configVarMap = Map.ofEntries(Map.entry(ROOT_MODULE, new VariableKey[]{arr}));
+        RuntimeDiagnosticLog diagnosticLog = new RuntimeDiagnosticLog();
+        ConfigResolver configResolver = new ConfigResolver(configVarMap, diagnosticLog,
+                List.of(new TomlFileProvider(ROOT_MODULE, getConfigPath("ArraySize.toml"),
+                        configVarMap.keySet())));
+        Map<VariableKey, ConfigValue> valueMap = configResolver.resolveConfigs();
+        Assert.assertEquals(diagnosticLog.getWarningCount(), 0);
+        Object value = valueMap.get(arr).getValue();
+        Assert.assertEquals(value.toString(), stringValue);
+    }
+
+    @DataProvider(name = "array-size-tests")
+    public Object[][] getArraySizeTests() {
+        MapType mapType = TypeCreator.createMapType(TYPE_ANYDATA);
+        return new Object[][]{
+                {PredefinedTypes.TYPE_INT, "intArr", "[1,2,3,0]"},
+                {TypeCreator.createMapType(PredefinedTypes.TYPE_INT, true), "mapArr", "[{\"a\":1},{\"a\":2}," +
+                        "{\"a\":3},{}]"},
+                {TypeCreator.createMapType(TYPE_ANYDATA, true), "mapAnydataArr", "[{\"a\":\"a\"},{\"a\":\"b\"}," +
+                        "{\"a\":\"c\"},{}]"},
+                {TYPE_ANYDATA, "anydataArr1", "[1,\"b\",1.23,null]"},
+                {TypeCreator.createUnionType(List.of(mapType, PredefinedTypes.TYPE_INT), true), "anydataArr2", "[{\"a" +
+                        "\":\"a\"},{\"b\":1},{\"c\":1.23},null]"},
+        };
     }
 }

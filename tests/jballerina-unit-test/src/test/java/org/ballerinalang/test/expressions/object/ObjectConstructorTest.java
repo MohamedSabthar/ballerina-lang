@@ -17,6 +17,7 @@
 */
 package org.ballerinalang.test.expressions.object;
 
+import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
@@ -35,14 +36,14 @@ import static org.ballerinalang.test.BAssertUtil.validateError;
 public class ObjectConstructorTest {
 
     private CompileResult compiledConstructedObjects, closures, annotations, multiLevelClosures;
-    private static String path = "test-src/expressions/object/";
+    private static final String PATH = "test-src/expressions/object/";
 
     @BeforeClass
     public void setup() {
-        compiledConstructedObjects = BCompileUtil.compile(path + "object_constructor_expression.bal");
-        closures = BCompileUtil.compile(path + "object_closures.bal");
-        multiLevelClosures = BCompileUtil.compile(path + "object_multilevel_closures.bal");
-        annotations = BCompileUtil.compile(path + "object_closures_annotations.bal");
+        compiledConstructedObjects = BCompileUtil.compile(PATH + "object_constructor_expression.bal");
+        closures = BCompileUtil.compile(PATH + "object_closures.bal");
+        multiLevelClosures = BCompileUtil.compile(PATH + "object_multilevel_closures.bal");
+        annotations = BCompileUtil.compile(PATH + "object_closures_annotations.bal");
     }
 
     @DataProvider(name = "ObjectCtorTestFunctionList")
@@ -57,6 +58,9 @@ public class ObjectConstructorTest {
                 {"testObjectConstructorWithDistinctTypeReferenceVar"},
                 {"testObjectConstructorWithDefiniteTypeAndWithoutReference"},
                 {"testObjectConstructorExprWithReadOnlyCET"},
+                {"testMultipleVarAssignments"},
+                {"testLocalVariablesAsFieldDefaults"},
+                {"testModuleLevelObjectCtrWithModuleLevelVariableAsFieldDefaults"}
         };
     }
 
@@ -88,7 +92,7 @@ public class ObjectConstructorTest {
     }
 
     @Test(dataProvider = "ObjectCtorTestFunctionList")
-    public void testCompiledConstructedObjects(String funcName) {
+    public void testImplementationdConstructedObjects(String funcName) {
         BRunUtil.invoke(compiledConstructedObjects, funcName);
     }
 
@@ -156,30 +160,30 @@ public class ObjectConstructorTest {
                         "type 'any'", 42, 9);
         validateError(negativeResult, index++, "invalid usage of 'object constructor expression' with " +
                 "type '(DistinctFooA|DistinctFoo)'", 53, 47);
-        validateError(negativeResult, index++, "incompatible types: expected 'string[] & readonly', found 'string[]'",
+        validateError(negativeResult, index++, "incompatible types: expected '(string[] & readonly)', found 'string[]'",
                       84, 22);
         validateError(negativeResult, index++, "incompatible types: expected 'ReadOnlyClass', " +
                               "found 'isolated object { final int a; final (string[] & readonly) s; } & readonly'",
                       87, 24);
-        validateError(negativeResult, index++, "incompatible types: expected 'string[] & readonly', found 'string[]'",
-                      89, 22);
-        validateError(negativeResult, index++, "incompatible types: expected 'string[] & readonly', found 'string[]'",
-                      94, 22);
-        validateError(negativeResult, index++, "incompatible types: expected '()', found 'stream<string>'",
-                      95, 29);
-        validateError(negativeResult, index++, "incompatible types: expected 'string[] & readonly', found 'string[]'",
-                      104, 22);
-        validateError(negativeResult, index++, "incompatible types: expected '()', found 'stream<string>'",
-                      105, 22);
-        validateError(negativeResult, index++, "incompatible types: expected 'string[] & readonly', found 'string[]'",
-                      113, 22);
-        validateError(negativeResult, index++, "incompatible types: expected '()', found 'stream<string>'",
-                      117, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(string[] & readonly)', found" +
+                        " 'string[]'", 89, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(string[] & readonly)', found" +
+                        " 'string[]'", 94, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(stream<string>? & readonly)'" +
+                        ", found 'stream<string>'", 95, 29);
+        validateError(negativeResult, index++, "incompatible types: expected '(string[] & readonly)', found" +
+                        " 'string[]'", 104, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(stream<string>? & readonly)'," +
+                        " found 'stream<string>'", 105, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(string[] & readonly)', found" +
+                        " 'string[]'", 113, 22);
+        validateError(negativeResult, index++, "incompatible types: expected '(stream<string>? & readonly)'," +
+                        " found 'stream<string>'", 117, 22);
         validateError(negativeResult, index++,
                 "no implementation found for the method 'onMessage' of object constructor " +
                         "'object { function onMessage () returns (); }'", 127, 14);
-        validateError(negativeResult, index++, "incompatible types: expected 'any & readonly', found 'stream<int>'",
-                      140, 17);
+        validateError(negativeResult, index++, "incompatible types: expected '(any & readonly)', found" +
+                        " 'stream<int>'", 140, 17);
         validateError(negativeResult, index++, "annotation not attached to a construct", 153, 14);
         validateError(negativeResult, index++, "missing object constructor expression", 153, 14);
         validateError(negativeResult, index++, "missing semicolon token", 154, 1);
@@ -187,6 +191,10 @@ public class ObjectConstructorTest {
         validateError(negativeResult, index++, "missing object constructor expression", 154, 14);
         validateError(negativeResult, index++, "annotation not attached to a construct", 154, 18);
         validateError(negativeResult, index++, "missing semicolon token", 155, 1);
+        validateError(negativeResult, index++, "incompatible types: expected 'object { resource " +
+                "function get name() returns (); }', found 'isolated object { }'", 159, 7);
+        validateError(negativeResult, index++, "incompatible types: expected 'object { resource " +
+                "function get name() returns (); }', found 'isolated object { }'", 163, 7);
         Assert.assertEquals(negativeResult.getErrorCount(), index);
     }
 
@@ -209,10 +217,13 @@ public class ObjectConstructorTest {
         CompileResult negativeResult = BCompileUtil.compile(
                 "test-src/expressions/object/object_constructor_redeclared_symbols_negative.bal");
         int index = 0;
-        validateError(negativeResult, index++, "redeclared symbol 'age'", 7, 32);
-        validateError(negativeResult, index++, "redeclared symbol 'age'", 11, 42);
+        validateError(negativeResult, index++, "redeclared symbol 'age'", 7, 36);
+        validateError(negativeResult, index++, "redeclared symbol 'age'", 11, 46);
         validateError(negativeResult, index++, "redeclared symbol 'age'", 12, 17);
         validateError(negativeResult, index++, "redeclared symbol 'age'", 17, 17);
+        validateError(negativeResult, index++, "incompatible types: expected 'object { public function getSum " +
+             "(int) returns (int); }', found 'isolated object { public function getSum (other) returns (int); public " +
+             "function getAge (int,other) returns (int); public function getAgeOf () returns (int); }'", 23, 12);
         Assert.assertEquals(negativeResult.getErrorCount(), index);
     }
 
@@ -226,6 +237,16 @@ public class ObjectConstructorTest {
     @Test(dataProvider = "MultiLevelClosureTestFunctionList")
     public void testMultiLevelClosures(String funcName) {
         BRunUtil.invoke(multiLevelClosures, funcName);
+    }
+
+    @Test
+    public void testInvalidFieldsInObjectCtr() {
+        CompileResult result =
+                BCompileUtil.compile("test-src/expressions/object/object_constructor_fields_negative.bal");
+        int i = 0;
+        BAssertUtil.validateError(result, i++, "undefined symbol 'x'", 22, 17);
+        BAssertUtil.validateError(result, i++, "undefined symbol 'x'", 33, 13);
+        Assert.assertEquals(result.getErrorCount(), i);
     }
 
     @AfterClass

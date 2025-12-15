@@ -17,6 +17,8 @@
  */
 package io.ballerina.runtime.api.creators;
 
+import com.github.benmanes.caffeine.cache.Interner;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import io.ballerina.runtime.api.Module;
 import io.ballerina.runtime.api.types.ArrayType;
 import io.ballerina.runtime.api.types.ErrorType;
@@ -30,6 +32,7 @@ import io.ballerina.runtime.api.types.StreamType;
 import io.ballerina.runtime.api.types.TableType;
 import io.ballerina.runtime.api.types.TupleType;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeIdentifier;
 import io.ballerina.runtime.api.types.UnionType;
 import io.ballerina.runtime.api.types.XmlType;
 import io.ballerina.runtime.internal.types.BArrayType;
@@ -45,19 +48,22 @@ import io.ballerina.runtime.internal.types.BTableType;
 import io.ballerina.runtime.internal.types.BTupleType;
 import io.ballerina.runtime.internal.types.BUnionType;
 import io.ballerina.runtime.internal.types.BXmlType;
+import io.ballerina.runtime.internal.types.semtype.CacheFactory;
+import io.ballerina.runtime.internal.values.ValueCreator;
 
 import java.util.Arrays;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Class @{@link TypeCreator} provides APIs to create ballerina type instances.
  *
  * @since 2.0.0
  */
-public class TypeCreator {
-
+public final class TypeCreator {
     /**
      * Creates a new array type with given element type.
      *
@@ -65,7 +71,7 @@ public class TypeCreator {
      * @return the new array type
      */
     public static ArrayType createArrayType(Type elementType) {
-        return new BArrayType(elementType);
+        return ARRAY_TYPE_CACHE.get(elementType);
     }
 
     /**
@@ -109,7 +115,10 @@ public class TypeCreator {
      * @return the new tuple type
      */
     public static TupleType createTupleType(List<Type> typeList) {
-        return new BTupleType(typeList);
+        if (typeList.size() > 20) {
+            return new BTupleType(typeList);
+        }
+        return TUPLE_TYPE_CACHE.get(typeList);
     }
 
     /**
@@ -146,8 +155,8 @@ public class TypeCreator {
      * @param readonly  whether immutable
      * @return the new tuple type
      */
-    public static TupleType createTupleType(List<Type> typeList, Type restType,
-                  int typeFlags, boolean isCyclic, boolean readonly) {
+    public static TupleType createTupleType(List<Type> typeList, Type restType, int typeFlags, boolean isCyclic,
+                                            boolean readonly) {
         return new BTupleType(typeList, restType, typeFlags, isCyclic, readonly);
     }
 
@@ -161,19 +170,19 @@ public class TypeCreator {
      * @param readonly  whether immutable
      * @return the new tuple type
      */
-    public static TupleType createTupleType(String name, Module pkg,
-                  int typeFlags, boolean isCyclic, boolean readonly) {
+    public static TupleType createTupleType(String name, Module pkg, int typeFlags, boolean isCyclic,
+                                            boolean readonly) {
         return new BTupleType(name, pkg, typeFlags, isCyclic, readonly);
     }
 
     /**
-    * Create a {@code MapType} which represents the map type.
-    *
-    * @param constraint constraint type which particular map is bound to.
-    * @return the new map type
-    */
+     * Create a {@code MapType} which represents the map type.
+     *
+     * @param constraint constraint type which particular map is bound to.
+     * @return the new map type
+     */
     public static MapType createMapType(Type constraint) {
-        return new BMapType(constraint);
+        return MAP_TYPE_CACHE.get(constraint);
     }
 
     /**
@@ -213,7 +222,7 @@ public class TypeCreator {
     }
 
     /**
-     * Create a {@code BRecordType} which represents the user defined record type.
+     * Create a {@code RecordType} which represents the user defined record type.
      *
      * @param typeName  string name of the record type
      * @param module    package of the record type
@@ -224,11 +233,15 @@ public class TypeCreator {
      */
     public static RecordType createRecordType(String typeName, Module module, long flags, boolean sealed,
                                               int typeFlags) {
-        return new BRecordType(typeName, module, flags, sealed, typeFlags);
+        RecordType recordType = getRecordType(typeName, module);
+        if (recordType != null) {
+            return recordType;
+        }
+        return new BRecordType(typeName, typeName, module, flags, sealed, typeFlags);
     }
 
     /**
-     * Create a {@code BRecordType} which represents the user defined record type.
+     * Create a {@code RecordType} which represents the user defined record type.
      *
      * @param typeName      string name of the record type
      * @param module        package of the record type
@@ -240,9 +253,32 @@ public class TypeCreator {
      * @return the new record type
      */
     public static RecordType createRecordType(String typeName, Module module, long flags, Map<String, Field> fields,
-                                              Type restFieldType,
-                                              boolean sealed, int typeFlags) {
+                                              Type restFieldType, boolean sealed, int typeFlags) {
+        RecordType recordType = getRecordType(typeName, module);
+        if (recordType != null) {
+            return recordType;
+        }
         return new BRecordType(typeName, module, flags, fields, restFieldType, sealed, typeFlags);
+    }
+
+    private static RecordType getRecordType(String typeName, Module module) {
+        if (module == null) {
+            return null;
+        }
+        String lookupKey = ValueCreator.getLookupKey(module, false);
+        RecordType recordType = null;
+        if (ValueCreator.containsValueCreator(lookupKey)) {
+            recordType = ValueCreator.getValueCreator(lookupKey).getRecordType(typeName);
+        }
+        if (recordType != null) {
+            return recordType;
+        }
+        // If record type definition not found, get it from test module.
+        lookupKey = ValueCreator.getLookupKey(module, true);
+        if (ValueCreator.containsValueCreator(lookupKey)) {
+            return ValueCreator.getValueCreator(lookupKey).getRecordType(typeName);
+        }
+        return null;
     }
 
     /**
@@ -315,21 +351,24 @@ public class TypeCreator {
      * @return the new union type
      */
     public static UnionType createUnionType(Type... memberTypes) {
-        return new BUnionType(Arrays.asList(memberTypes));
+        return createUnionType(Arrays.asList(memberTypes));
     }
 
     /**
-     * Create a {@code BUnionType} which represents the union type.
+     * Create a {@code UnionType} which represents the union type.
      *
      * @param memberTypes of the union type
      * @return the new union type
      */
     public static UnionType createUnionType(List<Type> memberTypes) {
-        return new BUnionType(memberTypes);
+        if (memberTypes.size() > 20) {
+            return new BUnionType(memberTypes);
+        }
+        return UNION_TYPE_CACHE.get(memberTypes);
     }
 
     /**
-     * Create a {@code BUnionType} which represents the union type.
+     * Create a {@code UnionType} which represents the union type.
      *
      * @param memberTypes of the union type
      * @param typeFlags   flags associated with the type
@@ -340,7 +379,7 @@ public class TypeCreator {
     }
 
     /**
-     * Create a {@code BUnionType} which represents the union type.
+     * Create a {@code UnionType} which represents the union type.
      *
      * @param memberTypes of the union type
      * @param readonly    whether immutable
@@ -351,7 +390,7 @@ public class TypeCreator {
     }
 
     /**
-     * Create a {@code BUnionType} which represents the union type.
+     * Create a {@code UnionType} which represents the union type.
      *
      * @param memberTypes of the union type
      * @param typeFlags   flags associated with the type
@@ -363,7 +402,7 @@ public class TypeCreator {
     }
 
     /**
-     * Create a {@code BUnionType} which represents the union type.
+     * Create a {@code UnionType} which represents the union type.
      *
      * @param memberTypes list of member types in the union type
      * @param name      type name
@@ -417,7 +456,7 @@ public class TypeCreator {
      * Create a {@code Table} which represents the table type.
      *
      * @param constraint constraint type
-     * @param fieldNames filed names
+     * @param fieldNames field names
      * @param readonly   whether immutable
      * @return new table type
      */
@@ -503,7 +542,7 @@ public class TypeCreator {
      * @return new finite type
      */
     public static FiniteType createFiniteType(String typeName) {
-        return new BFiniteType(typeName);
+        return FINITE_TYPE_CACHE.get(typeName);
     }
 
     /**
@@ -519,5 +558,59 @@ public class TypeCreator {
     }
 
     private TypeCreator() {
+    }
+
+    public static void resetAllCaches() {
+        RecordTypeCache.cache.clear();
+    }
+
+    private static final class RecordTypeCache {
+
+        private static final Map<TypeIdentifier, BRecordType> cache = CacheFactory.createCachingHashMap();
+
+        BRecordType get(TypeIdentifier key) {
+            return cache.get(key);
+        }
+
+        void put(TypeIdentifier identifier, BRecordType value) {
+            cache.put(identifier, value);
+        }
+    }
+
+    private static final ConstraintTypeCache<List<Type>, TupleType> TUPLE_TYPE_CACHE =
+            new ConstraintTypeCache<>(BTupleType::new);
+
+    private static final ConstraintTypeCache<Type, ArrayType> ARRAY_TYPE_CACHE =
+            new ConstraintTypeCache<>(BArrayType::new);
+
+    private static final ConstraintTypeCache<Type, MapType> MAP_TYPE_CACHE = new ConstraintTypeCache<>(BMapType::new);
+
+    private static final ConstraintTypeCache<List<Type>, UnionType> UNION_TYPE_CACHE =
+            new ConstraintTypeCache<>(BUnionType::new);
+
+    private static final LoadingCache<String, FiniteType> FINITE_TYPE_CACHE =
+            CacheFactory.createCache(BFiniteType::new);
+
+    public static class ConstraintTypeCache<C, T> {
+
+        // NOTE: This is dangerous since interner has strong references to canonical values
+        private final Interner<C> constraintInterner = CacheFactory.createInterner();
+        private final Map<C, T> cache = new IdentityHashMap<>();
+        private final Function<C, T> createFn;
+
+        protected ConstraintTypeCache(Function<C, T> createFn) {
+            this.createFn = createFn;
+        }
+
+        T get(C constraint) {
+            C canonical = constraintInterner.intern(constraint);
+            var cached = cache.get(canonical);
+            if (cached != null) {
+                return cached;
+            }
+            cached = createFn.apply(constraint);
+            cache.put(constraint, cached);
+            return cached;
+        }
     }
 }

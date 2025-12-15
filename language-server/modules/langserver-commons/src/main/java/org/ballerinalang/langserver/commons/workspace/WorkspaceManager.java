@@ -24,6 +24,8 @@ import io.ballerina.projects.Module;
 import io.ballerina.projects.ModuleCompilation;
 import io.ballerina.projects.PackageCompilation;
 import io.ballerina.projects.Project;
+import io.ballerina.projects.ProjectException;
+import org.ballerinalang.langserver.commons.eventsync.exceptions.EventSyncException;
 import org.eclipse.lsp4j.DidChangeTextDocumentParams;
 import org.eclipse.lsp4j.DidChangeWatchedFilesParams;
 import org.eclipse.lsp4j.DidCloseTextDocumentParams;
@@ -32,9 +34,12 @@ import org.eclipse.lsp4j.FileEvent;
 import org.eclipse.lsp4j.jsonrpc.CancelChecker;
 import org.eclipse.lsp4j.jsonrpc.validation.NonNull;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Contains a set of utility methods to manage projects.
@@ -86,6 +91,15 @@ public interface WorkspaceManager {
     Optional<Project> project(Path filePath);
 
     /**
+     * Load the project from the path provided.
+     *
+     * @param filePath ballerina project or standalone file path
+     * @return project of applicable type
+     * @throws ProjectException when the filePath is invalid
+     */
+    Project loadProject(Path filePath) throws ProjectException, WorkspaceDocumentException, EventSyncException;
+
+    /**
      * Returns module from the path provided.
      *
      * @param filePath file path of the document
@@ -123,7 +137,7 @@ public interface WorkspaceManager {
      * Returns syntax tree from the path provided.
      *
      * @param filePath file path of the document
-     * @return {@link io.ballerina.compiler.syntax.tree.SyntaxTree}
+     * @return {@link SyntaxTree}
      */
     Optional<SyntaxTree> syntaxTree(Path filePath);
 
@@ -132,7 +146,7 @@ public interface WorkspaceManager {
      *
      * @param filePath      file path of the document
      * @param cancelChecker Cancel checker for the operation which calls this method
-     * @return {@link io.ballerina.compiler.syntax.tree.SyntaxTree}
+     * @return {@link SyntaxTree}
      */
     Optional<SyntaxTree> syntaxTree(Path filePath, CancelChecker cancelChecker);
 
@@ -194,9 +208,8 @@ public interface WorkspaceManager {
      *
      * @param filePath {@link Path} of the document
      * @param params   {@link DidCloseTextDocumentParams}
-     * @throws WorkspaceDocumentException project not found
      */
-    void didClose(Path filePath, DidCloseTextDocumentParams params) throws WorkspaceDocumentException;
+    void didClose(Path filePath, DidCloseTextDocumentParams params);
 
     /**
      * The file change notification is sent from the client to the server to signal changes to watched files.
@@ -206,7 +219,7 @@ public interface WorkspaceManager {
      * @throws WorkspaceDocumentException when project or document not found
      */
     void didChangeWatched(Path filePath, FileEvent fileEvent) throws WorkspaceDocumentException;
-    
+
     /**
      * The file change notification is sent from the client to the server to signal changes to watched files.
      *
@@ -223,4 +236,29 @@ public interface WorkspaceManager {
      * @return {@link String}
      */
     String uriScheme();
+
+    /**
+     * Compiles and runs the project of the given file path. Run happens in a separate process.
+     *
+     * @param runContext context related to the project to be run.
+     * @return Process created by running the project. Empty if failed due to non process related issues.
+     * @throws IOException If failed to start the process.
+     * @since 2201.6.0
+     */
+    RunResult run(RunContext runContext) throws IOException;
+
+    /**
+     * Stop a running process started with {@link #run}.
+     * @param filePath Path that belongs to the project to be stopped.
+     * @return {@code true} if the process was stopped successfully (or already dead), {@code false} otherwise.
+     * @since 2201.6.0
+     */
+    boolean stop(Path filePath);
+
+    /**
+     * Returns the map of projects loaded in the workspace manager.
+     *
+     * @return map of project's source root to project 
+     */
+    CompletableFuture<Map<Path, Project>> workspaceProjects();
 }

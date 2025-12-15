@@ -17,24 +17,27 @@
  */
 package io.ballerina.projects;
 
+import io.ballerina.projects.internal.DefaultDiagnosticResult;
+import io.ballerina.projects.internal.PackageDiagnostic;
+import io.ballerina.projects.internal.ProjectDiagnosticErrorCode;
+import io.ballerina.projects.util.ProjectConstants;
 import io.ballerina.projects.util.ProjectUtils;
-import org.wso2.ballerinalang.compiler.semantics.analyzer.ObservabilitySymbolCollectorRunner;
-import org.wso2.ballerinalang.compiler.spi.ObservabilitySymbolCollector;
-import org.wso2.ballerinalang.compiler.util.CompilerContext;
+import io.ballerina.tools.diagnostics.Diagnostic;
+import io.ballerina.tools.diagnostics.DiagnosticInfo;
+import io.ballerina.tools.diagnostics.DiagnosticSeverity;
+import org.apache.maven.artifact.versioning.ComparableVersion;
 import org.wso2.ballerinalang.compiler.util.CompilerUtils;
 
-import java.io.IOException;
-import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.file.Path;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static io.ballerina.identifier.Utils.encodeNonFunctionIdentifier;
@@ -54,7 +57,9 @@ public class JarResolver {
     private final JBallerinaBackend jBalBackend;
     private final PackageResolution pkgResolution;
     private final PackageContext rootPackageContext;
-    private final PrintStream err = System.err;
+    private final List<Diagnostic> diagnosticList;
+    private DiagnosticResult diagnosticResult;
+    private final List<PlatformLibrary> providedPlatformLibs;
 
     private ClassLoader classLoaderWithAllJars;
 
@@ -62,6 +67,24 @@ public class JarResolver {
         this.jBalBackend = jBalBackend;
         this.pkgResolution = pkgResolution;
         this.rootPackageContext = pkgResolution.packageContext();
+        this.diagnosticList = new ArrayList<>();
+        this.providedPlatformLibs = new ArrayList<>();
+    }
+
+    DiagnosticResult diagnosticResult() {
+        if (this.diagnosticResult == null) {
+            this.diagnosticResult = new DefaultDiagnosticResult(this.diagnosticList);
+        }
+        return diagnosticResult;
+    }
+
+    /**
+     * Returns a list of platform libraries with provided scope used in dependencies.
+     *
+     * @return list of platform libraries with provided scope
+     */
+    public List<PlatformLibrary> providedPlatformLibs() {
+        return providedPlatformLibs;
     }
 
     // TODO These method names are too long. Refactor them soon
@@ -70,6 +93,7 @@ public class JarResolver {
         Set<JarLibrary> jarFiles = new HashSet<>();
         addCodeGeneratedLibraryPaths(rootPackageContext, PlatformLibraryScope.DEFAULT, jarFiles);
         addPlatformLibraryPaths(rootPackageContext, PlatformLibraryScope.DEFAULT, jarFiles);
+        addPlatformLibraryPaths(rootPackageContext, PlatformLibraryScope.PROVIDED, jarFiles);
 
         // 2) Get all the dependencies of the root package including transitives.
         // Filter out PackageDependencyScope.TEST_ONLY scope dependencies and lang libs
@@ -83,42 +107,26 @@ public class JarResolver {
                     addCodeGeneratedLibraryPaths(pkgContext, PlatformLibraryScope.DEFAULT, jarFiles);
                     // All platform-specific libraries(specified in Ballerina.toml) having the default scope
                     addPlatformLibraryPaths(pkgContext, PlatformLibraryScope.DEFAULT, jarFiles);
+                    addPlatformLibraryPaths(pkgContext, PlatformLibraryScope.PROVIDED, jarFiles, true);
                 });
 
         // 3) Add the runtime library path
+        String packageName = getPackageName(rootPackageContext);
         jarFiles.add(new JarLibrary(jBalBackend.runtimeLibrary().path(),
-                                    PlatformLibraryScope.DEFAULT,
-                                    getPackageName(rootPackageContext)));
+                PlatformLibraryScope.DEFAULT,
+                packageName));
 
-        // TODO: Move to a compiler extension once Compiler revamp is complete
-        // 4) Add the Observability Symbols Jar
-        if (rootPackageContext.compilationOptions().observabilityIncluded()) {
-            try {
-                // Generating an empty Jar which can be used by the Observability Symbol Collector
-                String packageName = rootPackageContext.packageOrg().value() + "-"
-                        + rootPackageContext.packageName().value();
-                Path observabilityJarPath = ProjectUtils.generateObservabilitySymbolsJar(packageName);
-
-                // Writing the Syntax Tree to the Jar
-                CompilerContext compilerContext = rootPackageContext.project().projectEnvironmentContext()
-                        .getService(CompilerContext.class);
-                ObservabilitySymbolCollector observabilitySymbolCollector
-                        = ObservabilitySymbolCollectorRunner.getInstance(compilerContext);
-                observabilitySymbolCollector.writeToExecutable(observabilityJarPath);
-
-                jarFiles.add(new JarLibrary(observabilityJarPath, PlatformLibraryScope.DEFAULT,
-                        getPackageName(rootPackageContext)));
-            } catch (IOException e) {
-                err.println("\twarning: Failed to add Observability information to Jar due to: " + e.getMessage());
-            }
-        }
-
+        // Add resources
+        Optional.ofNullable(jBalBackend.codeGeneratedResourcesLibrary(rootPackageContext.packageId()))
+                .ifPresent(library -> jarFiles.add(
+                        new JarLibrary(library.path(), PlatformLibraryScope.DEFAULT,
+                                packageName)));
         // TODO Filter out duplicate jar entries
         return jarFiles;
     }
 
     private void addCodeGeneratedLibraryPaths(PackageContext packageContext, PlatformLibraryScope scope,
-            Set<JarLibrary> libraryPaths) {
+                                              Set<JarLibrary> libraryPaths) {
         for (ModuleId moduleId : packageContext.moduleIds()) {
             ModuleContext moduleContext = packageContext.moduleContext(moduleId);
             PlatformLibrary generatedJarLibrary = jBalBackend.codeGeneratedLibrary(
@@ -130,20 +138,70 @@ public class JarResolver {
     private void addPlatformLibraryPaths(PackageContext packageContext,
                                          PlatformLibraryScope scope,
                                          Set<JarLibrary> libraryPaths) {
+        addPlatformLibraryPaths(packageContext, scope, libraryPaths, false);
+    }
+
+    private void addPlatformLibraryPaths(PackageContext packageContext,
+                                         PlatformLibraryScope scope,
+                                         Set<JarLibrary> libraryPaths,
+                                         boolean addProvidedJars) {
         // Add all the jar library dependencies of current package (packageId)
         Collection<PlatformLibrary> otherJarDependencies = jBalBackend.platformLibraryDependencies(
                 packageContext.packageId(), scope);
-
-        List<String> fileNames = new ArrayList();
-        libraryPaths.stream().forEach(e -> fileNames.add(e.path().toFile().getName()));
-
+        if (addProvidedJars) {
+            providedPlatformLibs.addAll(otherJarDependencies);
+        }
         for (PlatformLibrary otherJarDependency : otherJarDependencies) {
-            if (!fileNames.contains(otherJarDependency.path().toFile().getName())) {
+            JarLibrary newEntry = (JarLibrary) otherJarDependency;
+
+            if (newEntry.groupId().isEmpty() || newEntry.artifactId().isEmpty() || newEntry.version().isEmpty()) {
                 libraryPaths.add(new JarLibrary(otherJarDependency.path(), scope, getPackageName(packageContext)));
+                continue;
             }
+            if (libraryPaths.contains(newEntry)) {
+                JarLibrary existingEntry = libraryPaths.stream().filter(jarLibrary1 ->
+                        jarLibrary1.equals(newEntry)).findAny().orElseThrow();
+                if (existingEntry.groupId().isEmpty() || existingEntry.artifactId().isEmpty() ||
+                        existingEntry.version().isEmpty()) {
+                    continue;
+                }
+                ComparableVersion existingVersion = new ComparableVersion(existingEntry.version().orElseThrow());
+                ComparableVersion newVersion = new ComparableVersion(newEntry.version().get());
+
+                if (existingVersion.compareTo(newVersion) >= 0) {
+                    if (existingVersion.compareTo(newVersion) != 0) {
+                        reportDiagnostic(newEntry, existingEntry);
+                    }
+                    continue;
+                }
+                reportDiagnostic(existingEntry, newEntry);
+                libraryPaths.remove(existingEntry);
+            }
+            libraryPaths.add(new JarLibrary(
+                    newEntry.path(),
+                    scope,
+                    newEntry.artifactId().orElseThrow(),
+                    newEntry.groupId().orElseThrow(),
+                    newEntry.version().orElseThrow(),
+                    newEntry.packageName().orElseThrow()));
         }
     }
 
+    private void reportDiagnostic(JarLibrary existingEntry, JarLibrary newEntry) {
+        // Report diagnostic only for non ballerina dependencies
+        if (!existingEntry.packageName().orElseThrow().startsWith(ProjectConstants.BALLERINA_ORG)
+                || !newEntry.packageName().orElseThrow().startsWith(ProjectConstants.BALLERINA_ORG)) {
+            var diagnosticInfo = new DiagnosticInfo(
+                    ProjectDiagnosticErrorCode.CONFLICTING_PLATFORM_JAR_FILES.diagnosticId(),
+                    "detected conflicting jar files. '" + newEntry.path().getFileName() + "' dependency of '" +
+                            newEntry.packageName().get() + "' conflicts with '" + existingEntry.path().getFileName() +
+                            "' dependency of '" + existingEntry.packageName().get() + "'. Picking '" +
+                            newEntry.path().getFileName() + "' over '" + existingEntry.path().getFileName() + "'.",
+                    DiagnosticSeverity.WARNING);
+            diagnosticList.add(new PackageDiagnostic(diagnosticInfo,
+                    this.jBalBackend.packageContext().descriptor().name().toString()));
+        }
+    }
 
     public Collection<JarLibrary> getJarFilePathsRequiredForTestExecution(ModuleName moduleName) {
         // 1) Get all the jars excepts for test scope package and platform-specific dependencies
@@ -156,8 +214,8 @@ public class JarResolver {
             // Add the test-thin jar of the specified module
             PlatformLibrary generatedTestJar = jBalBackend.codeGeneratedTestLibrary(rootPackageId, moduleName);
             allJarFileForTestExec.add(new JarLibrary(generatedTestJar.path(),
-                                                     PlatformLibraryScope.DEFAULT,
-                                                     getPackageName(rootPackageContext)));
+                    PlatformLibraryScope.DEFAULT,
+                    getPackageName(rootPackageContext)));
         }
 
         // 3) Add platform-specific libraries with test scope defined in the root package's Ballerina.toml
@@ -169,12 +227,14 @@ public class JarResolver {
         pkgResolution.allDependencies()
                 .stream()
                 .filter(pkgDep -> pkgDep.scope() == PackageDependencyScope.TEST_ONLY)
+                .filter(pkgDep -> !pkgDep.packageInstance().descriptor().isLangLibPackage())    //filter out lang libs
                 .map(pkgDep -> pkgDep.packageInstance().packageContext())
                 .forEach(pkgContext -> {
                     // Add generated thin jar of every module in the package represented by the packageContext
                     addCodeGeneratedLibraryPaths(pkgContext, PlatformLibraryScope.DEFAULT, allJarFileForTestExec);
                     // All platform-specific libraries(specified in Ballerina.toml) having the default scope
                     addPlatformLibraryPaths(pkgContext, PlatformLibraryScope.DEFAULT, allJarFileForTestExec);
+                    addPlatformLibraryPaths(pkgContext, PlatformLibraryScope.PROVIDED, allJarFileForTestExec);
                 });
 
         // 6 Add other dependencies required to run Ballerina test cases

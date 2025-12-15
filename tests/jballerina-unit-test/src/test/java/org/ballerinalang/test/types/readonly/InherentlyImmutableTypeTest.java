@@ -54,8 +54,14 @@ public class InherentlyImmutableTypeTest {
         BAssertUtil.validateError(negativeResult, i++,
                 "incompatible types: expected 'any', found 'readonly'", 19, 14);
         BAssertUtil.validateError(negativeResult, i++,
-                "operator '==' not defined for 'readonly' and '[int,int,int]'", 24, 14);
-        Assert.assertEquals(negativeResult.getErrorCount(), 2);
+                "incompatible types: expected 'error?', found 'readonly'", 24, 26);
+        BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected '(int|any)', found 'readonly'", 25, 27);
+        BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected '(string|readonly)', found '(readonly|any)'", 27, 43);
+        BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected 'any', found '(readonly|string)'", 29, 17);
+        Assert.assertEquals(negativeResult.getErrorCount(), i);
     }
 
     @AfterClass

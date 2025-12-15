@@ -184,3 +184,71 @@ function testListConstructorSpreadOp() {
     int[] y2 = [...x2, 4];
     int[] y3 = [...y1, 5];
 }
+
+function testRegexpExp() {
+    string:RegExp r1 = re `[a-z]`;
+    string:RegExp r2 = re `((c)(d))`;
+    string:RegExp r3 = re `[bB].tt[a-z]*`;
+    string:RegExp r4 = re `[bB].${r3}`;
+}
+
+type O record {|
+    int[] items = [];
+|};
+
+public function findRefsIn() {
+    O o = {};
+
+     into.items.'map(item => item.quantity * menu.get(item.item))
+            .reduce(function (int val1, int val2) => val1 + val2, 0);
+
+}
+
+function testRefsInsideFuncCall() {
+    string|int value = "Jam";
+
+    func1(s1 = "Sam", s2 = value);
+    func2(xFunc = func1);
+    func2(xFunc = func4);
+    func2(func3(s1 = "abc"));
+}
+
+function func1(string s1, string|int s2) {
+}
+
+function func2(function xFunc) {
+}
+
+function (int) returns int func4 = a => a + a;
+
+function func3(string s1) returns function (int) returns int {
+    return func4;
+}
+
+function testAlternateReceive() {
+    worker w1 {
+        3 -> w3;
+    }
+
+    worker w2 {
+        4 -> w3;
+    }
+
+    worker w3 {
+        int _ = <- w1|w2;
+    }
+}
+
+function testMultipleReceive() {
+    worker w1 {
+        5 -> w3;
+    }
+
+    worker w2 {
+        6 -> w3;
+    }
+
+    worker w3 {
+        _ = <- {a: w1, b: w2};
+    }
+}

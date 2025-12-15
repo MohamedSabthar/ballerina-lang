@@ -29,7 +29,6 @@ import org.eclipse.lsp4j.services.LanguageClient;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -79,6 +78,19 @@ public class LSClientLogger {
     }
 
     /**
+     * Notifies the language client with a message of specified type.
+     *
+     * @param messageType The type of message to be shown
+     * @param message     The content of the message to be shown to the client
+     */
+    public void notifyClient(MessageType messageType, String message) {
+        if (!this.isInitializedOnce) {
+            return;
+        }
+        languageClient.showMessage(new MessageParams(messageType, message));
+    }
+
+    /**
      * Logs the error message through the LSP protocol.
      *
      * @param message    log message
@@ -98,12 +110,8 @@ public class LSClientLogger {
         String details = getErrorDetails(identifier, error, pos);
         if (config.isDebugLogEnabled()) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try {
-                PrintStream ps = new PrintStream(baos, true, StandardCharsets.UTF_8.name());
-                error.printStackTrace(ps);
-            } catch (UnsupportedEncodingException e1) {
-                //ignore
-            }
+            PrintStream ps = new PrintStream(baos, true, StandardCharsets.UTF_8);
+            error.printStackTrace(ps);
             this.languageClient.logMessage(
                     new MessageParams(MessageType.Error, message + " " + details + "\n" + baos));
         }
@@ -120,6 +128,20 @@ public class LSClientLogger {
         }
         if (this.configHolder.getConfig().isTraceLogEnabled() && this.languageClient != null) {
             this.languageClient.logMessage(new MessageParams(MessageType.Info, message));
+        }
+    }
+
+    /**
+     * Logs a warning log through LSP protocol. Logs only when trace logs are enabled.
+     *
+     * @param message log message
+     */
+    public void logWarning(String message) {
+        if (!this.isInitializedOnce) {
+            return;
+        }
+        if (this.configHolder.getConfig().isTraceLogEnabled() && this.languageClient != null) {
+            this.languageClient.logMessage(new MessageParams(MessageType.Warning, message));
         }
     }
     

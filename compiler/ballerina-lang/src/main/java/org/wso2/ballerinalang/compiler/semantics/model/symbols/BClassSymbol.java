@@ -37,9 +37,9 @@ import java.util.List;
 public class BClassSymbol extends BObjectTypeSymbol implements Annotatable {
 
     public boolean isServiceDecl;
-    private List<BAnnotationAttachmentSymbol> annotationAttachments;
+    private final List<BAnnotationAttachmentSymbol> annotationAttachments;
 
-    public BClassSymbol(int symTag, long flags, Name name, PackageID pkgID, BType type,
+    public BClassSymbol(long symTag, long flags, Name name, PackageID pkgID, BType type,
                         BSymbol owner, Location pos, SymbolOrigin origin) {
         super(symTag, flags, name, pkgID, type, owner, pos, origin);
         this.referencedFunctions = new ArrayList<>();

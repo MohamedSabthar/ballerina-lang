@@ -20,6 +20,7 @@ package org.wso2.ballerinalang.compiler.semantics.model.symbols;
 import io.ballerina.tools.diagnostics.Location;
 import org.ballerinalang.compiler.BLangCompilerException;
 import org.ballerinalang.model.elements.PackageID;
+import org.ballerinalang.model.symbols.AnnotationAttachmentSymbol;
 import org.ballerinalang.model.symbols.InvokableSymbol;
 import org.ballerinalang.model.symbols.SymbolKind;
 import org.ballerinalang.model.symbols.SymbolOrigin;
@@ -46,7 +47,9 @@ public class BInvokableSymbol extends BVarSymbol implements InvokableSymbol {
 
     // This field is only applicable for functions at the moment.
     public BVarSymbol receiverSymbol;
+
     public boolean bodyExist;
+    protected List<BAnnotationAttachmentSymbol> annotationAttachmentsOnExternal;
 
     // Only applicable for workers within fork statements.
     public String enclForkName;
@@ -57,7 +60,7 @@ public class BInvokableSymbol extends BVarSymbol implements InvokableSymbol {
 
     public Set<BVarSymbol> dependentGlobalVars;
 
-    public BInvokableSymbol(int tag,
+    public BInvokableSymbol(long tag,
                             long flags,
                             Name name,
                             PackageID pkgID,
@@ -68,7 +71,7 @@ public class BInvokableSymbol extends BVarSymbol implements InvokableSymbol {
         this(tag, flags, name, name, pkgID, type, owner, pos, origin);
     }
 
-    public BInvokableSymbol(int tag,
+    public BInvokableSymbol(long tag,
                             long flags,
                             Name name,
                             Name originalName,
@@ -91,9 +94,10 @@ public class BInvokableSymbol extends BVarSymbol implements InvokableSymbol {
         return params;
     }
 
+    @Override
     public BInvokableType getType() {
-        if (type instanceof BInvokableType) {
-            return (BInvokableType) type;
+        if (type instanceof BInvokableType bInvokableType) {
+            return bInvokableType;
         }
         // Should never come here, this is to please the spotbugs
         throw new BLangCompilerException("Invokable symbol with non invokable type : " + type);
@@ -107,5 +111,13 @@ public class BInvokableSymbol extends BVarSymbol implements InvokableSymbol {
 
     public void setAnnotationAttachments(List<BAnnotationAttachmentSymbol> annotationAttachments) {
         this.annotationAttachments = annotationAttachments;
+    }
+
+    public void setAnnotationAttachmentsOnExternal(List<BAnnotationAttachmentSymbol> annotationAttachments) {
+        this.annotationAttachmentsOnExternal = annotationAttachments;
+    }
+
+    public List<? extends AnnotationAttachmentSymbol> getAnnotationAttachmentsOnExternal() {
+        return this.annotationAttachmentsOnExternal;
     }
 }

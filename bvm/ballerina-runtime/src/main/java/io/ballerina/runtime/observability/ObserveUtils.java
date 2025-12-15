@@ -19,9 +19,10 @@ package io.ballerina.runtime.observability;
 
 import io.ballerina.runtime.api.Environment;
 import io.ballerina.runtime.api.Module;
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.types.ObjectType;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.internal.configurable.ConfigMap;
@@ -33,6 +34,7 @@ import io.opentelemetry.api.common.Attributes;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 
@@ -62,14 +64,17 @@ import static io.ballerina.runtime.observability.ObservabilityConstants.TAG_TRUE
  *
  * @since 0.985.0
  */
-public class ObserveUtils {
+public final class ObserveUtils {
+
     private static final List<BallerinaObserver> observers = new CopyOnWriteArrayList<>();
+    private static final Map<String, String> defaultTags = new ConcurrentHashMap<>();
     private static final boolean enabled;
     private static final boolean metricsEnabled;
     private static final BString metricsProvider;
     private static final BString metricsReporter;
     private static final boolean tracingEnabled;
     private static final BString tracingProvider;
+    private static final boolean metricsLogsEnabled;
 
     static {
         // TODO: Move config initialization to ballerina level once checking config key is possible at ballerina level
@@ -86,13 +91,19 @@ public class ObserveUtils {
                 , false);
         VariableKey tracingProviderKey = new VariableKey(observeModule, "tracingProvider",
                 PredefinedTypes.TYPE_STRING, false);
+        VariableKey metricsLogsEnabledKey = new VariableKey(observeModule, "metricsLogsEnabled",
+                PredefinedTypes.TYPE_BOOLEAN, false);
 
         metricsEnabled = readConfig(metricsEnabledKey, enabledKey, false);
         metricsProvider = readConfig(metricsProviderKey, null, StringUtils.fromString("default"));
         metricsReporter = readConfig(metricsReporterKey, providerKey, StringUtils.fromString("choreo"));
         tracingEnabled = readConfig(tracingEnabledKey, enabledKey, false);
         tracingProvider = readConfig(tracingProviderKey, providerKey, StringUtils.fromString("choreo"));
-        enabled = metricsEnabled || tracingEnabled;
+        metricsLogsEnabled = readConfig(metricsLogsEnabledKey, metricsLogsEnabledKey, false);
+        enabled = metricsEnabled || tracingEnabled || metricsLogsEnabled;
+    }
+
+    private ObserveUtils() {
     }
 
     private static <T> T readConfig(VariableKey specificKey, VariableKey inheritedKey, T defaultValue) {
@@ -129,6 +140,23 @@ public class ObserveUtils {
 
     public static BString getTracingProvider() {
         return tracingProvider;
+    }
+
+    public static boolean isMetricsLogsEnabled() {
+        return metricsLogsEnabled;
+    }
+
+    /**
+     * Add a default tag to be added to all spans and metrics.
+     *
+     * @param tagKey   key of the tag
+     * @param tagValue value of the tag
+     */
+    public static void addTag(String tagKey, String tagValue) {
+        if (!enabled) {
+            return;
+        }
+        defaultTags.put(tagKey, tagValue);
     }
 
     /**
@@ -224,6 +252,12 @@ public class ObserveUtils {
         if (observerContext.getEntrypointResourceAccessor() != null) {
             observerContext.addTag(TAG_KEY_ENTRYPOINT_RESOURCE_ACCESSOR,
                     observerContext.getEntrypointResourceAccessor());
+        }
+
+        if (!defaultTags.isEmpty()) {
+            for (Map.Entry<String, String> entry : defaultTags.entrySet()) {
+                observerContext.addTag(entry.getKey(), entry.getValue());
+            }
         }
 
         observerContext.setServer();
@@ -378,7 +412,7 @@ public class ObserveUtils {
         }   // Else normal function
 
         if (typeDef != null) {
-            ObjectType type = typeDef.getType();
+            ObjectType type = (ObjectType) TypeUtils.getImpliedType(typeDef.getType());
             Module typeModule = type.getPackage();
             String objectName = typeModule.getOrg() + "/" + typeModule.getName() + "/" + type.getName();
 
@@ -403,6 +437,12 @@ public class ObserveUtils {
         }
         if (newObContext.getEntrypointResourceAccessor() != null) {
             newObContext.addTag(TAG_KEY_ENTRYPOINT_RESOURCE_ACCESSOR, newObContext.getEntrypointResourceAccessor());
+        }
+
+        if (!defaultTags.isEmpty()) {
+            for (Map.Entry<String, String> entry : defaultTags.entrySet()) {
+                newObContext.addTag(entry.getKey(), entry.getValue());
+            }
         }
 
         newObContext.setStarted();

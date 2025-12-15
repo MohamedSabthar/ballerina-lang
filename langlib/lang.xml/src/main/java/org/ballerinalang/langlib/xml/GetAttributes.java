@@ -20,30 +20,26 @@ package org.ballerinalang.langlib.xml;
 import io.ballerina.runtime.api.values.BMap;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BXml;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 /**
  * Returns the attribute map of xml element.
  *
  * @since 1.0
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "getAttributes",
-//        args = {@Argument(name = "BXML", type = TypeKind.XML)},
-//        returnType = {@ReturnType(type = TypeKind.MAP)},
-//        isPublic = true
-//)
-public class GetAttributes {
+public final class GetAttributes {
+
+    private GetAttributes() {
+    }
 
     @SuppressWarnings("unchecked")
     public static BMap<BString, BString> getAttributes(BXml xmlVal) {
         if (!IsElement.isElement(xmlVal)) {
-            throw BLangExceptionHelper.getRuntimeException(RuntimeErrors.XML_FUNC_TYPE_ERROR,
+            throw ErrorHelper.getRuntimeException(ErrorCodes.XML_FUNC_TYPE_ERROR,
                     "getAttributes", "element");
         }
 
-        return (BMap<BString, BString>) xmlVal.getAttributesMap();
+        return xmlVal.getAttributesMap();
     }
 }

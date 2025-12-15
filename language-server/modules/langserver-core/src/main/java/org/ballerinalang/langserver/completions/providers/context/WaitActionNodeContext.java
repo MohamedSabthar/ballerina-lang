@@ -15,21 +15,22 @@
  */
 package org.ballerinalang.langserver.completions.providers.context;
 
+import io.ballerina.compiler.api.symbols.FutureTypeSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.SymbolKind;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
+import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.VariableSymbol;
 import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.WaitActionNode;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
-import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
 import org.ballerinalang.langserver.completions.SymbolCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 import org.eclipse.lsp4j.CompletionItem;
@@ -37,8 +38,8 @@ import org.wso2.ballerinalang.compiler.util.Names;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static io.ballerina.compiler.api.symbols.SymbolKind.FUNCTION;
 import static io.ballerina.compiler.api.symbols.SymbolKind.PARAMETER;
@@ -58,13 +59,12 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
     }
 
     @Override
-    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, WaitActionNode node)
-            throws LSCompletionException {
+    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, WaitActionNode node) {
         List<LSCompletionItem> completionItems = new ArrayList<>();
 
         NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
         // Covers both alternate and single wait actions
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
             /*
             Covers the following
             eg:
@@ -74,7 +74,7 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
             Predicate<Symbol> predicate = symbol -> symbol.kind() == SymbolKind.FUNCTION
                     || symbol instanceof VariableSymbol;
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            List<Symbol> filteredList = QNameReferenceUtil.getModuleContent(context, qNameRef, predicate);
+            List<Symbol> filteredList = QNameRefCompletionUtil.getModuleContent(context, qNameRef, predicate);
             completionItems.addAll(this.getCompletionItemList(filteredList, context));
         } else {
             completionItems.addAll(this.expressionCompletions(context));
@@ -84,6 +84,7 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
         return completionItems;
     }
 
+    @Override
     protected List<LSCompletionItem> expressionCompletions(BallerinaCompletionContext context) {
         List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
         /*
@@ -115,7 +116,7 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
                 .filter(symbol -> (symbol instanceof VariableSymbol || symbol.kind() == PARAMETER ||
                         symbol.kind() == FUNCTION || symbol.kind() == WORKER)
                         && !symbol.getName().orElse("").equals(Names.ERROR.getValue()))
-                .collect(Collectors.toList());
+                .toList();
         completionItems.addAll(this.getCompletionItemList(filteredList, context));
         this.getAnonFunctionDefSnippet(context).ifPresent(completionItems::add);
         return completionItems;
@@ -123,6 +124,7 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
 
     @Override
     public void sort(BallerinaCompletionContext context, WaitActionNode node, List<LSCompletionItem> completionItems) {
+        Optional<TypeSymbol> contextType = context.getContextType();
         for (LSCompletionItem lsCompletionItem : completionItems) {
             CompletionItem completionItem = lsCompletionItem.getCompletionItem();
             int rank;
@@ -136,8 +138,17 @@ public class WaitActionNodeContext extends AbstractCompletionProvider<WaitAction
                 if (symbol.kind() == WORKER) {
                     rank = 1;
                 } else if (symbol.kind() == VARIABLE
-                        && ((VariableSymbol) symbol).typeDescriptor().typeKind() == TypeDescKind.FUTURE) {
-                    rank = 2;
+                        && ((VariableSymbol) symbol).typeDescriptor().typeKind() == TypeDescKind.FUTURE 
+                        && contextType.isPresent() && contextType.get().typeKind() == TypeDescKind.FUTURE) {
+                    Optional<TypeSymbol> completionItemTypeSymbol 
+                            = ((FutureTypeSymbol) ((VariableSymbol) symbol).typeDescriptor()).typeParameter();
+                    Optional<TypeSymbol> contextTypeSymbol = ((FutureTypeSymbol) contextType.get()).typeParameter();
+                    if (completionItemTypeSymbol.isPresent() && contextTypeSymbol.isPresent() 
+                            && completionItemTypeSymbol.get().subtypeOf(contextTypeSymbol.get())) {
+                            rank = 1;
+                    } else {
+                        rank = 2;
+                    }
                 } else {
                     rank = SortingUtil.toRank(context, lsCompletionItem, 2);
                 }

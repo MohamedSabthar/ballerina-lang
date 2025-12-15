@@ -20,40 +20,32 @@ package org.wso2.ballerinalang.compiler.bir.codegen.split.constants;
 
 import org.ballerinalang.model.elements.PackageID;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
 import org.wso2.ballerinalang.compiler.bir.codegen.BallerinaClassWriter;
-import org.wso2.ballerinalang.compiler.bir.codegen.JvmCodeGenUtil;
-import org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants;
-import org.wso2.ballerinalang.compiler.bir.codegen.TypeNamePair;
 import org.wso2.ballerinalang.compiler.bir.codegen.internal.BTypeHashComparator;
+import org.wso2.ballerinalang.compiler.bir.codegen.internal.JarEntries;
 import org.wso2.ballerinalang.compiler.bir.codegen.split.types.JvmTupleTypeGen;
+import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTupleType;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
-import java.util.Queue;
 import java.util.TreeMap;
 
 import static org.objectweb.asm.ClassWriter.COMPUTE_FRAMES;
-import static org.objectweb.asm.Opcodes.ACC_FINAL;
-import static org.objectweb.asm.Opcodes.ACC_PRIVATE;
 import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 import static org.objectweb.asm.Opcodes.ACC_STATIC;
-import static org.objectweb.asm.Opcodes.ACC_SUPER;
-import static org.objectweb.asm.Opcodes.ALOAD;
-import static org.objectweb.asm.Opcodes.GETSTATIC;
-import static org.objectweb.asm.Opcodes.INVOKESPECIAL;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
-import static org.objectweb.asm.Opcodes.RETURN;
-import static org.objectweb.asm.Opcodes.V1_8;
-import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.B_TUPLE_TYPE_INIT_METHOD_PREFIX;
-import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.JVM_INIT_METHOD;
-import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.OBJECT;
-import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.GET_TUPLE_TYPE_IMPL;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.CLASS_FILE_SUFFIX;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.GET_TYPE_METHOD;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.JVM_STATIC_INIT_METHOD;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TUPLE_TYPE_CONSTANT_PACKAGE_NAME;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmConstants.TYPE_VAR_PREFIX;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.GET_TUPLE_TYPE_METHOD;
+import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.VOID_METHOD_DESC;
+import static org.wso2.ballerinalang.compiler.bir.codegen.split.JvmCreateTypeGen.genFieldsForInitFlags;
+import static org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmCodeGenUtil.genMethodReturn;
+import static org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmConstantGenUtils.generateConstantsClassInit;
+import static org.wso2.ballerinalang.compiler.bir.codegen.utils.JvmModuleUtils.getModuleLevelClassName;
 
 /**
  * Generates Jvm class for the ballerina tuple types as constants for a given module.
@@ -62,121 +54,50 @@ import static org.wso2.ballerinalang.compiler.bir.codegen.JvmSignatures.GET_TUPL
  */
 public class JvmTupleTypeConstantsGen {
 
-    private final String tupleVarConstantsClass;
-    private int constantIndex = 0;
-    private JvmTupleTypeGen jvmTupleTypeGen;
-    private ClassWriter cw;
-    private MethodVisitor mv;
-    private int methodCount;
-    private final List<String> funcNames;
-    private final Queue<TypeNamePair> queue;
+    private final JarEntries jarEntries;
     private final Map<BTupleType, String> tupleTypeVarMap;
+    private JvmTupleTypeGen jvmTupleTypeGen;
+    private int constantIndex = 0;
+    private final String tupleVarConstantsPkgName;
 
-    public JvmTupleTypeConstantsGen(PackageID packageID, BTypeHashComparator bTypeHashComparator) {
-        tupleVarConstantsClass = JvmCodeGenUtil.getModuleLevelClassName(packageID,
-                JvmConstants.TUPLE_TYPE_CONSTANT_CLASS_NAME);
-        generateTupleTypeConstantsClassInit();
-        visitTupleTypeInitMethod();
-        funcNames = new ArrayList<>();
-        queue = new LinkedList<>();
-        tupleTypeVarMap = new TreeMap<>(bTypeHashComparator);
+    public JvmTupleTypeConstantsGen(PackageID packageID, BTypeHashComparator bTypeHashComparator,
+                                    JarEntries jarEntries) {
+        this.jarEntries = jarEntries;
+        this.tupleTypeVarMap = new TreeMap<>(bTypeHashComparator);
+        this.tupleVarConstantsPkgName = getModuleLevelClassName(packageID,
+                TUPLE_TYPE_CONSTANT_PACKAGE_NAME);
     }
 
     public void setJvmTupleTypeGen(JvmTupleTypeGen jvmTupleTypeGen) {
         this.jvmTupleTypeGen = jvmTupleTypeGen;
     }
 
-    public String add(BTupleType type) {
-        return tupleTypeVarMap.computeIfAbsent(type, str -> generateBTupleInits(type));
-    }
+    public String add(BTupleType type, SymbolTable symbolTable) {
+        String varName = tupleTypeVarMap.get(type);
+        if (varName == null) {
+            varName = TYPE_VAR_PREFIX + constantIndex++;
+            tupleTypeVarMap.put(type, varName);
+            generateBTupleInits(type, varName, symbolTable);
 
-    private void generateTupleTypeConstantsClassInit() {
-        cw = new BallerinaClassWriter(COMPUTE_FRAMES);
-        cw.visit(V1_8, ACC_PUBLIC | ACC_SUPER, tupleVarConstantsClass, null, OBJECT, null);
-
-        MethodVisitor methodVisitor = cw.visitMethod(ACC_PRIVATE, JVM_INIT_METHOD, "()V", null, null);
-        methodVisitor.visitCode();
-        methodVisitor.visitVarInsn(ALOAD, 0);
-        methodVisitor.visitMethodInsn(INVOKESPECIAL, OBJECT, JVM_INIT_METHOD, "()V", false);
-        genMethodReturn(methodVisitor);
-    }
-
-    private void visitTupleTypeInitMethod() {
-        mv = cw.visitMethod(ACC_STATIC, B_TUPLE_TYPE_INIT_METHOD_PREFIX + methodCount++,
-                "()V", null, null);
-    }
-
-    /**
-     * Stack keeps track of recursion in tuple types. The method creation is performed only if recursion is completed.
-     */
-    private String generateBTupleInits(BTupleType type) {
-        String varName = JvmConstants.TUPLE_TYPE_VAR_PREFIX + constantIndex++;
-        visitBTupleField(varName);
-        createBTupleType(mv, type, varName);
-        // Queue is used here to avoid recursive calls to the genPopulateMethod. This can happen when a tuple
-        // contains a tuple inside it.
-        queue.add(new TypeNamePair(type, varName));
-        if (queue.size() == 1) {
-            genPopulateMethod(type, varName);
-            queue.remove();
-            while (!queue.isEmpty()) {
-                TypeNamePair typeNamePair = queue.remove();
-                genPopulateMethod((BTupleType) typeNamePair.type, typeNamePair.varName);
-            }
         }
         return varName;
     }
 
-    private void genPopulateMethod(BTupleType type, String varName) {
-        String methodName = "$populate" + varName;
-        funcNames.add(methodName);
-        MethodVisitor methodVisitor = cw.visitMethod(ACC_STATIC, methodName, "()V", null, null);
-        methodVisitor.visitCode();
-        generateGetBTupleType(methodVisitor, varName);
-        jvmTupleTypeGen.populateTuple(methodVisitor, type);
-        genMethodReturn(methodVisitor);
-    }
-
-    private void createBTupleType(MethodVisitor mv, BTupleType tupleType, String varName) {
-        jvmTupleTypeGen.createTupleType(mv, tupleType);
-        mv.visitFieldInsn(Opcodes.PUTSTATIC, tupleVarConstantsClass, varName,
-                GET_TUPLE_TYPE_IMPL);
-    }
-
-    private void visitBTupleField(String varName) {
-        FieldVisitor fv = cw.visitField(ACC_PUBLIC + ACC_FINAL + ACC_STATIC, varName,
-                GET_TUPLE_TYPE_IMPL, null, null);
-        fv.visitEnd();
+    private void generateBTupleInits(BTupleType type, String varName, SymbolTable symbolTable) {
+        ClassWriter cw = new BallerinaClassWriter(COMPUTE_FRAMES);
+        genFieldsForInitFlags(cw);
+        String tupleTypeClass = this.tupleVarConstantsPkgName + varName;
+        generateConstantsClassInit(cw, tupleTypeClass);
+        MethodVisitor mv = cw.visitMethod(ACC_STATIC, JVM_STATIC_INIT_METHOD, VOID_METHOD_DESC, null, null);
+        jvmTupleTypeGen.createTupleType(cw, mv, tupleTypeClass, type, false, symbolTable, ACC_PUBLIC);
+        genMethodReturn(mv);
+        cw.visitEnd();
+        jarEntries.put(tupleTypeClass + CLASS_FILE_SUFFIX, cw.toByteArray());
     }
 
     public void generateGetBTupleType(MethodVisitor mv, String varName) {
-        mv.visitFieldInsn(GETSTATIC, tupleVarConstantsClass, varName, GET_TUPLE_TYPE_IMPL);
-    }
+        String typeClass = this.tupleVarConstantsPkgName + varName;
+        mv.visitMethodInsn(INVOKESTATIC, typeClass, GET_TYPE_METHOD, GET_TUPLE_TYPE_METHOD, false);
 
-    public void generateClass(Map<String, byte[]> jarEntries) {
-        genMethodReturn(mv);
-        visitTupleTypeInitMethod();
-        for (String funcName : funcNames) {
-            mv.visitMethodInsn(INVOKESTATIC, tupleVarConstantsClass, funcName, "()V", false);
-        }
-        genMethodReturn(mv);
-        generateStaticInitializer(cw);
-        cw.visitEnd();
-        jarEntries.put(tupleVarConstantsClass + ".class", cw.toByteArray());
-    }
-
-    private void generateStaticInitializer(ClassWriter cw) {
-        MethodVisitor methodVisitor = cw.visitMethod(ACC_STATIC, "<clinit>", "()V", null, null);
-        for (int i = 0; i < methodCount; i++) {
-            methodVisitor.visitMethodInsn(INVOKESTATIC, tupleVarConstantsClass,
-                   B_TUPLE_TYPE_INIT_METHOD_PREFIX + i, "()V", false);
-        }
-        genMethodReturn(methodVisitor);
-    }
-
-    private void genMethodReturn(MethodVisitor methodVisitor) {
-        methodVisitor.visitInsn(RETURN);
-        methodVisitor.visitMaxs(0, 0);
-        methodVisitor.visitEnd();
     }
 }

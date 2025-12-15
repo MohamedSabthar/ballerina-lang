@@ -34,9 +34,9 @@ import org.ballerinalang.model.elements.PackageID;
 @Deprecated
 public class DiagnosticPos implements Location {
 
-    private LineRange lineRange;
-    private TextRange textRange;
-    private PackageID packageID;
+    private final LineRange lineRange;
+    private final TextRange textRange;
+    private final PackageID packageID;
 
     public DiagnosticPos(String filePath, PackageID pkgId, int startLine, int endLine,
                          int startColumn, int endColumn) {
@@ -81,29 +81,28 @@ public class DiagnosticPos implements Location {
         if (this == obj) {
             return true;
         }
-        if (!(obj instanceof DiagnosticPos)) {
+        if (!(obj instanceof DiagnosticPos diagnosticPos)) {
             return false;
         }
-        DiagnosticPos diagnosticPos = (DiagnosticPos) obj;
         return packageID.equals(diagnosticPos.getPackageID()) &&
-                lineRange().filePath().equals(diagnosticPos.lineRange().filePath()) &&
+                lineRange().fileName().equals(diagnosticPos.lineRange().fileName()) &&
                 (getStartLine() == diagnosticPos.getStartLine() && getEndLine() == diagnosticPos.getEndLine() &&
                 getStartColumn() == diagnosticPos.getStartColumn() && getEndColumn() == diagnosticPos.getEndColumn());
     }
 
     @Override
     public int hashCode() {
-        return  packageID.hashCode() + lineRange().filePath().hashCode() +
+        return  packageID.hashCode() + lineRange().fileName().hashCode() +
                 getStartLine() + getEndLine() + getStartColumn() + getEndColumn();
     }
     
     public int compareTo(DiagnosticPos diagnosticPosition) {
 
         // Compare the source first.
-        String thisDiagnosticString = packageID.name.value + packageID.version.value + lineRange().filePath();
+        String thisDiagnosticString = packageID.name.value + packageID.version.value + lineRange().fileName();
         String otherDiagnosticString = diagnosticPosition.getPackageID().name.value +
                 diagnosticPosition.getPackageID().version.value +
-                diagnosticPosition.lineRange().filePath();
+                diagnosticPosition.lineRange().fileName();
         int value = thisDiagnosticString.compareTo(otherDiagnosticString);
 
         if (value != 0) {

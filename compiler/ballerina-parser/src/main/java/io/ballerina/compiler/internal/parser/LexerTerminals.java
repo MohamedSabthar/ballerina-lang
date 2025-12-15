@@ -22,7 +22,7 @@ package io.ballerina.compiler.internal.parser;
  *
  * @since 1.2.0
  */
-public class LexerTerminals {
+public final class LexerTerminals {
 
     // Keywords
     public static final String PUBLIC = "public";
@@ -49,7 +49,6 @@ public class LexerTerminals {
     public static final String CONTINUE = "continue";
     public static final String BREAK = "break";
     public static final String IMPORT = "import";
-    public static final String VERSION = "version";
     public static final String AS = "as";
     public static final String ON = "on";
     public static final String RESOURCE = "resource";
@@ -107,6 +106,7 @@ public class LexerTerminals {
     public static final String DESCENDING = "descending";
     public static final String CLASS = "class";
     public static final String CONFIGURABLE = "configurable";
+    public static final String NATURAL = "natural";
 
     // For BFM only
     public static final String VARIABLE = "variable";
@@ -172,4 +172,9 @@ public class LexerTerminals {
     public static final char TAB = 0x9;
     public static final char SPACE = 0x20;
     public static final char FORM_FEED = 0xC;
+
+    public static final String RE = "re";
+
+    private LexerTerminals() {
+    }
 }

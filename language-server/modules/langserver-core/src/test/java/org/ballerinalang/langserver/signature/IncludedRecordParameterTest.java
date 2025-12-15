@@ -27,6 +27,8 @@ import java.io.IOException;
  * @since 2201.1.1
  */
 public class IncludedRecordParameterTest extends AbstractSignatureHelpTest {
+    
+    @Override
     @Test(dataProvider = "signature-help-data-provider", description = "Test Signature Help for Included record params")
     public void test(String config, String source)
             throws WorkspaceDocumentException, InterruptedException, IOException {

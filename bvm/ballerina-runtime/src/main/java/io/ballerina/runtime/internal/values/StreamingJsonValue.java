@@ -17,12 +17,12 @@
 */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BStreamingJson;
-import io.ballerina.runtime.internal.JsonDataSource;
-import io.ballerina.runtime.internal.JsonGenerator;
-import io.ballerina.runtime.internal.JsonUtils;
+import io.ballerina.runtime.internal.json.JsonDataSource;
+import io.ballerina.runtime.internal.json.JsonGenerator;
+import io.ballerina.runtime.internal.json.JsonInternalUtils;
 import io.ballerina.runtime.internal.types.BArrayType;
 import io.ballerina.runtime.internal.types.BMapType;
 
@@ -106,7 +106,7 @@ public class StreamingJsonValue extends ArrayValueImpl implements BStreamingJson
             gen.writeEndArray();
             gen.flush();
         } catch (IOException e) {
-            throw JsonUtils.createJsonConversionError(e, "error occurred while serializing data");
+            throw JsonInternalUtils.createJsonConversionError(e, "error occurred while serializing data");
         }
     }
 
@@ -114,13 +114,22 @@ public class StreamingJsonValue extends ArrayValueImpl implements BStreamingJson
      * Serialize the value to given {@code Writer}.
      * @param writer {@code Writer} to be used
      */
+    @Override
     public void serialize(Writer writer) {
-        serialize(new JsonGenerator(writer));
+        try (JsonGenerator gen = new JsonGenerator(writer)) {
+            serialize(gen);
+        } catch (IOException e) {
+            throw JsonInternalUtils.createJsonConversionError(e, "error occurred while serializing data");
+        }
     }
 
     @Override
     public void serialize(OutputStream outputStream) {
-        serialize(new JsonGenerator(outputStream));
+        try (JsonGenerator gen = new JsonGenerator(outputStream)) {
+            serialize(gen);
+        } catch (IOException e) {
+            throw JsonInternalUtils.createJsonConversionError(e, "error occurred while serializing data");
+        }
     }
 
     @Override
@@ -186,12 +195,12 @@ public class StreamingJsonValue extends ArrayValueImpl implements BStreamingJson
                 appendToCache(datasource.next());
             }
         } catch (Throwable t) {
-            throw JsonUtils.createJsonConversionError(t, "error occurred while building JSON");
+            throw JsonInternalUtils.createJsonConversionError(t, "error occurred while building JSON");
         }
     }
 
     @Override
-    public IteratorValue getIterator() {
+    public IteratorValue<Object> getIterator() {
         return new ArrayIterator(this);
     }
 
@@ -200,7 +209,7 @@ public class StreamingJsonValue extends ArrayValueImpl implements BStreamingJson
      *
      * @since 0.995.0
      */
-    static class StreamingJsonIterator implements IteratorValue {
+    static class StreamingJsonIterator implements IteratorValue<Object> {
         StreamingJsonValue array;
         long cursor = 0;
 

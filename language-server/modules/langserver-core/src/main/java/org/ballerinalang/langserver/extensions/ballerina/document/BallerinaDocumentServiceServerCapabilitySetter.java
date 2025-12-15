@@ -41,10 +41,13 @@ public class BallerinaDocumentServiceServerCapabilitySetter
         capabilities.setTriggerModify(true);
         capabilities.setSyntaxTreeNode(true);
         capabilities.setResolveMissingDependencies(true);
-        
+        capabilities.setSyntaxTreeByName(true);
+        capabilities.setSyntaxTreeNodeByPosition(true);
+
         return Optional.of(capabilities);
     }
     
+    @Override
     public String getCapabilityName() {
         return Constants.CAPABILITY_NAME;
     }

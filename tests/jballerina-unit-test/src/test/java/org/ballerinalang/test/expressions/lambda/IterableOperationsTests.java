@@ -44,7 +44,7 @@ import static io.ballerina.runtime.api.utils.TypeUtils.getType;
 public class IterableOperationsTests {
 
     private CompileResult basic, negative;
-    private static BString[] values = BStringUtils.getBStringArray(new String[]{"Hello", "World..!", "I", "am",
+    private static final BString[] VALUES = BStringUtils.getBStringArray(new String[]{"Hello", "World..!", "I", "am",
             "Ballerina.!!!"});
 
     @BeforeClass
@@ -55,7 +55,6 @@ public class IterableOperationsTests {
 
     @Test()
     public void testNegative() {
-        Assert.assertEquals(negative.getErrorCount(), 33);
         int index = 0;
         BAssertUtil.validateError(negative, index++, "undefined function 'forEach' in type 'int'", 6, 7);
         BAssertUtil.validateError(negative, index++, "undefined function 'map' in type 'string'", 8, 7);
@@ -68,11 +67,9 @@ public class IterableOperationsTests {
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'string', found 'any'", 35, 27);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'string', found 'any'", 38, 22);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'int', found '()'", 46, 9);
-        BAssertUtil.validateError(negative, index++, "incompatible types: expected '[other,other]', found 'string[]'",
-                48, 18);
         BAssertUtil.validateError(negative, index++,
-                                  "invalid list binding pattern: attempted to infer a list type, but found 'other'",
-                                  48, 18);
+                                  "invalid list binding pattern; member variable count mismatch with member type count",
+                                  48, 5);
         BAssertUtil.validateError(negative, index++, "invalid operation: type 'string' does not support field access",
                 49, 35);
         BAssertUtil.validateError(negative, index++, "too many arguments in call to 'length()'", 55, 9);
@@ -96,9 +93,6 @@ public class IterableOperationsTests {
                 "'function (ballerina/lang.array:0.0.0:Type) returns (boolean)', " +
                 "found 'function (other) returns ()'", 67, 14);
         BAssertUtil.validateError(negative, index++, "unknown type 'person'", 67, 24);
-        BAssertUtil.validateError(negative, index++, "incompatible types: expected " +
-                "'function (ballerina/lang.array:0.0.0:Type) " +
-                "returns (boolean)', found 'function (string) returns (other)'", 68, 18);
         BAssertUtil.validateError(negative, index++, "unknown type 'person'", 68, 48);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'int[]', found 'any[]'", 73, 15);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'int[]', found 'string[]'", 80, 15);
@@ -107,7 +101,8 @@ public class IterableOperationsTests {
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'string', found 'map'", 103, 16);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'boolean', found 'int'", 111, 20);
         BAssertUtil.validateError(negative, index++, "incompatible types: expected 'float', found 'int'", 120, 39);
-        BAssertUtil.validateError(negative, index, "incompatible types: expected 'float', found 'int'", 137, 42);
+        BAssertUtil.validateError(negative, index++, "incompatible types: expected 'float', found 'int'", 137, 42);
+        Assert.assertEquals(negative.getErrorCount(), index);
     }
 
     @Test
@@ -179,25 +174,25 @@ public class IterableOperationsTests {
 
     @Test
     public void testBasicArray1() {
-        BArray sarray = ValueCreator.createArrayValue(values);
+        BArray sarray = ValueCreator.createArrayValue(VALUES);
         Object returns = BRunUtil.invoke(basic, "testBasicArray1", new Object[]{sarray});
         Assert.assertNotNull(returns);
         Assert.assertNotNull(returns);
         StringBuilder sb = new StringBuilder();
-        Arrays.stream(values).forEach(s -> sb.append(s.getValue().toUpperCase(Locale.getDefault())).append(":").
+        Arrays.stream(VALUES).forEach(s -> sb.append(s.getValue().toUpperCase(Locale.getDefault())).append(":").
                 append(s.getValue().toLowerCase(Locale.getDefault())).append(" "));
         Assert.assertEquals(returns.toString(), sb.toString().trim());
     }
 
     @Test
     public void testBasicArray2() {
-        BArray sarray = ValueCreator.createArrayValue(values);
+        BArray sarray = ValueCreator.createArrayValue(VALUES);
         Object returns = BRunUtil.invoke(basic, "testBasicArray2", new Object[]{sarray});
         Assert.assertNotNull(returns);
         Assert.assertNotNull(returns);
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < values.length; i++) {
-            sb.append(i).append(values[i]).append(" ");
+        for (int i = 0; i < VALUES.length; i++) {
+            sb.append(i).append(VALUES[i]).append(" ");
         }
         Assert.assertEquals(returns.toString(), sb.toString().trim());
     }

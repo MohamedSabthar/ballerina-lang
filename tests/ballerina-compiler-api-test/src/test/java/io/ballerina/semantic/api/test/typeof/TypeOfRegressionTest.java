@@ -63,4 +63,24 @@ public class TypeOfRegressionTest {
         assertEquals(clazz.typeKind(), TypeDescKind.OBJECT);
         assertEquals(clazz.getName().get(), "Listener");
     }
+
+    @Test
+    public void testLiteralType() {
+        Optional<TypeSymbol> type = model.typeOf(LineRange.from("typeof_listener_test.bal",
+                                LinePosition.from(45, 32), LinePosition.from(45, 36)));
+
+        assertTrue(type.isPresent());
+        assertEquals(type.get().kind(), SymbolKind.TYPE);
+        assertEquals(type.get().typeKind(), TypeDescKind.INT);
+    }
+
+    @Test
+    public void testResourcePathAccess() {
+        model = SemanticAPITestUtils.getDefaultModulesSemanticModel(
+                "test-src/regression-tests/typeof_resource_path_action.bal");
+
+        Optional<TypeSymbol> type = model.typeOf(LineRange.from("typeof_resource_path_action.bal",
+                LinePosition.from(20, 31), LinePosition.from(20, 38)));
+        assertTrue(type.isEmpty());
+    }
 }

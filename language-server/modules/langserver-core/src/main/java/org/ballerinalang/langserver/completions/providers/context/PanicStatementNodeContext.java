@@ -15,18 +15,20 @@
  */
 package org.ballerinalang.langserver.completions.providers.context;
 
+import io.ballerina.compiler.api.SemanticModel;
 import io.ballerina.compiler.api.symbols.Symbol;
+import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.syntax.tree.PanicStatementNode;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
-import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.SortingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 /**
  * Completion provider for {@link PanicStatementNode} context.
@@ -41,17 +43,31 @@ public class PanicStatementNodeContext extends AbstractCompletionProvider<PanicS
     }
 
     @Override
-    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, PanicStatementNode node)
-            throws LSCompletionException {
+    public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context, PanicStatementNode node) {
         List<LSCompletionItem> completionItems = new ArrayList<>();
         List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
         List<Symbol> filteredList = visibleSymbols.stream()
                 .filter(SymbolUtil::isError)
-                .collect(Collectors.toList());
+                .toList();
         completionItems.addAll(this.getCompletionItemList(filteredList, context));
-        completionItems.addAll(this.getModuleCompletionItems(context));
+        completionItems.addAll(this.expressionCompletions(context));
         this.sort(context, node, completionItems);
         
         return completionItems;
+    }
+
+    @Override
+    public void sort(BallerinaCompletionContext context, PanicStatementNode node, 
+                     List<LSCompletionItem> completionItems) {
+        Optional<SemanticModel> semanticModel = context.currentSemanticModel();
+        if (semanticModel.isEmpty()) {
+            super.sort(context, node, completionItems);
+            return;
+        }
+        TypeSymbol errorTypeSymbol = semanticModel.get().types().ERROR;
+        for (LSCompletionItem completionItem : completionItems) {
+            completionItem.getCompletionItem()
+                    .setSortText(SortingUtil.genSortTextByAssignability(context, completionItem, errorTypeSymbol));
+        }
     }
 }

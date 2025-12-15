@@ -19,8 +19,8 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 import io.ballerina.runtime.internal.scheduling.Strand;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
 
 /**
  * Append children to an XML if its an element type XML. Error otherwise.
@@ -28,22 +28,19 @@ import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
  * 
  * @since 0.982.0
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "appendChildren",
-//        args = {@Argument(name = "children", type = TypeKind.XML)},
-//        isPublic = true
-//)
-public class AppendChildren {
+public final class AppendChildren {
 
     private static final String OPERATION = "add children to xml element";
+
+    private AppendChildren() {
+    }
 
     @Deprecated
     public static void appendChildren(Strand strand, BXml xml, BXml children) {
         try {
             xml.addChildren(children);
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
     }
 }

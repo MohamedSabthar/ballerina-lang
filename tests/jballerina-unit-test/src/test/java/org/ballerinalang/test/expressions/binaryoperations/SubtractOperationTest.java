@@ -16,12 +16,13 @@
  */
 package org.ballerinalang.test.expressions.binaryoperations;
 
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -51,7 +52,7 @@ public class SubtractOperationTest {
         Assert.assertEquals(actual, expected);
     }
 
-    @Test(description = "Test two int subtract overflow expression", expectedExceptions = BLangRuntimeException.class,
+    @Test(description = "Test two int subtract overflow expression", expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: \\{ballerina}NumberOverflow \\{\"message\":\"int range " +
                     "overflow\"\\}.*")
     public void testIntOverflowBySubtraction() {
@@ -116,7 +117,7 @@ public class SubtractOperationTest {
 
     @Test(description = "Test subtract statement with errors")
     public void testSubtractStmtNegativeCases() {
-        Assert.assertEquals(resultNegative.getErrorCount(), 12);
+        Assert.assertEquals(resultNegative.getErrorCount(), 13);
         BAssertUtil.validateError(resultNegative, 0, "operator '-' not defined for 'float' and 'string'", 4, 9);
         BAssertUtil.validateError(resultNegative, 1, "operator '-' not defined for 'json' and 'json'", 14, 10);
         BAssertUtil.validateError(resultNegative, 2, "operator '-' not defined for 'C' and 'string'", 28, 14);
@@ -130,10 +131,18 @@ public class SubtractOperationTest {
         BAssertUtil.validateError(resultNegative, 9, "operator '-' not defined for 'int' and 'float'", 41, 18);
         BAssertUtil.validateError(resultNegative, 10, "operator '-' not defined for 'C' and 'float'", 45, 14);
         BAssertUtil.validateError(resultNegative, 11, "operator '-' not defined for 'C' and 'float'", 46, 14);
+        BAssertUtil.validateError(resultNegative, 12, "'9223372036854775808' is out of range " +
+                "for 'int'", 50, 17);
     }
 
     @Test(description = "Test subtraction of nullable values")
     public void testSubNullable() {
         BRunUtil.invoke(result, "testSubNullable");
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
+        resultNegative = null;
     }
 }

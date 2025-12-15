@@ -18,159 +18,191 @@
 
 package io.ballerina.runtime.internal.scheduling;
 
-import io.ballerina.runtime.api.async.StrandMetadata;
+import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BError;
-import io.ballerina.runtime.api.values.BFunctionPointer;
-import io.ballerina.runtime.internal.types.BFunctionType;
+import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.internal.utils.ErrorUtils;
 import io.ballerina.runtime.internal.values.FutureValue;
+import io.ballerina.runtime.internal.values.MapValue;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * Util functions for async invocations.
  */
-public class AsyncUtils {
+public final class AsyncUtils {
 
-    /**
-     * Block the current strand to execute asynchronously.
-     *
-     * @return Future object to unblock the strand.
-     */
-    public static CompletableFuture<Object> markAsync() {
-        Strand strand = Scheduler.getStrand();
-        strand.blockedOnExtern = true;
-        strand.setState(State.BLOCK_AND_YIELD);
-        CompletableFuture<Object> future = new CompletableFuture<>();
-        future.whenComplete(new Unblocker(strand));
-        return future;
-    }
-
-    /**
-     * Invoke Function Pointer asynchronously. This will schedule the function and block the strand.
-     *
-     * @param func                 Function Pointer to be invoked.
-     * @param strandName           Name for newly creating strand which is used to execute the function pointer. This is
-     *                             optional and can be null.
-     * @param metadata             Meta data of new strand.
-     * @param args                 Ballerina function arguments.
-     * @param resultHandleFunction Function used to process the result received after execution of function.
-     * @param scheduler            The scheduler for invoking functions
-     * @return Future Value
-     */
-    public static FutureValue invokeFunctionPointerAsync(BFunctionPointer<?, ?> func, String strandName,
-                                                         StrandMetadata metadata, Object[] args, Function<Object,
-            Object> resultHandleFunction, Scheduler scheduler) {
-        AsyncFunctionCallback callback = new AsyncFunctionCallback() {
-            @Override
-            public void notifySuccess(Object result) {
-                setReturnValues(resultHandleFunction.apply(getFutureResult()));
-            }
-
-            @Override
-            public void notifyFailure(BError error) {
-                handleRuntimeErrors(error);
-            }
-        };
-        return invokeFunctionPointerAsync(func, Scheduler.getStrand(), strandName, metadata, args, callback, scheduler);
-    }
-
-    public static FutureValue invokeFunctionPointerAsync(BFunctionPointer<?, ?> func, Strand parent, String name,
-                                                         StrandMetadata metadata, Object[] args,
-                                                         AsyncFunctionCallback callback, Scheduler scheduler) {
-
-        blockStrand(parent);
-        final FutureValue future = scheduler.createFuture(parent, null, null,
-                                                          ((BFunctionType) func.getType()).retType, name, metadata);
-        future.callback = callback;
-        callback.setFuture(future);
-        callback.setStrand(parent);
-        return scheduler.scheduleLocal(args, func, parent, future);
-    }
-
-    public static void blockStrand(Strand strand) {
-        if (!strand.blockedOnExtern) {
-            strand.blockedOnExtern = true;
-            strand.setState(State.BLOCK_AND_YIELD);
-            strand.returnValue = null;
+    public static Object handleNonIsolatedStrand(Strand strand, Supplier<?> resultSupplier) {
+        // This check required for non strand Threads.
+        boolean runnable = strand.isRunnable();
+        if (runnable) {
+            strand.yield();
         }
-    }
-
-    /**
-     * Invoke Function Pointer asynchronously given number of times. This will schedule the function and block the
-     * strand. This method can be used with collection of data where we need to invoke the function pointer for each
-     * item of the collection.
-     *
-     * @param func                 Function Pointer to be invoked.
-     * @param strandName           Name for newly creating strand which is used to execute the function pointer. This is
-     *                             optional and can be null.
-     * @param metadata             Meta data of new strand.
-     * @param noOfIterations       Number of iterations need to call the function pointer.
-     * @param argsSupplier         Supplier provides dynamic arguments to function pointer execution in each iteration.
-     * @param futureResultConsumer Consumer used to process the future value received after execution of function.
-     *                             Future value result will have the return object of the function pointer.
-     * @param returnValueSupplier  Suppler used to set the final return value for the parent function invocation.
-     * @param scheduler            The scheduler for invoking functions
-     */
-    public static void invokeFunctionPointerAsyncIteratively(BFunctionPointer<?, ?> func, String strandName,
-                                                             StrandMetadata metadata, int noOfIterations,
-                                                             Supplier<Object[]> argsSupplier,
-                                                             Consumer<Object> futureResultConsumer,
-                                                             Supplier<Object> returnValueSupplier,
-                                                             Scheduler scheduler) {
-
-        if (noOfIterations <= 0) {
-            return;
+        Object result = resultSupplier.get();
+        if (runnable) {
+            strand.resume();
         }
-        Strand strand = Scheduler.getStrand();
-        blockStrand(strand);
-        AtomicInteger callCount = new AtomicInteger(0);
-        scheduleNextFunction(func, strand, strandName, metadata, noOfIterations, callCount, argsSupplier,
-                             futureResultConsumer, returnValueSupplier, scheduler);
+        return result;
     }
 
-    private static void scheduleNextFunction(BFunctionPointer<?, ?> func, Strand strand, String strandName,
-                                             StrandMetadata metadata, int noOfIterations,
-                                             AtomicInteger callCount, Supplier<Object[]> argsSupplier,
-                                             Consumer<Object> futureResultConsumer,
-                                             Supplier<Object> returnValueSupplier, Scheduler scheduler) {
-        AsyncFunctionCallback callback = new AsyncFunctionCallback() {
-            @Override
-            public void notifySuccess(Object result) {
-                futureResultConsumer.accept(getFutureResult());
-                if (callCount.incrementAndGet() != noOfIterations) {
-                    scheduleNextFunction(func, strand, strandName, metadata, noOfIterations, callCount, argsSupplier,
-                                         futureResultConsumer, returnValueSupplier, scheduler);
+    @SuppressWarnings("unused")
+    /*
+     * Used for codegen wait for future.
+     */
+    public static Object handleWait(Strand strand, FutureValue future) {
+        future.strand.checkStrandCancelled();
+        if (future.getAndSetWaited()) {
+            return ErrorUtils.createWaitOnSameFutureError();
+        }
+        return handleWait(strand, future.completableFuture);
+    }
+
+    public static Object handleWait(Strand strand, CompletableFuture<Object> completableFuture) {
+        if (strand.isIsolated) {
+            return getFutureResult(completableFuture);
+        }
+        return handleNonIsolatedStrand(strand, () -> getFutureResult(completableFuture));
+    }
+
+    @SuppressWarnings("unused")
+    /*
+     * Used for codegen wait for any of future from given list.
+     */
+    public static Object handleWaitAny(Strand strand, List<FutureValue> futures) {
+        CompletableFuture<?>[] cFutures = new CompletableFuture[futures.size()];
+        for (int i = 0; i < futures.size(); i++) {
+            FutureValue future = futures.get(i);
+            future.strand.checkStrandCancelled();
+            if (future.getAndSetWaited()) {
+                return ErrorUtils.createWaitOnSameFutureError();
+            }
+            cFutures[i] = future.completableFuture;
+        }
+        return handleWaitAny(strand, cFutures);
+    }
+
+    @SuppressWarnings("unused")
+    /*
+     * Used for codegen wait for all futures from given list.
+     */
+    public static void handleWaitMultiple(Strand strand, Map<String, FutureValue> futureMap,
+                                          MapValue<BString, Object> target) {
+        Collection<FutureValue> futures = futureMap.values();
+        List<CompletableFuture<?>> cFutures = new ArrayList<>();
+        List<String> alreadyWaitedKeys = new ArrayList<>();
+        for (Map.Entry<String, FutureValue> entry : futureMap.entrySet()) {
+            FutureValue future = entry.getValue();
+            future.strand.checkStrandCancelled();
+            if (!future.getAndSetWaited()) {
+                cFutures.add(future.completableFuture);
+            } else {
+                alreadyWaitedKeys.add(entry.getKey());
+            }
+        }
+        if (strand.isIsolated) {
+            waitForAllFutureResult(cFutures.toArray(new CompletableFuture[0]));
+            getAllFutureResult(futureMap, alreadyWaitedKeys, target);
+        }
+        handleNonIsolatedStrand(strand, () -> {
+            waitForAllFutureResult(cFutures.toArray(new CompletableFuture[0]));
+            getAllFutureResult(futureMap, alreadyWaitedKeys, target);
+            return null;
+        });
+    }
+
+    public static Object handleWaitAny(Strand strand, CompletableFuture<?>[] cFutures) {
+        Object result;
+        if (strand.isIsolated) {
+            result = getAnyFutureResult(cFutures);
+        } else {
+            result = handleNonIsolatedStrand(strand, () -> getAnyFutureResult(cFutures));
+        }
+        if (cFutures.length > 1 && result instanceof BError) {
+            List<CompletableFuture<?>> nonErrorFutures = new ArrayList<>();
+            for (CompletableFuture<?> completableFuture : cFutures) {
+                if (completableFuture.isDone()) {
+                    result = getFutureResult(completableFuture);
+                    if (!(result instanceof BError)) {
+                        return result;
+                    }
                 } else {
-                    setReturnValues(returnValueSupplier.get());
+                    nonErrorFutures.add(completableFuture);
                 }
             }
-
-            @Override
-            public void notifyFailure(BError error) {
-                handleRuntimeErrors(error);
+            if (!nonErrorFutures.isEmpty()) {
+                return handleWaitAny(strand, nonErrorFutures.toArray(new CompletableFuture<?>[0]));
             }
-        };
-        invokeFunctionPointerAsync(func, strand, strandName, metadata, argsSupplier.get(), callback, scheduler);
+        }
+        return result;
     }
 
-    private static class Unblocker implements java.util.function.BiConsumer<Object, Throwable> {
-
-        private Strand strand;
-
-        public Unblocker(Strand strand) {
-            this.strand = strand;
+    public static Object getFutureResult(CompletableFuture<?> completableFuture) throws BError {
+        try {
+            return completableFuture.get();
+        } catch (Throwable e) {
+            if (e.getCause() instanceof BError bError) {
+                throw bError;
+            }
+            throw ErrorCreator.createError(e);
         }
+    }
 
-        @Override
-        public void accept(Object returnValue, Throwable throwable) {
-            if (throwable == null) {
-                this.strand.returnValue = returnValue;
-                this.strand.scheduler.unblockStrand(strand);
+    public static Object getAnyFutureResult(CompletableFuture<?>[] cFutures) {
+        int fSize = cFutures.length;
+        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
+        AtomicInteger count = new AtomicInteger();
+        for (CompletableFuture<?> f : cFutures) {
+            f.whenComplete((result, ex) -> {
+                if (ex != null) {
+                    resultFuture.completeExceptionally(ex);
+                    return;
+                }
+                if (count.incrementAndGet() < fSize && result instanceof BError) {
+                    return;
+                }
+                resultFuture.complete(result);
+            });
+        }
+        CompletableFuture<Object> anyFuture = CompletableFuture.anyOf(resultFuture, CompletableFuture.allOf(cFutures));
+        Object r = getFutureResult(anyFuture);
+        if (r != null) {
+            return r;
+        }
+        return getFutureResult(resultFuture);
+    }
+
+    private static void getAllFutureResult(Map<String, FutureValue> futureMap, List<String> alreadyWaitedKeys,
+                                           MapValue<BString, Object> target) {
+        for (Map.Entry<String, FutureValue> entry : futureMap.entrySet()) {
+            FutureValue future = entry.getValue();
+            String key = entry.getKey();
+            if (alreadyWaitedKeys.contains(key)) {
+                target.put(StringUtils.fromString(key), ErrorUtils.createWaitOnSameFutureError());
+            } else {
+                target.put(StringUtils.fromString(key), getFutureResult(future.completableFuture));
             }
         }
+    }
+
+    public static void waitForAllFutureResult(CompletableFuture<?>[] futures) {
+        CompletableFuture<?> failure = new CompletableFuture<>();
+        for (CompletableFuture<?> f : futures) {
+            f.exceptionally(ex -> {
+                failure.completeExceptionally(ex);
+                return null;
+            });
+        }
+        CompletableFuture<Object> future = CompletableFuture.anyOf(failure, CompletableFuture.allOf(futures));
+        getFutureResult(future);
+    }
+
+    private AsyncUtils() {
     }
 }

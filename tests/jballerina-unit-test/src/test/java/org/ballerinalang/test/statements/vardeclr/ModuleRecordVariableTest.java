@@ -19,6 +19,7 @@ package org.ballerinalang.test.statements.vardeclr;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -56,7 +57,9 @@ public class ModuleRecordVariableTest {
                 "testVariableDeclaredWithVar",
                 "testVariableDeclaredWithVar2",
                 "testRecordVariableWithRestBP",
-                "testVariableDeclaredInRecordAsAnnotationValue"
+                "testVariableDeclaredInRecordAsAnnotationValue",
+                "testVariableDeclaredInRecordAsAnnotationValue",
+                "testOptionalFieldAssignment"
         };
     }
 
@@ -84,13 +87,8 @@ public class ModuleRecordVariableTest {
         validateError(compileResultNegetive, index++,
                 "invalid error binding pattern with type 'map<string>'", 53, 35);
         validateError(compileResultNegetive, index++,
-                "invalid field binding pattern; can only bind required fields", 75, 28);
-        validateError(compileResultNegetive, index++,
-                "invalid field binding pattern; can only bind required fields", 77, 39);
-        validateError(compileResultNegetive, index++,
-                "invalid field binding pattern; can only bind required fields", 91, 22);
-        validateError(compileResultNegetive, index++,
-                "invalid field binding pattern; can only bind required fields", 91, 43);
+                "invalid operation: type 'record {| int b?; anydata...; |}[1]?' does not support member access",
+                102, 9);
         assertEquals(compileResultNegetive.getErrorCount(), index);
     }
 
@@ -121,5 +119,10 @@ public class ModuleRecordVariableTest {
         validateError(compileResult, index++, "variable declaration having binding pattern must be initialized",
                 22, 33);
         assertEquals(compileResult.getErrorCount(), index);
+    }
+
+    @AfterClass
+    public void tearDown() {
+        compileResult = null;
     }
 }

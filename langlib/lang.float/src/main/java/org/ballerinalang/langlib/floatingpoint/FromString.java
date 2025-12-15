@@ -18,51 +18,43 @@
 
 package org.ballerinalang.langlib.floatingpoint;
 
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.internal.TypeConverter;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 import static io.ballerina.runtime.api.constants.RuntimeConstants.FLOAT_LANG_LIB;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.NUMBER_PARSING_ERROR_IDENTIFIER;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.getModulePrefixedReason;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.NUMBER_PARSING_ERROR_IDENTIFIER;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.getModulePrefixedReason;
 
 /**
  * Native implementation of lang.float:fromString(string).
  *
  * @since 1.0
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.float", functionName = "fromString",
-//        args = {@Argument(name = "s", type = TypeKind.STRING)},
-//        returnType = {@ReturnType(type = TypeKind.UNION)},
-//        isPublic = true
-//)
 public class FromString {
 
     private static final BString ERROR_REASON = getModulePrefixedReason(FLOAT_LANG_LIB,
                                                                         NUMBER_PARSING_ERROR_IDENTIFIER);
 
+    private FromString() {
+    }
+
     public static Object fromString(BString s) {
         String decimalFloatingPointNumber = s.getValue();
-        String upperCaseValue = decimalFloatingPointNumber.toUpperCase();
-        if (upperCaseValue.endsWith("F") || upperCaseValue.endsWith("D")) {
-            return getTypeConversionError(decimalFloatingPointNumber);
-        }
-
         try {
-            return TypeConverter.stringToFloat(s.getValue());
+            return TypeConverter.stringToFloat(decimalFloatingPointNumber);
         } catch (NumberFormatException e) {
             return getTypeConversionError(decimalFloatingPointNumber);
         }
     }
 
     private static BError getTypeConversionError(String value) {
-        return ErrorCreator.createError(ERROR_REASON, BLangExceptionHelper.getErrorDetails(
-                        RuntimeErrors.INCOMPATIBLE_SIMPLE_TYPE_CONVERT_OPERATION,
+        return ErrorCreator.createError(ERROR_REASON, ErrorHelper.getErrorDetails(
+                        ErrorCodes.INCOMPATIBLE_SIMPLE_TYPE_CONVERT_OPERATION,
                         PredefinedTypes.TYPE_STRING, value, PredefinedTypes.TYPE_FLOAT));
     }
 }

@@ -28,6 +28,72 @@ function stringtoint(string value) returns int|error {
     return result;
 }
 
+function testDecimalToIntCasting() {
+    decimal d = -9223372036854775807d;
+    int res = <int> d;
+    assertEquality(-9223372036854775807, res);
+
+    d = 9223372036854775807d;
+    res = <int> d;
+    assertEquality(9223372036854775807, res);
+
+    d = 9223372036854775806.5d;
+    res = <int> d;
+    assertEquality(9223372036854775806, res);
+
+    d = -9223372036854775805.5d;
+    res = <int> d;
+    assertEquality(-9223372036854775806, res);
+
+    d = -9223372036854775808.9d;
+    int|error result = trap <int> d;
+    assertEquality(true, result is error);
+    error err = <error> result;
+    assertEquality("{ballerina}NumberConversionError", err.message());
+    assertEquality("'decimal' value '-9223372036854775808.9' cannot be converted to 'int'",
+                    checkpanic <string|error> err.detail()["message"]);
+
+    d = 9223372036854775807.5d;
+    result = trap <int> d;
+    assertEquality(true, result is error);
+    err = <error> result;
+    assertEquality("{ballerina}NumberConversionError", err.message());
+    assertEquality("'decimal' value '9223372036854775807.5' cannot be converted to 'int'",
+                    checkpanic <string|error> err.detail()["message"]);
+}
+
+function testDecimalToFloatCasting() {
+    decimal d = 0.0000000000000009e+308;
+    float f = <float> d;
+    assertEquality(9E+292, f);
+
+    d = -0.0000000000000009e+308;
+    f = <float> d;
+    assertEquality(-9E+292, f);
+
+    d = -0.0000000000000005e-308;
+    f = <float> d;
+    assertEquality(-5E-324, f);
+
+    d = 9.999999999999999999999999999999999E6001d;
+    f = <float> d;
+    assertEquality(float:Infinity, f);
+
+    d = -9.999999999999999999999999999999999E6001d;
+    f = <float> d;
+    assertEquality(-float:Infinity, f);
+}
+
+function testFloatToDecimalCasting() {
+    float f = 0.0000000000000009e+308;
+    decimal d = <decimal> f;
+    assertEquality(9E+292d, d);
+
+    f = -1.999999999e-200;
+    d = <decimal> f;
+    assertEquality(-1.999999999E-200d, d);
+}
+
 function testIntSubtypeArrayCasting() {
 
     byte[] byteArray = [1, 128, 255];
@@ -415,27 +481,27 @@ function testStringToJson(string s) returns (json) {
     return s;
 }
 
-type Person record {
+type PersonTC record {
     string name;
     int age;
     map<anydata> address = {};
     int[] marks = [];
-    Person | () parent = ();
+    PersonTC | () parent = ();
     json info = {};
     anydata a = 0;
     float score = 0.0;
     boolean alive = true;
 };
 
-type Student record {
+type StudentTC record {
     string name;
     int age;
     map<any> address = {};
     int[] marks = [];
 };
 
-function testStructToStruct() returns (Student) {
-    Person p = { name:"Supun",
+function testStructToStruct() returns (StudentTC) {
+    PersonTC p = { name:"Supun",
                    age:25,
                    parent:{name:"Parent", age:50},
                    address:{"city":"Kandy", "country":"SriLanka"},
@@ -446,13 +512,13 @@ function testStructToStruct() returns (Student) {
     return p2;
 }
 
-function testNullStructToStruct() returns Student {
-    Person? p = ();
-    return <Student> p;
+function testNullStructToStruct() returns StudentTC {
+    PersonTC? p = ();
+    return <StudentTC> p;
 }
 
-function testStructAsAnyToStruct() returns Person|error {
-    Person p1 = { name:"Supun",
+function testStructAsAnyToStruct() returns PersonTC|error {
+    PersonTC p1 = { name:"Supun",
                     age:25,
                     parent:{name:"Parent", age:50},
                     address:{"city":"Kandy", "country":"SriLanka"},
@@ -460,11 +526,11 @@ function testStructAsAnyToStruct() returns Person|error {
                     marks:[24, 81]
                 };
     any a = p1;
-    var p2 = check trap <Person> a;
+    var p2 = check trap <PersonTC> a;
     return p2;
 }
 
-function testAnyToStruct() returns Person {
+function testAnyToStruct() returns PersonTC {
     json address = {"city":"Kandy", "country":"SriLanka"};
     map<any> parent = {name:"Parent", age:50};
     map<any> info = {status:"single"};
@@ -477,18 +543,18 @@ function testAnyToStruct() returns Person {
                 marks:marks
             };
     any b = a;
-    var p2 = <Person> b;
+    var p2 = <PersonTC> b;
     return p2;
 }
 
-function testAnyNullToStruct() returns Person {
+function testAnyNullToStruct() returns PersonTC {
     any a = ();
-    var p = <Person> a;
+    var p = <PersonTC> a;
     return p;
 }
 
 function testRecordToAny() returns (any) {
-    Person p = { name:"Supun",
+    PersonTC p = { name:"Supun",
                    age:25,
                    parent:{name:"Parent", age:50},
                    address:{"city":"Kandy", "country":"SriLanka"},
@@ -524,12 +590,18 @@ function testIncompatibleJsonToFloat() returns float|error {
     return value;
 }
 
-function testBooleanInJsonToInt() returns int|error {
+function testBooleanInJsonToInt() {
     json j = true;
-    return trap <int> j;
+    var result = trap <int> j;
+    test:assertTrue(result is error);
+    if (result is error) {
+        test:assertEquals("{ballerina}TypeCastError", result.message());
+        test:assertEquals("incompatible types: 'boolean' cannot be cast to 'int'",
+        <string> checkpanic result.detail()["message"]);
+    }
 }
 
-type Address record {
+type AddressTC record {
     string city;
     string country = "";
 };
@@ -599,7 +671,7 @@ function testAnyMapToJson() returns json {
 }
 
 function testAnyStructToJson() returns json {
-    Address adrs = {city:"CA"};
+    AddressTC adrs = {city:"CA"};
     any a = adrs;
     json value;
     value = <json> a;
@@ -845,18 +917,18 @@ function testJSONValueCasting() returns [string|error, int|error, float|error, b
 }
 
 function testAnyToTable() {
-    table<Employee> tb = table [
+    table<EmployeeTC> tb = table [
                     {id:1, name:"Jane"},
                     {id:2, name:"Anne"}
         ];
 
     any anyValue = tb;
-    var casted = <table<Employee>> anyValue;
-    table<Employee>  castedValue = casted;
+    var casted = <table<EmployeeTC>> anyValue;
+    table<EmployeeTC>  castedValue = casted;
     assertEquality("[{\"id\":1,\"name\":\"Jane\"},{\"id\":2,\"name\":\"Anne\"}]", castedValue.toString());
 }
 
-type Employee record {
+type EmployeeTC record {
     int id;
     string name;
 };
@@ -890,7 +962,7 @@ function testCastOfReadonlyIntArrayToByteArrayNegative() {
     assertEquality(true, g is error);
     error err = <error> g;
     assertEquality("{ballerina}TypeCastError", err.message());
-    assertEquality("incompatible types: 'int[] & readonly' cannot be cast to 'byte[]'", <string> checkpanic err.detail()["message"]);
+    assertEquality("incompatible types: '(int[] & readonly)' cannot be cast to 'byte[]'", <string> checkpanic err.detail()["message"]);
 }
 
 function testCastOfReadonlyAnyToByteArray() {
@@ -926,32 +998,31 @@ function testCastOfReadonlyUnionArrayToByteArray() {
     assertEquality("[1,2,3]", f.toString());
 }
 
-type Foo record {|
+type FooTC record {|
     string s;
     int[] arr;
 |};
 
-type Bar record {|
+type BarTC record {|
     string s;
     byte[] arr;
 |};
 
 function testCastOfReadonlyRecord() {
-    (Foo & readonly) f = {s: "a", arr: [1,2,3]};
+    (FooTC & readonly) f = {s: "a", arr: [1,2,3]};
     any a = f;
-    Bar b = <Bar> a;
+    BarTC b = <BarTC> a;
     assertEquality(true, b === a);
     assertEquality("{\"s\":\"a\",\"arr\":[1,2,3]}", b.toString());
 }
 
 function testCastOfReadonlyRecordNegative() {
-    (Foo & readonly) f = {s: "a", arr: [1,2,300]};
+    (FooTC & readonly) f = {s: "a", arr: [1,2,300]};
     any a = f;
-    Bar|error b = trap <Bar> a;
+    BarTC|error b = trap <BarTC> a;
     assertEquality(true, b is error);
     error err = <error> b;
-    string errMsg = "incompatible types: '(Foo & readonly)' cannot be cast to 'Bar': " +
-    "\n\t\tfield 'arr' in record 'Bar' should be of type 'byte[]', found '[1,2,300]'";
+    string errMsg = "incompatible types: '(FooTC & readonly)' cannot be cast to 'BarTC'";
     assertEquality("{ballerina}TypeCastError", err.message());
     assertEquality(errMsg, <string> checkpanic err.detail()["message"]);
 }

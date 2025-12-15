@@ -17,18 +17,20 @@
  */
 package io.ballerina.projects.internal.plugins;
 
+import io.ballerina.compiler.internal.parser.tree.STAnnotationNode;
+import io.ballerina.compiler.syntax.tree.AnnotationNode;
+import io.ballerina.compiler.syntax.tree.NodeList;
 import io.ballerina.projects.ProjectException;
 import io.ballerina.projects.plugins.CompilerPlugin;
+import io.ballerina.projects.util.CustomURLClassLoader;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Path;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.ServiceLoader;
 
@@ -37,7 +39,8 @@ import java.util.ServiceLoader;
  *
  * @since 2.0.0
  */
-public class CompilerPlugins {
+public final class CompilerPlugins {
+
     static List<CompilerPlugin> builtInPlugins = new ArrayList<>();
 
     private CompilerPlugins() {
@@ -94,10 +97,7 @@ public class CompilerPlugins {
     }
 
     private static ClassLoader createClassLoader(List<Path> jarDependencyPaths) {
-        return AccessController.doPrivileged(
-                (PrivilegedAction<URLClassLoader>) () -> new URLClassLoader(getJarURLS(jarDependencyPaths),
-                        CompilerPlugins.class.getClassLoader())
-        );
+        return new CustomURLClassLoader(getJarURLS(jarDependencyPaths), Thread.currentThread().getContextClassLoader());
     }
 
     private static URL[] getJarURLS(List<Path> jarDependencyPaths) {
@@ -110,5 +110,22 @@ public class CompilerPlugins {
             }
         }
         return jarURLS;
+    }
+
+    public static List<String> annotationsAsStr(NodeList<AnnotationNode> supportedAnnotations) {
+        List<String> annotations = new ArrayList<>();
+        StringBuilder id = new StringBuilder();
+        for (AnnotationNode annotation : supportedAnnotations) {
+            String annotationRef = ((STAnnotationNode) annotation.internalNode()).annotReference.toString()
+                    .replaceAll("\\s", "");
+            id.append(annotationRef);
+
+            String annotationVal = ((STAnnotationNode) annotation.internalNode()).annotValue.toString()
+                    .replaceAll("\\s", "");
+            id.append(annotationVal);
+            annotations.add(id.toString());
+        }
+        annotations.sort(Comparator.naturalOrder());
+        return annotations;
     }
 }

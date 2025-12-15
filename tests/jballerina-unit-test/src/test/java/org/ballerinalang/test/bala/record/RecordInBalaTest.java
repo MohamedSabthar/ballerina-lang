@@ -18,9 +18,11 @@
 
 package org.ballerinalang.test.bala.record;
 
+import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -46,6 +48,20 @@ public class RecordInBalaTest {
     }
 
     @Test
+    public void negativeTests() {
+        CompileResult result = BCompileUtil.compile("test-src/record/record_negative_bala.bal");
+        int count = 0;
+        BAssertUtil.validateError(result, count++, "incompatible types: expected '(testorg/foo.records:1.0.0:" +
+                "Interceptor & readonly)', found 'PersonInterceptor'", 26, 40);
+        BAssertUtil.validateError(result, count++, "incompatible types: expected 'testorg/foo.records:1.0.0:Foo'" +
+                ", found '[Bar]'", 26, 71);
+        BAssertUtil.validateError(result, count++, "missing non-defaultable required record field 'x'", 30, 33);
+        BAssertUtil.validateError(result, count++, "missing non-defaultable required record field 'x'", 34, 33);
+        BAssertUtil.validateError(result, count++, "missing non-defaultable required record field 'y'", 34, 33);
+        Assert.assertEquals(result.getErrorCount(), count);
+    }
+
+    @Test
     public void testComplexCyclicRecordTypeResolution() {
         CompileResult typeResolution =
                 BCompileUtil.compile("test-src/record/complex_record_resolution.bal");
@@ -54,5 +70,14 @@ public class RecordInBalaTest {
         BRunUtil.invoke(typeResolution, "testCreatingComplexRecWithIncTypeWithActualTypes");
         BRunUtil.invoke(typeResolution, "testCreatingComplexRecWithIncTypeFromBala");
         BRunUtil.invoke(typeResolution, "testCreatingComplexRecWithIncTypeFromBalaWithCM");
+    }
+
+    @Test
+    public void testIntersectionOfReadonlyAndRecordTypeWithDefaults() {
+        CompileResult result = BCompileUtil.compile("test-src/bala/test_projects/test_project_records_negative");
+        int count = 0;
+        BAssertUtil.validateError(result, count++, "missing non-defaultable required record field 'initialValues'",
+                                  22, 25);
+        Assert.assertEquals(result.getErrorCount(), count);
     }
 }

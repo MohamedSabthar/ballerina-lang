@@ -232,40 +232,40 @@ function testReadOnlyFieldWithDefaultValue() {
     assertEquality("cannot update 'readonly' field 'id' in record of type 'Identifier'", err.detail()["message"]);
 }
 
-type Foo record {|
+type FooH record {|
     string name;
     int id;
     float...;
 |};
 
-type Bar record {|
+type BarH record {|
     readonly string name;
     readonly int id;
 |};
 
-type EmptyClosedRecord record {|
+type EmptyClosedRecordH record {|
 |};
 
 function testTypeReadOnlyFlagForAllReadOnlyFields() {
-    Bar st = {
+    BarH st = {
         name: "Maryam",
         id: 1234
     };
 
-    Foo & readonly pr = st;
-    assertTrue(pr is Bar);
-    assertTrue(pr is Bar & readonly);
+    FooH & readonly pr = st;
+    assertTrue(pr is BarH);
+    assertTrue(pr is BarH & readonly);
     assertEquality("Maryam", pr.name);
     assertEquality(1234, pr.id);
 
     readonly rd = st;
-    assertTrue(rd is Bar);
-    assertTrue(rd is Bar & readonly);
+    assertTrue(rd is BarH);
+    assertTrue(rd is BarH & readonly);
 
-    EmptyClosedRecord ecr = {};
+    EmptyClosedRecordH ecr = {};
     readonly rd2 = ecr;
-    assertTrue(rd2 is EmptyClosedRecord);
-    assertTrue(rd2 is EmptyClosedRecord & readonly);
+    assertTrue(rd2 is EmptyClosedRecordH);
+    assertTrue(rd2 is EmptyClosedRecordH & readonly);
     assertTrue(rd2 is record {} & readonly);
 }
 
@@ -275,19 +275,19 @@ record {|
 
 function testTypeReadOnlyFlagForAllReadOnlyFieldsInAnonymousRecord() {
     readonly rd = modAnonRecord;
-    assertTrue(<any|error> rd is record { int x; });
-    assertTrue(rd is record { int x; } & readonly);
-    record { int x; } rec = <record { int x; } & readonly> checkpanic rd;
+    assertTrue(<any|error>rd is record {int x;});
+    assertTrue(rd is record {int x;} & readonly);
+    record {int x;} rec = <record {int x;} & readonly>checkpanic rd;
     assertEquality(2, rec.x);
 
     record {|
         readonly int x = 1;
-        readonly Bar y;
+        readonly BarH y;
     |} localAnonRecord = {y: {name: "Amy", id: 1001}};
     readonly rd2 = localAnonRecord;
-    assertTrue(<any|error> rd2 is record {| int x; Bar y; |});
-    assertTrue(rd2 is record { int x; Bar y; } & readonly);
-    var rec2 = <record { int x; Bar y; } & readonly> checkpanic rd2;
+    assertTrue(<any|error>rd2 is record {|int x; BarH y;|});
+    assertTrue(rd2 is record {int x; BarH y;} & readonly);
+    var rec2 = <record {int x; BarH y;} & readonly>checkpanic rd2;
     assertEquality(1, rec2.x);
     assertEquality("Amy", rec2.y.name);
     assertEquality(1001, rec2.y.id);
@@ -916,6 +916,65 @@ function testDefaultValueFromCETBeingUsedWithReadOnlyFieldsInTheMappingConstruct
     assertTrue(f is record {|string a; readonly string b; string[] c;|});
     assertTrue(f is record {|string a; readonly string b; readonly string[] c;|});
     assertFalse(f is record {|readonly string a; readonly string b; readonly string[] c;|});
+}
+
+type R1 record {|
+    never x?;
+|};
+
+type R2 record {
+    never x?;
+};
+
+type R3 record {|
+    never x?;
+    readonly int y;
+|};
+
+type R4 record {|
+    never x?;
+    string y;
+|};
+
+type R5 record {|
+   record {|
+       never a;
+   |} x?;
+|};
+
+type R6 record {|
+    never|never x?;
+|};
+
+function testRecordReadonlynessWithNeverFields() {
+    record {|
+        never x?;
+        never y?;
+    |} c = {};
+    readonly c1 = c;
+    assertTrue(c1 is record {|never x?; never y?;|} & readonly);
+
+    R1 e = {};
+    readonly e1 = e;
+    assertTrue(e1 is record {|never x?;|} & readonly);
+
+    R2 f = {};
+    assertFalse(f is record {|never x?; anydata...;|} & readonly);
+
+    R3 g = {y: 1};
+    readonly g1 = g;
+    assertTrue(g1 is record {|never x?; int y;|} & readonly);
+
+    R4 h = {y: "abc"};
+    assertFalse(h is record {|never x?; string y;|} & readonly);
+
+    R5 i = {};
+    readonly i1 = i;
+    assertTrue(i1 is record {|record {|never a;|} x?;|} & readonly);
+
+    R6 j = {};
+    readonly j1 = j;
+    assertTrue(j1 is record {|never|never x?;|} & readonly);
 }
 
 const ASSERTION_ERROR_REASON = "AssertionError";

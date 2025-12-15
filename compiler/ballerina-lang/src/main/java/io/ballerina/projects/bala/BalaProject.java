@@ -18,6 +18,7 @@
 
 package io.ballerina.projects.bala;
 
+import io.ballerina.projects.BuildOptions;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
@@ -38,12 +39,15 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 /**
+ * @deprecated Use {@link io.ballerina.projects.directory.BalaProject} instead.
  * {@code BalaProject} represents a Ballerina project instance created from a bala.
  *
  * @since 2.0.0
  */
+@Deprecated(since = "2201.13.0", forRemoval = true)
 public class BalaProject extends Project {
     private final String platform;
+    private final String balaVersion;
 
     /**
      * Loads a BalaProject from the provided bala path.
@@ -53,22 +57,48 @@ public class BalaProject extends Project {
      */
     public static BalaProject loadProject(ProjectEnvironmentBuilder environmentBuilder, Path balaPath) {
         PackageConfig packageConfig = PackageConfigCreator.createBalaProjectConfig(balaPath);
-        BalaProject balaProject = new BalaProject(environmentBuilder, balaPath);
+        BalaProject balaProject = new BalaProject(environmentBuilder, balaPath, BuildOptions.builder().setSticky(true)
+                .build());
         balaProject.addPackage(packageConfig);
         return balaProject;
     }
 
-    private BalaProject(ProjectEnvironmentBuilder environmentBuilder, Path balaPath) {
-        super(ProjectKind.BALA_PROJECT, balaPath, environmentBuilder);
+    /**
+     * Loads a BalaProject from the provided bala path with build options.
+     *
+     * @param balaPath Bala path
+     * @param buildOptions Build options
+     * @return bala project
+     */
+    public static BalaProject loadProject(ProjectEnvironmentBuilder environmentBuilder, Path balaPath,
+                                          BuildOptions buildOptions) {
+        PackageConfig packageConfig = PackageConfigCreator.createBalaProjectConfig(balaPath);
+        BalaProject balaProject = new BalaProject(environmentBuilder, balaPath, buildOptions);
+        balaProject.addPackage(packageConfig);
+        return balaProject;
+    }
+
+    private BalaProject(ProjectEnvironmentBuilder environmentBuilder, Path balaPath, BuildOptions buildOptions) {
+        super(ProjectKind.BALA_PROJECT, balaPath, environmentBuilder, buildOptions, null);
         this.platform = BalaFiles.readPackageJson(balaPath).getPlatform();
+        this.balaVersion = BalaFiles.readBalaJson(balaPath).getBala_version();
+    }
+
+    @Override
+    public void clearCaches() {
+        resetPackage(this);
+        ProjectEnvironmentBuilder projectEnvironmentBuilder = ProjectEnvironmentBuilder.getDefaultBuilder();
+        projectEnvironmentBuilder.addCompilationCacheFactory(TempDirCompilationCache::from);
+        this.projectEnvironment = projectEnvironmentBuilder.build(this);
     }
 
     @Override
     public Project duplicate() {
         ProjectEnvironmentBuilder projectEnvironmentBuilder = ProjectEnvironmentBuilder.getDefaultBuilder();
         projectEnvironmentBuilder.addCompilationCacheFactory(TempDirCompilationCache::from);
-        BalaProject balaProject = new BalaProject(projectEnvironmentBuilder, this.sourceRoot);
-        return cloneProject(balaProject);
+        BuildOptions duplicateBuildOptions = BuildOptions.builder().build().acceptTheirs(buildOptions());
+        BalaProject balaProject = new BalaProject(projectEnvironmentBuilder, this.sourceRoot, duplicateBuildOptions);
+        return resetPackage(balaProject);
     }
 
     @Override
@@ -118,6 +148,10 @@ public class BalaProject extends Project {
         return platform;
     }
 
+    public String balaVersion() {
+        return balaVersion;
+    }
+
     private boolean isFilePathInProject(Path filepath) {
         try {
             ProjectPaths.packageRoot(filepath);
@@ -130,5 +164,10 @@ public class BalaProject extends Project {
     @Override
     public Path targetDir() {
         throw new UnsupportedOperationException("target directory is not supported for BalaProject");
+    }
+
+    @Override
+    public Path generatedResourcesDir() {
+        throw new UnsupportedOperationException("generated resources directory is not supported for BalaProject");
     }
 }

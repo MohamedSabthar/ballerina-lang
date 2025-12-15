@@ -32,14 +32,20 @@ import io.ballerina.projects.Project;
 import io.ballerina.projects.ResolvedPackageDependency;
 import io.ballerina.projects.environment.PackageCache;
 import io.ballerina.tools.text.LinePosition;
+import org.apache.commons.io.FileUtils;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableSymbol;
 import org.wso2.ballerinalang.compiler.util.Name;
+import org.wso2.ballerinalang.util.RepoUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
+
+import static io.ballerina.projects.test.TestUtils.replaceDistributionVersionOfDependenciesToml;
 
 /**
  * Contains cases to test retrieving file paths from dependencies.
@@ -48,11 +54,20 @@ import java.util.Collection;
  */
 public class DependencyFilePathsTest extends BaseTest {
 
-    private static final Path RESOURCE_DIRECTORY = Paths.get("src/test/resources").toAbsolutePath();
+    private static final Path RESOURCE_DIRECTORY = Path.of("src/test/resources").toAbsolutePath();
+    private static Path tempResourceDir;
+
+    @BeforeClass
+    public void setup() throws IOException {
+        // copy the resource directory to a temp directory
+        tempResourceDir = Files.createTempDirectory("project-api-test");
+        FileUtils.copyDirectory(RESOURCE_DIRECTORY.toFile(), tempResourceDir.toFile());
+    }
 
     @Test
-    public void testGetDependencyFilePathFromBuildProject() {
-        Path projectDirPath = RESOURCE_DIRECTORY.resolve("projects_for_resolution_tests").resolve("package_a");
+    public void testGetDependencyFilePathFromBuildProject() throws IOException {
+        Path projectDirPath = tempResourceDir.resolve("projects_for_resolution_tests").resolve("package_a");
+        replaceDistributionVersionOfDependenciesToml(projectDirPath, RepoUtils.getBallerinaShortVersion());
         Project project = TestUtils.loadProject(projectDirPath);
         Package currentPackage = project.currentPackage();
         PackageCompilation compilation = currentPackage.getCompilation();
@@ -95,13 +110,13 @@ public class DependencyFilePathsTest extends BaseTest {
             }
         }
         assert filepath != null;
-        Path expectedPath = Paths.get("build/repo/bala/samjs/package_b/0.1.0/any/modules/package_b.mod_b1")
+        Path expectedPath = Path.of("build/repo/bala/samjs/package_b/0.1.0/any/modules/package_b.mod_b1")
                 .resolve("mod1.bal").toAbsolutePath();
         Assert.assertEquals(filepath.toString(), expectedPath.toString());
 
         // get document id of dependency filepath
         Project balaProject = TestUtils.loadProject(
-                Paths.get("build/repo/bala/samjs/package_b/0.1.0/any/"));
+                Path.of("build/repo/bala/samjs/package_b/0.1.0/any/"));
         DocumentId documentId1 = balaProject.documentId(filepath);
 
         Module mod1 = balaProject.currentPackage().module(
@@ -112,8 +127,9 @@ public class DependencyFilePathsTest extends BaseTest {
     }
 
     @Test
-    public void testGetLangLibFilePath() {
-        Path projectDirPath = RESOURCE_DIRECTORY.resolve("projects_for_resolution_tests").resolve("package_a");
+    public void testGetLangLibFilePath() throws IOException {
+        Path projectDirPath = tempResourceDir.resolve("projects_for_resolution_tests").resolve("package_a");
+        replaceDistributionVersionOfDependenciesToml(projectDirPath, RepoUtils.getBallerinaShortVersion());
         Project project = TestUtils.loadProject(projectDirPath);
         Package currentPackage = project.currentPackage();
         PackageCompilation compilation = currentPackage.getCompilation();
@@ -152,13 +168,13 @@ public class DependencyFilePathsTest extends BaseTest {
         }
 
         assert filepath != null;
-        Path expectedPath = Paths.get("build/repo/bala/ballerina/lang.float/0.0.0/any/modules/lang.float")
+        Path expectedPath = Path.of("build/repo/bala/ballerina/lang.float/0.0.0/any/modules/lang.float")
                 .resolve("float.bal").toAbsolutePath();
         Assert.assertEquals(filepath.toString(), expectedPath.toString());
 
         // get document id of dependency filepath
         Project balaProject = TestUtils.loadProject(
-                Paths.get("build/repo/bala/ballerina/lang.float/0.0.0/any"));
+                Path.of("build/repo/bala/ballerina/lang.float/0.0.0/any"));
         DocumentId documentId1 = balaProject.documentId(filepath);
         Assert.assertEquals(documentId1,
                 balaProject.currentPackage().getDefaultModule().documentIds().stream().findFirst().get());

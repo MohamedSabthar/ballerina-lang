@@ -33,7 +33,7 @@ import io.ballerina.tools.text.LineRange;
  *
  * @since 2.0.0
  */
-public class ManifestUtils {
+public final class ManifestUtils {
 
     private ManifestUtils() {
     }
@@ -42,12 +42,12 @@ public class ManifestUtils {
         LineRange lineRange = diagnostic.location().lineRange();
 
         LineRange oneBasedLineRange = LineRange.from(
-                lineRange.filePath(),
+                lineRange.fileName(),
                 LinePosition.from(lineRange.startLine().line(), lineRange.startLine().offset() + 1),
                 LinePosition.from(lineRange.endLine().line(), lineRange.endLine().offset() + 1));
 
         return diagnostic.diagnosticInfo().severity().toString() + " [" +
-                oneBasedLineRange.filePath() + ":" + oneBasedLineRange + "] " + diagnostic.message();
+                oneBasedLineRange.fileName() + ":" + oneBasedLineRange + "] " + diagnostic.message();
     }
 
     public static String getStringFromTomlTableNode(TopLevelNode topLevelNode) {
@@ -60,6 +60,30 @@ public class ManifestUtils {
             }
         }
         return null;
+    }
+
+    enum ToolNodeValueType {
+        STRING,
+        NON_STRING,
+        EMPTY,
+        INVALID
+    }
+
+    public static ToolNodeValueType getBuildToolTomlValueType(TopLevelNode topLevelNode) {
+        if (topLevelNode.kind() != null && topLevelNode.kind() == TomlType.KEY_VALUE) {
+            TomlKeyValueNode keyValueNode = (TomlKeyValueNode) topLevelNode;
+            TomlValueNode value = keyValueNode.value();
+            if (value.kind() == TomlType.STRING) {
+                TomlStringValueNode stringValueNode = (TomlStringValueNode) value;
+                if (stringValueNode.getValue().isEmpty()) {
+                    return ToolNodeValueType.EMPTY;
+                }
+               return ToolNodeValueType.STRING;
+            } else {
+                return ToolNodeValueType.NON_STRING;
+            }
+        }
+        return ToolNodeValueType.INVALID;
     }
 
     static boolean getBooleanFromTomlTableNode(TopLevelNode topLevelNode) {

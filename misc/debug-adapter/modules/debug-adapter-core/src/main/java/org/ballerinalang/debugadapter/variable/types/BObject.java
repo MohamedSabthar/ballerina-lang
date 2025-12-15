@@ -32,7 +32,7 @@ import java.util.Map;
  */
 public class BObject extends NamedCompoundVariable {
 
-    private static final String OBJECT_FIELD_PATTERN_IDENTIFIER = "$value$";
+    private static final String OBJECT_FIELD_PATTERN_IDENTIFIER = "values.$";
 
     public BObject(SuspendedContext context, String name, Value value) {
         this(context, name, BVariableType.OBJECT, value);
@@ -50,10 +50,9 @@ public class BObject extends NamedCompoundVariable {
     @Override
     public Map<String, Value> computeChildVariables() {
         try {
-            if (!(jvmValue instanceof ObjectReference)) {
+            if (!(jvmValue instanceof ObjectReference jvmValueRef)) {
                 return new LinkedHashMap<>();
             }
-            ObjectReference jvmValueRef = (ObjectReference) jvmValue;
             Map<Field, Value> fieldValueMap = jvmValueRef.getValues(jvmValueRef.referenceType().allFields());
             Map<String, Value> values = new LinkedHashMap<>();
             fieldValueMap.forEach((field, value) -> {
@@ -70,10 +69,9 @@ public class BObject extends NamedCompoundVariable {
     @Override
     public int getChildrenCount() {
         try {
-            if (!(jvmValue instanceof ObjectReference)) {
+            if (!(jvmValue instanceof ObjectReference jvmValueRef)) {
                 return 0;
             }
-            ObjectReference jvmValueRef = (ObjectReference) jvmValue;
             Map<Field, Value> fieldValueMap = jvmValueRef.getValues(jvmValueRef.referenceType().allFields());
             long objectFieldCount = fieldValueMap.keySet()
                     .stream()

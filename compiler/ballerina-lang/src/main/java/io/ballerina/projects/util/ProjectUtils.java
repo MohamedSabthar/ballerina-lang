@@ -20,9 +20,17 @@ package io.ballerina.projects.util;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
+import io.ballerina.compiler.syntax.tree.IdentifierToken;
+import io.ballerina.compiler.syntax.tree.ImportDeclarationNode;
+import io.ballerina.compiler.syntax.tree.ModulePartNode;
+import io.ballerina.compiler.syntax.tree.SeparatedNodeList;
+import io.ballerina.compiler.syntax.tree.SyntaxKind;
+import io.ballerina.projects.Document;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.JarLibrary;
+import io.ballerina.projects.JvmTarget;
 import io.ballerina.projects.Module;
+import io.ballerina.projects.ModuleId;
 import io.ballerina.projects.ModuleName;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.PackageDependencyScope;
@@ -32,19 +40,26 @@ import io.ballerina.projects.PackageName;
 import io.ballerina.projects.PackageOrg;
 import io.ballerina.projects.PackageVersion;
 import io.ballerina.projects.PlatformLibraryScope;
+import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectException;
+import io.ballerina.projects.ProjectKind;
 import io.ballerina.projects.ResolvedPackageDependency;
 import io.ballerina.projects.SemanticVersion;
 import io.ballerina.projects.Settings;
+import io.ballerina.projects.environment.PackageLockingMode;
+import io.ballerina.projects.internal.PackageDiagnostic;
+import io.ballerina.projects.internal.ProjectDiagnosticErrorCode;
 import io.ballerina.projects.internal.model.BuildJson;
 import io.ballerina.projects.internal.model.Dependency;
+import io.ballerina.projects.internal.model.ToolDependency;
+import io.ballerina.tools.diagnostics.Diagnostic;
+import io.ballerina.tools.diagnostics.DiagnosticInfo;
+import io.ballerina.tools.diagnostics.DiagnosticSeverity;
 import org.apache.commons.compress.archivers.jar.JarArchiveEntry;
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntryPredicate;
 import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.apache.commons.compress.archivers.zip.ZipFile;
 import org.ballerinalang.compiler.BLangCompilerException;
-import org.wso2.ballerinalang.compiler.CompiledJarFile;
-import org.wso2.ballerinalang.compiler.packaging.converters.URIDryConverter;
 import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.util.Lists;
 import org.wso2.ballerinalang.util.RepoUtils;
@@ -56,14 +71,14 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -73,13 +88,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -94,22 +110,36 @@ import static io.ballerina.projects.util.ProjectConstants.BLANG_COMPILED_JAR_EXT
 import static io.ballerina.projects.util.ProjectConstants.BLANG_COMPILED_PKG_BINARY_EXT;
 import static io.ballerina.projects.util.ProjectConstants.BUILD_FILE;
 import static io.ballerina.projects.util.ProjectConstants.DIFF_UTILS_JAR;
+import static io.ballerina.projects.util.ProjectConstants.DIR_PATH_SEPARATOR;
+import static io.ballerina.projects.util.ProjectConstants.DOT;
 import static io.ballerina.projects.util.ProjectConstants.JACOCO_CORE_JAR;
 import static io.ballerina.projects.util.ProjectConstants.JACOCO_REPORT_JAR;
 import static io.ballerina.projects.util.ProjectConstants.LIB_DIR;
+import static io.ballerina.projects.util.ProjectConstants.RESOURCE_DIR_NAME;
+import static io.ballerina.projects.util.ProjectConstants.TARGET_DIR_NAME;
 import static io.ballerina.projects.util.ProjectConstants.TEST_CORE_JAR_PREFIX;
 import static io.ballerina.projects.util.ProjectConstants.TEST_RUNTIME_JAR_PREFIX;
+import static io.ballerina.projects.util.ProjectConstants.TOOL_DIR;
 import static io.ballerina.projects.util.ProjectConstants.USER_NAME;
+import static io.ballerina.projects.util.ProjectConstants.WILD_CARD;
 
 /**
  * Project related util methods.
  *
  * @since 2.0.0
  */
-public class ProjectUtils {
+public final class ProjectUtils {
+
     private static final String USER_HOME = "user.home";
     private static final Pattern separatedIdentifierPattern = Pattern.compile("^[a-zA-Z0-9_.]*$");
+    private static final Pattern onlyDotsPattern = Pattern.compile("^[.]+$");
+    private static final Pattern onlyNonAlphanumericPattern = Pattern.compile("^[^a-zA-Z0-9]+$");
     private static final Pattern orgNamePattern = Pattern.compile("^[a-zA-Z0-9_]*$");
+    private static final Pattern separatedIdentifierWithHyphenPattern = Pattern.compile("^[a-zA-Z0-9_.-]*$");
+    private static final List<Diagnostic> projectLoadingDiagnostic = new ArrayList<>();
+
+    private ProjectUtils() {
+    }
 
     /**
      * Validates the org-name.
@@ -137,6 +167,18 @@ public class ProjectUtils {
     /**
      * Validates the package name.
      *
+     * @param toolName The package name.
+     * @return True if valid package name, else false.
+     */
+    public static boolean validateToolName(String toolName) {
+        return validateDotSeparatedIdentifiersWithHyphen(toolName)
+                && validateUnderscoresOfName(toolName)
+                && validateInitialNumericsOfName(toolName);
+    }
+
+    /**
+     * Validates the package name.
+     *
      * @param orgName     The organization name.
      * @param packageName The package name.
      * @return True if valid package name, else false.
@@ -149,6 +191,93 @@ public class ProjectUtils {
         return validateDotSeparatedIdentifiers(packageName)
                 && validateUnderscoresOfName(packageName)
                 && validateInitialNumericsOfName(packageName);
+    }
+
+    public static Set<String> getPackageImports(Package pkg) {
+        Set<String> imports = new HashSet<>();
+        for (ModuleId moduleId : pkg.moduleIds()) {
+            Module module = pkg.module(moduleId);
+            Collection<DocumentId> documentIds = module.documentIds();
+            getPackageImports(imports, module, documentIds);
+            Collection<DocumentId> testDocumentIds = module.testDocumentIds();
+            getPackageImports(imports, module, testDocumentIds);
+        }
+        return imports;
+    }
+
+    public static Optional<PackageDiagnostic> getWarningForHigherDistribution(
+            Project project, PackageLockingMode packageLockingMode) {
+        SemanticVersion prevDistributionVersion = project.currentPackage().dependencyManifest().distributionVersion();
+        SemanticVersion currentDistributionVersion = SemanticVersion.from(RepoUtils.getBallerinaShortVersion());
+
+        if (project.currentPackage().dependencyManifest().dependenciesTomlVersion() != null) {
+            String currentVersionForDiagnostic = String.valueOf(currentDistributionVersion.minor());
+            if (currentDistributionVersion.patch() != 0) {
+                currentVersionForDiagnostic += DOT + currentDistributionVersion.patch();
+            }
+            String prevVersionForDiagnostic;
+            if (null != prevDistributionVersion) {
+                prevVersionForDiagnostic = String.valueOf(prevDistributionVersion.minor());
+                if (prevDistributionVersion.patch() != 0) {
+                    prevVersionForDiagnostic += DOT + prevDistributionVersion.patch();
+                }
+            } else {
+                prevVersionForDiagnostic = "4 or an older Update";
+            }
+            String warning = null;
+            // existing project
+            if (prevDistributionVersion == null
+                    || ProjectUtils.isNewUpdateDistribution(prevDistributionVersion, currentDistributionVersion)) {
+                // Built with a previous Update. Therefore, we issue a warning
+                warning = "Detected an attempt to compile this package using Swan Lake Update "
+                        + currentVersionForDiagnostic +
+                        ". However, this package was built using Swan Lake Update " + prevVersionForDiagnostic + ".";
+                if (packageLockingMode != null && !packageLockingMode.equals(PackageLockingMode.SOFT)) {
+                    warning += "\nHINT: Execute the bal command with --locking-mode=soft";
+                } else {
+                    warning += " To ensure compatibility, the Dependencies.toml file will be updated with the " +
+                            "latest versions that are compatible with Update " + currentVersionForDiagnostic + ".";
+                }
+            }
+            if (warning != null) {
+                DiagnosticInfo diagnosticInfo = new DiagnosticInfo(
+                        ProjectDiagnosticErrorCode.BUILT_WITH_OLDER_SL_UPDATE_DISTRIBUTION.diagnosticId(),
+                        warning, DiagnosticSeverity.WARNING);
+                return Optional.of(new PackageDiagnostic(diagnosticInfo,
+                        project.currentPackage().descriptor().name().toString()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static void getPackageImports(Set<String> imports, Module module, Collection<DocumentId> documentIds) {
+        for (DocumentId docId : documentIds) {
+            Document document = module.document(docId);
+            ModulePartNode modulePartNode = document.syntaxTree().rootNode();
+            for (ImportDeclarationNode importDcl : modulePartNode.imports()) {
+                boolean isErrorInImport = false;
+                for (Diagnostic diagnostic : importDcl.diagnostics()) {
+                    if (diagnostic.diagnosticInfo().severity() == DiagnosticSeverity.ERROR) {
+                        isErrorInImport = true;
+                        break;
+                    }
+                }
+                if (isErrorInImport) {
+                    continue;
+                }
+                String orgName = "";
+                if (importDcl.orgName().isPresent()) {
+                    orgName = importDcl.orgName().get().orgName().text();
+                }
+                SeparatedNodeList<IdentifierToken> identifierTokenList = importDcl.moduleName();
+                StringJoiner stringJoiner = new StringJoiner(".");
+                for (int i = 0; i < identifierTokenList.size(); i++) {
+                    stringJoiner.add(identifierTokenList.get(i).text());
+                }
+                String moduleName = stringJoiner.toString();
+                imports.add(orgName + "/" + moduleName);
+            }
+        }
     }
 
     /**
@@ -297,15 +426,21 @@ public class ProjectUtils {
      * @return package name
      */
     public static String guessPkgName(String packageName, String template) {
+        if (!validateOnlyNonAlphanumeric(packageName)) {
+            packageName = "my_package";
+        }
+
         if (!validatePackageName(packageName)) {
             packageName = packageName.replaceAll("[^a-zA-Z0-9_.]", "_");
         }
 
-        // if package name is starting with numeric character, prepend `app` / `lib`
+        // if package name is starting with numeric character, prepend `app` / `lib` / `tool`
         if (packageName.matches("[0-9].*")) {
-            if (template.equalsIgnoreCase("lib")) {
-                packageName = "lib" + packageName;
-            } else {
+            if (template.equalsIgnoreCase(LIB_DIR)) {
+                packageName = LIB_DIR + packageName;
+            } else if (template.equalsIgnoreCase(TOOL_DIR)) {
+                packageName = TOOL_DIR + packageName;
+            }  else {
                 packageName = "app" + packageName;
             }
         }
@@ -317,7 +452,7 @@ public class ProjectUtils {
 
         // if package name has consecutive underscores, replace them with a single underscore
         if (packageName.contains("__")) {
-            packageName = packageName.replaceAll("__", "_");
+            packageName = packageName.replace("__", "_");
         }
 
         // if package name has trailing underscore remove it
@@ -363,7 +498,7 @@ public class ProjectUtils {
 
     public static String getBalaName(String org, String pkgName, String version, String platform) {
         // <orgname>-<packagename>-<platform>-<version>.bala
-        if (platform == null || "".equals(platform)) {
+        if (platform == null || platform.isEmpty()) {
             platform = "any";
         }
         return org + "-" + pkgName + "-" + platform + "-" + version + BLANG_COMPILED_PKG_BINARY_EXT;
@@ -380,10 +515,10 @@ public class ProjectUtils {
      */
     public static Path getRelativeBalaPath(String org, String pkgName, String version, String platform) {
         // <orgname>-<packagename>-<platform>-<version>.bala
-        if (platform == null || "".equals(platform)) {
+        if (platform == null || platform.isEmpty()) {
             platform = "any";
         }
-        return Paths.get(org, pkgName, version, platform);
+        return Path.of(org, pkgName, version, platform);
     }
 
     public static String getJarFileName(Package pkg) {
@@ -415,7 +550,7 @@ public class ProjectUtils {
     private static final HashSet<String> excludeExtensions = new HashSet<>(Lists.of("DSA", "SF"));
 
     public static Path getBalHomePath() {
-        return Paths.get(System.getProperty(BALLERINA_HOME));
+        return Path.of(System.getProperty(BALLERINA_HOME));
     }
 
     public static Path getBallerinaRTJarPath() {
@@ -464,43 +599,6 @@ public class ProjectUtils {
                 new FileOutputStream(jarPath.toFile())), manifest);
         jarOutputStream.close();
         return jarPath;
-    }
-
-    public static void assembleExecutableJar(Manifest manifest,
-                                             List<CompiledJarFile> compiledPackageJarList,
-                                             Path targetPath) throws IOException {
-
-        // Used to prevent adding duplicated entries during the final jar creation.
-        HashSet<String> copiedEntries = new HashSet<>();
-
-        try (ZipArchiveOutputStream outStream = new ZipArchiveOutputStream(
-                new BufferedOutputStream(new FileOutputStream(targetPath.toString())))) {
-            copyRuntimeJar(outStream, getBallerinaRTJarPath(), copiedEntries);
-
-            JarArchiveEntry e = new JarArchiveEntry(JarFile.MANIFEST_NAME);
-            outStream.putArchiveEntry(e);
-            manifest.write(new BufferedOutputStream(outStream));
-            outStream.closeArchiveEntry();
-
-            for (CompiledJarFile compiledJarFile : compiledPackageJarList) {
-                for (Map.Entry<String, byte[]> keyVal : compiledJarFile.getJarEntries().entrySet()) {
-                    copyEntry(copiedEntries, outStream, keyVal);
-                }
-            }
-        }
-    }
-
-    private static void copyEntry(HashSet<String> copiedEntries,
-                                  ZipArchiveOutputStream outStream,
-                                  Map.Entry<String, byte[]> keyVal) throws IOException {
-        String entryName = keyVal.getKey();
-        if (!isCopiedOrExcludedEntry(entryName, copiedEntries)) {
-            byte[] entryContent = keyVal.getValue();
-            JarArchiveEntry entry = new JarArchiveEntry(entryName);
-            outStream.putArchiveEntry(entry);
-            outStream.write(entryContent);
-            outStream.closeArchiveEntry();
-        }
     }
 
     /**
@@ -625,15 +723,15 @@ public class ProjectUtils {
             if (userHomeDir == null || userHomeDir.isEmpty()) {
                 throw new BLangCompilerException("Error creating home repository: unable to get user home directory");
             }
-            homeRepoPath = Paths.get(userHomeDir, ProjectConstants.HOME_REPO_DEFAULT_DIRNAME);
+            homeRepoPath = Path.of(userHomeDir, ProjectConstants.HOME_REPO_DEFAULT_DIRNAME);
         } else {
             // User has specified the home repo path with env variable.
-            homeRepoPath = Paths.get(homeRepoDir);
+            homeRepoPath = Path.of(homeRepoDir);
         }
 
         homeRepoPath = homeRepoPath.toAbsolutePath();
         if (Files.exists(homeRepoPath) && !Files.isDirectory(homeRepoPath, LinkOption.NOFOLLOW_LINKS)) {
-            throw new BLangCompilerException("Home repository is not a directory: " + homeRepoPath.toString());
+            throw new BLangCompilerException("Home repository is not a directory: " + homeRepoPath);
         }
         return homeRepoPath;
     }
@@ -658,13 +756,8 @@ public class ProjectUtils {
     public static Proxy initializeProxy(io.ballerina.projects.internal.model.Proxy proxy) {
         if (proxy != null && !"".equals(proxy.host()) && proxy.port() > 0) {
             InetSocketAddress proxyInet = new InetSocketAddress(proxy.host(), proxy.port());
-            if (!"".equals(proxy.username()) && "".equals(proxy.password())) {
-                Authenticator authenticator = new URIDryConverter.RemoteAuthenticator();
-                Authenticator.setDefault(authenticator);
-            }
             return new Proxy(Proxy.Type.HTTP, proxyInet);
         }
-
         return null;
     }
 
@@ -706,7 +799,22 @@ public class ProjectUtils {
 
     private static boolean validateDotSeparatedIdentifiers(String identifiers) {
         Matcher m = separatedIdentifierPattern.matcher(identifiers);
-        return m.matches();
+        Matcher mm = onlyDotsPattern.matcher(identifiers);
+
+        return m.matches() && !mm.matches();
+    }
+
+    private static boolean validateDotSeparatedIdentifiersWithHyphen(String identifiers) {
+        Matcher m = separatedIdentifierWithHyphenPattern.matcher(identifiers);
+        Matcher mm = onlyDotsPattern.matcher(identifiers);
+
+        return m.matches() && !mm.matches();
+    }
+
+    private static boolean validateOnlyNonAlphanumeric(String identifiers) {
+        Matcher m = onlyNonAlphanumericPattern.matcher(identifiers);
+
+        return !m.matches();
     }
 
     /**
@@ -716,22 +824,26 @@ public class ProjectUtils {
      * @return Dependencies.toml` content
      */
     public static String getDependenciesTomlContent(Collection<ResolvedPackageDependency> pkgGraphDependencies) {
-        String comment = "# AUTO-GENERATED FILE. DO NOT MODIFY.\n\n" +
-                "# This file is auto-generated by Ballerina for managing dependency versions.\n" +
-                "# It should not be modified by hand.\n\n";
+        String comment = """
+                # AUTO-GENERATED FILE. DO NOT MODIFY.
+
+                # This file is auto-generated by Ballerina for managing dependency versions.
+                # It should not be modified by hand.
+
+                """;
         StringBuilder content = new StringBuilder(comment);
         content.append("[ballerina]\n");
         content.append("version = \"").append(RepoUtils.getBallerinaShortVersion()).append("\"\n");
         content.append("dependencies-toml-version = \"").append(ProjectConstants.DEPENDENCIES_TOML_VERSION)
-                .append("\"\n\n");
+                .append("\"\n");
 
         // write dependencies from package dependency graph
         pkgGraphDependencies.forEach(graphDependency -> {
+            content.append("\n");
             PackageDescriptor descriptor = graphDependency.packageInstance().descriptor();
             addDependencyContent(content, descriptor.org().value(), descriptor.name().value(),
                                  descriptor.version().value().toString(), null, Collections.emptyList(),
                                  Collections.emptyList());
-            content.append("\n");
         });
         return String.valueOf(content);
     }
@@ -742,21 +854,38 @@ public class ProjectUtils {
      * @param pkgDependencies       direct dependencies of the package dependency graph
      * @return Dependencies.toml` content
      */
-    public static String getDependenciesTomlContent(List<Dependency> pkgDependencies) {
-        String comment = "# AUTO-GENERATED FILE. DO NOT MODIFY.\n\n"
-                + "# This file is auto-generated by Ballerina for managing dependency versions.\n"
-                + "# It should not be modified by hand.\n\n";
+    public static String getDependenciesTomlContent(List<Dependency> pkgDependencies,
+                                                    List<ToolDependency> toolDependencies) {
+        String comment = """
+                # AUTO-GENERATED FILE. DO NOT MODIFY.
+
+                # This file is auto-generated by Ballerina for managing dependency versions.
+                # It should not be modified by hand.
+
+                """;
         StringBuilder content = new StringBuilder(comment);
         content.append("[ballerina]\n");
         content.append("dependencies-toml-version = \"").append(ProjectConstants.DEPENDENCIES_TOML_VERSION)
-                .append("\"\n\n");
+                .append("\"\n");
+        content.append("distribution-version = \"").append(RepoUtils.getBallerinaShortVersion()).append("\"\n");
 
         // write dependencies from package dependency graph
         pkgDependencies.forEach(dependency -> {
+            content.append("\n");
             addDependencyContent(content, dependency.getOrg(), dependency.getName(), dependency.getVersion(),
                                  getDependencyScope(dependency.getScope()), dependency.getDependencies(),
                                  dependency.getModules());
+        });
+
+        // write tool dependencies
+        toolDependencies.forEach(toolDependency -> {
             content.append("\n");
+            addToolDependencyContent(
+                    content,
+                    toolDependency.getId(),
+                    toolDependency.getOrg(),
+                    toolDependency.getName(),
+                    toolDependency.getVersion());
         });
         return String.valueOf(content);
     }
@@ -812,6 +941,19 @@ public class ProjectUtils {
             }
             content.append("]\n");
         }
+    }
+
+    private static void addToolDependencyContent(
+            StringBuilder content,
+            String id,
+            String org,
+            String name,
+            String version) {
+        content.append("[[tool]]\n");
+        content.append("id = \"").append(id).append("\"\n");
+        content.append("org = \"").append(org).append("\"\n");
+        content.append("name = \"").append(name).append("\"\n");
+        content.append("version = \"").append(version).append("\"\n");
     }
 
     private static String getDependencyScope(PackageDependencyScope scope) {
@@ -924,6 +1066,33 @@ public class ProjectUtils {
     }
 
     /**
+     * Delete the all contents in the given directory except for selected files.
+     *
+     * @param directoryPath Directory to delete.
+     * @param filesToKeep files to keep.
+     */
+    public static boolean deleteSelectedFilesInDirectory(Path directoryPath, List<Path> filesToKeep) {
+        if (filesToKeep.isEmpty()) {
+            return deleteDirectory(directoryPath);
+        }
+        File directory = new File(String.valueOf(directoryPath));
+        File[] files = directory.listFiles();
+        boolean success = true;
+        if (files != null) {
+            for (File f : files) {
+                if (!filesToKeep.contains(f.toPath()) && f.isDirectory()) {
+                    success = deleteDirectory(f.toPath());
+                } else if (!filesToKeep.contains(f.toPath()) && f.isFile()) {
+                    success = f.delete();
+                }
+
+            }
+            return success;
+        }
+        return true;
+    }
+
+    /**
      * Read build file from given path.
      *
      * @param buildJsonPath build file path
@@ -935,6 +1104,50 @@ public class ProjectUtils {
         try (BufferedReader bufferedReader = Files.newBufferedReader(buildJsonPath)) {
             return new Gson().fromJson(bufferedReader, BuildJson.class);
         }
+    }
+
+    /**
+     * Check project files are updated.
+     *
+     * @param project project instance
+     * @return is project files are updated
+     */
+    public static boolean isProjectUpdated(Project project) {
+        try {
+            BuildJson buildJson = readBuildJson(project.sourceRoot().resolve(TARGET_DIR_NAME).resolve(BUILD_FILE));
+            long lastProjectUpdatedTime = FileUtils.lastModifiedTimeOfBalProject(project.sourceRoot());
+            if (buildJson != null
+                    && buildJson.getLastModifiedTime() != null
+                    && !buildJson.getLastModifiedTime().entrySet().isEmpty()) {
+                Long defaultModuleLastModifiedTime = buildJson.getLastModifiedTime()
+                        .get(project.currentPackage().packageName().value());
+                if (defaultModuleLastModifiedTime == null) {
+                    // package name has changed
+                    return true;
+                }
+                return lastProjectUpdatedTime > defaultModuleLastModifiedTime;
+            }
+        } catch (IOException e) {
+            // if reading `build` file fails
+            // delete `build` file and return true
+            try {
+                Files.deleteIfExists(project.sourceRoot().resolve(TARGET_DIR_NAME).resolve(BUILD_FILE));
+            } catch (IOException ex) {
+                // ignore
+            }
+            return true;
+        }
+        return true; // return true if `build` file does not exist
+    }
+
+    /**
+     * Get temporary target path.
+     *
+     * @return temporary target path
+     */
+    public static String getTemporaryTargetPath() {
+        return Path.of(System.getProperty("java.io.tmpdir"))
+                .resolve("ballerina-cache" + System.nanoTime()).toString();
     }
 
     /**
@@ -980,5 +1193,352 @@ public class ProjectUtils {
             // Find the latest version
             return semVer1.greaterThanOrEqualTo(semVer2) ? v1 : v2;
         }
+    }
+
+    /**
+     * Checks if a given project does not contain ballerina source files or test files.
+     *
+     * @param project project for checking for emptiness
+     * @return true if the project is empty
+     */
+    public static boolean isProjectEmpty(Project project) {
+        for (ModuleId moduleId : project.currentPackage().moduleIds()) {
+            Module module = project.currentPackage().module(moduleId);
+            if (!module.documentIds().isEmpty() || !module.testDocumentIds().isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Given a list of patterns in include field, find the directories and files in the package that match the patterns.
+     *
+     * @param patterns list of string patterns to be matched
+     * @param packageRoot package root
+     * @return the list of matching paths
+     */
+    public static List<Path> getPathsMatchingIncludePatterns(List<String> patterns, Path packageRoot) {
+        List<Path> allMatchingPaths = new ArrayList<>();
+        for (String pattern : patterns) {
+            if (pattern.startsWith("!")) {
+                removeNegatedIncludePaths(pattern.substring(1), allMatchingPaths);
+            } else {
+                addMatchingIncludePaths(pattern, allMatchingPaths, packageRoot);
+            }
+        }
+        return allMatchingPaths;
+    }
+
+    public static boolean isNewUpdateDistribution(SemanticVersion prevDistributionVersion,
+                                            SemanticVersion currentDistributionVersion) {
+        return currentDistributionVersion.major() == prevDistributionVersion.major()
+                && currentDistributionVersion.minor() > prevDistributionVersion.minor();
+    }
+
+    private static void removeNegatedIncludePaths(String pattern, List<Path> allMatchingPaths) {
+        String combinedPattern = getGlobFormatPattern(pattern);
+        Stream<Path> pathStream = allMatchingPaths.stream();
+        List<Path> patternPaths = filterPathStream(pathStream, combinedPattern);
+        allMatchingPaths.removeAll(patternPaths);
+    }
+
+    private static void addMatchingIncludePaths(String pattern, List<Path> allMatchingPaths, Path packageRoot) {
+        String combinedPattern = getGlobFormatPattern(pattern);
+        try (Stream<Path> pathStream = Files.walk(packageRoot)) {
+            List<Path> patternPaths = filterPathStream(pathStream, combinedPattern);
+            for (Path absolutePath : patternPaths) {
+                if (isCorrectPatternPathMatch(absolutePath, packageRoot, pattern)) {
+                    Path relativePath = packageRoot.relativize(absolutePath);
+                    allMatchingPaths.add(relativePath);
+                }
+            }
+        } catch (IOException e) {
+            throw new ProjectException("Failed to read files matching the include pattern '" + pattern + "': " +
+                    e.getMessage(), e);
+        }
+    }
+
+    private static boolean isCorrectPatternPathMatch(Path absolutePath, Path packageRoot, String pattern) {
+        Path relativePath = packageRoot.relativize(absolutePath);
+        boolean correctMatch = true;
+        if (relativePath.startsWith(TARGET_DIR_NAME)) {
+            // ignore paths inside target directory
+            correctMatch = false;
+        } else if (pattern.startsWith("/") && !packageRoot.equals(absolutePath.getParent())) {
+            // ignore non-root level paths if the pattern is root directory only
+            correctMatch = false;
+        } else if (pattern.endsWith("/") && absolutePath.toFile().isFile()) {
+            // ignore files if the pattern is directory only
+            correctMatch = false;
+        }
+        return correctMatch;
+    }
+
+    private static List<Path> filterPathStream(Stream<Path> pathStream, String combinedPattern) {
+        return pathStream.filter(
+                        FileSystems.getDefault().getPathMatcher("glob:" + combinedPattern)::matches)
+                .toList();
+    }
+
+    private static String getGlobFormatPattern(String pattern) {
+        String patternPrefix = getPatternPrefix(pattern);
+        String globPattern = removeTrailingSlashes(pattern);
+        return patternPrefix + globPattern;
+    }
+
+    private static String getPatternPrefix(String pattern) {
+        // if the pattern already contains '/', only "**" should be added for the glob to work.
+        if (pattern.startsWith("/")) {
+            return "**";
+        }
+        return "**/";
+    }
+
+    private static String removeTrailingSlashes(String pattern) {
+        while (pattern.endsWith("/")) {
+            pattern = pattern.substring(0, pattern.length() - 1);
+        }
+        return pattern;
+    }
+
+    /**
+     * Return the path of a bala with the available platform directory (java21 or any).
+     *
+     * @param balaDirPath path to the bala directory
+     * @param org org name of the bala
+     * @param name package name of the bala
+     * @param version version of the bala
+     * @return path of the bala file
+     */
+    public static Path getPackagePath(Path balaDirPath, String org, String name, String version) {
+        //First we will check for a bala that match any platform
+        Path balaPath = balaDirPath.resolve(
+                ProjectUtils.getRelativeBalaPath(org, name, version, null));
+        if (!Files.exists(balaPath)) {
+            for (JvmTarget jvmTarget : JvmTarget.values()) {
+                balaPath = balaDirPath.resolve(ProjectUtils.getRelativeBalaPath(org, name, version, jvmTarget.code()));
+                if (Files.exists(balaPath)) {
+                    break;
+                }
+            }
+        }
+        return balaPath;
+    }
+
+    /**
+     * Get the sticky status of a project.
+     *
+     * @param project project instance
+     * @return true if the project is sticky, false otherwise
+     */
+    public static boolean getSticky(Project project) {
+        boolean sticky = project.buildOptions().sticky();
+        if (sticky) {
+            return true;
+        }
+
+        // set sticky only if `build` file exists and `last_update_time` not passed 24 hours
+        if (project.kind() == ProjectKind.BUILD_PROJECT) {
+            try {
+                BuildJson buildJson = readBuildJson(project.targetDir().resolve(BUILD_FILE));
+                // if distribution is not same, we anyway return sticky as false
+                if (buildJson.distributionVersion() != null &&
+                        buildJson.distributionVersion().equals(RepoUtils.getBallerinaShortVersion()) &&
+                        !buildJson.isExpiredLastUpdateTime()) {
+                    return true;
+                }
+            } catch (IOException | JsonSyntaxException e) {
+                // ignore
+            }
+        }
+        return false;
+    }
+
+    public static PackageLockingMode getPackageLockingMode(Project project,
+                                                           PackageLockingMode originalMode) {
+        if (project.kind() != ProjectKind.BUILD_PROJECT) {
+            return originalMode;
+        }
+        BuildJson buildJson;
+        try {
+            buildJson = readBuildJson(project.targetDir().resolve(BUILD_FILE));
+        } catch (IOException | JsonSyntaxException e) {
+            return originalMode;
+        }
+
+        if (isProjectUpdated(project)) {
+            return originalMode;
+        }
+
+        if (ProjectUtils.isLessThan24Hours(buildJson)) {
+            return PackageLockingMode.HARD;
+        }
+
+        return originalMode;
+    }
+
+    private static boolean isLessThan24Hours(BuildJson buildJson) {
+        // set sticky only if `build` file exists and `last_update_time` not passed 24 hours
+        return buildJson != null && buildJson.distributionVersion() != null &&
+                buildJson.distributionVersion().equals(RepoUtils.getBallerinaShortVersion()) &&
+                !buildJson.isExpiredLastUpdateTime();
+    }
+
+    /**
+     * From a list of versions, get the versions within the compatible range.
+     *
+     * @param minVersion minimum compatible version
+     * @param versions all versions available
+     * @param compatibleRange compatibility range
+     * @return compatible versions
+     */
+    public static List<SemanticVersion> getVersionsInCompatibleRange(
+            SemanticVersion minVersion,
+            List<SemanticVersion> versions,
+            CompatibleRange compatibleRange) {
+        if (compatibleRange.equals(CompatibleRange.LATEST)) {
+            // If minVersion is null, range is LATEST
+            return versions;
+        }
+        if (compatibleRange.equals(CompatibleRange.LOCK_MAJOR)) {
+            return versions.stream().filter(version ->
+                    version.major() == minVersion.major() && version.greaterThanOrEqualTo(minVersion)).toList();
+        }
+        if (compatibleRange.equals(CompatibleRange.LOCK_MINOR)) {
+            return versions.stream().filter(version ->
+                            version.major() == minVersion.major() && version.minor() == minVersion.minor()
+                                    && version.greaterThanOrEqualTo(minVersion)).toList();
+        }
+        if (versions.contains(minVersion)) {
+            return Collections.singletonList(minVersion);
+        }
+        return Collections.emptyList();
+    }
+
+    /**
+     * Get the range of version compatibility of a given project.
+     *
+     * @param version minimum compatible version
+     * @param packageLockingMode locking mode of the project
+     * @return compatible range
+     */
+    public static CompatibleRange getCompatibleRange(SemanticVersion version, PackageLockingMode packageLockingMode) {
+        if (version == null) {
+            return CompatibleRange.LATEST;
+        }
+        if (packageLockingMode.equals(PackageLockingMode.HARD)
+                || packageLockingMode.equals(PackageLockingMode.LOCKED)) {
+            return CompatibleRange.EXACT;
+        }
+        if (packageLockingMode.equals(PackageLockingMode.MEDIUM) || version.isInitialVersion()) {
+            return CompatibleRange.LOCK_MINOR;
+        }
+        // Locking mode SOFT
+        return CompatibleRange.LOCK_MAJOR;
+    }
+
+    public static Map<String, byte[]> getAllGeneratedResources(Path generatedResourcesPath) {
+        Map<String, byte[]> resourcesMap = new HashMap<>();
+        if (Files.isDirectory(generatedResourcesPath)) {
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(
+                    generatedResourcesPath, Files::isRegularFile)) {
+                for (Path entry : stream) {
+                    Path entryName = entry.getFileName();
+                    if (entryName == null) {
+                        continue;
+                    }
+                    String resourcePath = RESOURCE_DIR_NAME + DIR_PATH_SEPARATOR + entryName.toString();
+                    resourcesMap.put(resourcePath, Files.readAllBytes(entry));
+                }
+            } catch (IOException e) {
+                throw new ProjectException("An error occurred while reading the cached resources from: " +
+                        generatedResourcesPath, e);
+            }
+        }
+
+        return resourcesMap;
+    }
+
+    public static String getConflictingResourcesMsg(String packageDesc, List<String> conflictingResourceFiles) {
+        StringBuilder errorMessage = new StringBuilder();
+        errorMessage.append("failed due to generated resources conflicting with the " +
+                "resources in the current package '").append(packageDesc).append("'. Conflicting resource files:");
+        if (conflictingResourceFiles != null && !conflictingResourceFiles.isEmpty()) {
+            for (String file : conflictingResourceFiles) {
+                errorMessage.append("\n").append(file);
+            }
+        }
+        return errorMessage.toString();
+    }
+
+    public static String getResourcesPath() {
+        return "'" + RESOURCE_DIR_NAME + DIR_PATH_SEPARATOR +
+                DOT + WILD_CARD + "'";
+    }
+
+    public static Path getBallerinaHomePath() {
+        String ballerinaHome = System.getProperty(BALLERINA_HOME);
+        if (ballerinaHome == null) {
+            throw new IllegalStateException("ballerina.home property is not set");
+        }
+        return Path.of(ballerinaHome);
+    }
+
+    /**
+     * Denote the compatibility range of a given tool version.
+     */
+    public enum CompatibleRange {
+        /**
+         * Latest stable (if any), else latest pre-release.
+         */
+        LATEST,
+        /**
+         * Latest minor version of the locked major version.
+         */
+        LOCK_MAJOR,
+        /**
+         * Latest patch version of the locked major and minor versions.
+         */
+        LOCK_MINOR,
+        /**
+         * Exact version provided.
+         */
+        EXACT
+    }
+
+    // TODO: Remove this with https://github.com/ballerina-platform/ballerina-lang/issues/43212
+    //  once diagnostic support for project loading stage is added.
+    public static void addMiscellaneousProjectDiagnostics(Diagnostic diagnosticMessage) {
+        projectLoadingDiagnostic.add(diagnosticMessage);
+    }
+
+    public static List<Diagnostic> getProjectLoadingDiagnostic() {
+        return projectLoadingDiagnostic;
+    }
+
+    // This is needed to clear the diagnostics when unit testing
+    public static void clearDiagnostics() {
+        projectLoadingDiagnostic.clear();
+    }
+
+    /**
+     * Checks if there are any services in the default module of the project.
+     *
+     * @param pkg package instance
+     * @return true if there are services in the default module, false otherwise
+     */
+    public static boolean containsDefaultModuleService(Package pkg) {
+        // Here, we are looking at the services only in the default module, since they are run during a bal run.
+        // However, we can extend this to look at other services
+        // (including within dependencies) that get engaged during run.
+        Module defaultModule = pkg.getDefaultModule();
+        for (DocumentId documentId: pkg.getDefaultModule().documentIds()) {
+                ModulePartNode rootNode = defaultModule.document(documentId).syntaxTree().rootNode();
+                if (rootNode.members().stream().anyMatch(member -> member.kind() == SyntaxKind.SERVICE_DECLARATION)) {
+                    return true;
+                }
+            }
+        return false;
     }
 }

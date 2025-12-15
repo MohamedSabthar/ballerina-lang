@@ -17,71 +17,51 @@
  */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.async.StrandMetadata;
+import io.ballerina.runtime.api.Runtime;
+import io.ballerina.runtime.api.concurrent.StrandMetadata;
 import io.ballerina.runtime.api.constants.RuntimeConstants;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.SemType;
 import io.ballerina.runtime.api.values.BFunctionPointer;
-import io.ballerina.runtime.api.values.BFuture;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BTypedesc;
-import io.ballerina.runtime.internal.scheduling.AsyncUtils;
-import io.ballerina.runtime.internal.scheduling.Scheduler;
+import io.ballerina.runtime.internal.BalRuntime;
 
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
  * <p>
  * Ballerina runtime value representation of a function pointer.
  * </p>
- * <p>
- * <i>Note: This is an internal API and may change in future versions.</i>
- * </p>
- * 
- * @param <T> the type of the input to the function
- * @param <R> the type of the result of the function
  *
  * @since 0.995.0
  */
-public class FPValue<T, R> implements BFunctionPointer<T, R>, RefValue {
+public class FPValue implements BFunctionPointer, RefValue {
+
+    private static final BasicTypeBitSet BASIC_TYPE = Builder.getFunctionType();
 
     final Type type;
-    private final BTypedesc typedesc;
-    Function<T, R> function;
-    public boolean isConcurrent;
-    public String strandName;
+    private BTypedesc typedesc;
+    public Function<Object[], Object> function;
+    public String name;
+    public StrandMetadata metadata;
 
-    @Deprecated
-    public FPValue(Function<T, R> function, Type type, String strandName, boolean isConcurrent) {
+    public FPValue(Function<Object[], Object> function, Type type, String name, boolean isIsolated) {
         this.function = function;
         this.type = type;
-        this.strandName = strandName;
-        this.isConcurrent = isConcurrent;
-        this.typedesc = new TypedescValueImpl(type);
+        this.name = name;
+        this.metadata = new StrandMetadata(isIsolated, null);
     }
 
-    public R call(T t) {
-        return this.function.apply(t);
-    }
-
-    public BFuture asyncCall(Object[] args, StrandMetadata metaData) {
-        return this.asyncCall(args, o -> o, metaData);
-    }
-
-    public BFuture asyncCall(Object[] args, Function<Object, Object> resultHandleFunction,
-                                 StrandMetadata metaData) {
-        return AsyncUtils.invokeFunctionPointerAsync(this, this.strandName, metaData,
-                                                     args, resultHandleFunction, Scheduler.getStrand().scheduler);
-    }
-
-    public Function<T, R> getFunction() {
-        return this.function;
-    }
-
-    @Deprecated
-    public Consumer<T> getConsumer() {
-        return val -> this.function.apply(val);
+    @Override
+    public Object call(Runtime runtime, Object... t) {
+        BalRuntime balRuntime = (BalRuntime) runtime;
+        return balRuntime.scheduler.callFP(this, metadata, t);
     }
 
     @Override
@@ -111,16 +91,32 @@ public class FPValue<T, R> implements BFunctionPointer<T, R>, RefValue {
 
     @Override
     public void freezeDirect() {
-        return;
     }
 
     @Override
     public BTypedesc getTypedesc() {
+        if (this.typedesc == null) {
+            this.typedesc = new TypedescValueImpl(type);
+        }
         return typedesc;
+    }
+
+    public String getName() {
+        return name;
     }
 
     @Override
     public String toString() {
         return RuntimeConstants.EMPTY;
+    }
+
+    @Override
+    public Optional<SemType> inherentTypeOf(Context cx) {
+        return Optional.of(SemType.tryInto(cx, getType()));
+    }
+
+    @Override
+    public BasicTypeBitSet getBasicType() {
+        return BASIC_TYPE;
     }
 }

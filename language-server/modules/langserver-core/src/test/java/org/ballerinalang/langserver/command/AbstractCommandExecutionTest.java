@@ -18,6 +18,7 @@
 package org.ballerinalang.langserver.command;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.ballerinalang.langserver.common.constants.CommandConstants;
@@ -31,12 +32,10 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -47,26 +46,28 @@ public abstract class AbstractCommandExecutionTest {
 
     private Endpoint serviceEndpoint;
 
-    private final Gson gson = new Gson();
-
-    private final JsonParser parser = new JsonParser();
+    private final Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
 
     private final Path resourcesPath = new File(getClass().getClassLoader().getResource("command").getFile()).toPath();
 
     private static final Logger log = LoggerFactory.getLogger(AbstractCommandExecutionTest.class);
 
     @BeforeClass
-    public void init() throws Exception {
+    public void init() {
         this.serviceEndpoint = TestUtil.initializeLanguageSever();
     }
 
-    public void performTest(String config, String source, String command) throws IOException {
-        String configJsonPath = Paths.get("command", getSourceRoot(), "config", config).toString();
+    public void performTest(String config, String command) throws IOException {
+        Path configJsonPath = FileUtils.RES_DIR.resolve("command")
+                .resolve(getSourceRoot())
+                .resolve("config")
+                .resolve(config);
+        JsonObject configJsonObject = FileUtils.fileContentAsObject(configJsonPath.toString());
+        JsonObject expected = configJsonObject.get("expected").getAsJsonObject();
+        String source = configJsonObject.get("source").getAsString();
+
         Path sourcePath = resourcesPath.resolve(getSourceRoot()).resolve("source").resolve(source);
         TestUtil.openDocument(serviceEndpoint, sourcePath);
-        JsonObject configJsonObject = FileUtils.fileContentAsObject(configJsonPath);
-        JsonObject expected = configJsonObject.get("expected").getAsJsonObject();
-
         List<Object> args = getArgs(configJsonObject, sourcePath);
 
         JsonObject responseJson = getCommandResponse(args, command);
@@ -78,24 +79,6 @@ public abstract class AbstractCommandExecutionTest {
 
         TestUtil.closeDocument(serviceEndpoint, sourcePath);
         Assert.assertEquals(responseJson, expected, "Test Failed for: " + config);
-    }
-
-    // TODO: #23371
-    // TODO: #23371
-
-    @DataProvider(name = "testgen-fail-data-provider")
-    public Object[][] testGenerationNegativeDataProvider() {
-        log.info("Test, test generation command failed cases");
-        return new Object[][]{
-                {"testGenerationForServicesNegative.json", Paths.get("testgen", "module2", "services.bal")},
-        };
-    }
-
-    @DataProvider(name = "testgen-append-data-provider")
-    public Object[][] testGenerationAppendDataProvider() {
-        return new Object[][]{
-                {"testGenerationForServicesNegative.json", Paths.get("testgen", "module2", "services.bal")},
-        };
     }
 
     /**
@@ -129,19 +112,19 @@ public abstract class AbstractCommandExecutionTest {
         TestUtil.shutdownLanguageServer(this.serviceEndpoint);
     }
 
-    private List argsToJson(List<Object> args) {
-        List<JsonObject> jsonArgs = new ArrayList<>();
+    private List<Object> argsToJson(List<Object> args) {
+        List<Object> jsonArgs = new ArrayList<>();
         for (Object arg : args) {
-            jsonArgs.add((JsonObject) gson.toJsonTree(arg));
+            jsonArgs.add(gson.toJsonTree(arg));
         }
         return jsonArgs;
     }
 
     private JsonObject getCommandResponse(List<Object> args, String command) {
-        List argsList = argsToJson(args);
+        List<Object> argsList = argsToJson(args);
         ExecuteCommandParams params = new ExecuteCommandParams(command, argsList);
         String response = TestUtil.getExecuteCommandResponse(params, this.serviceEndpoint).replace("\\r\\n", "\\n");
-        JsonObject responseJson = parser.parse(response).getAsJsonObject();
+        JsonObject responseJson = JsonParser.parseString(response).getAsJsonObject();
         responseJson.remove("id");
         return responseJson;
     }

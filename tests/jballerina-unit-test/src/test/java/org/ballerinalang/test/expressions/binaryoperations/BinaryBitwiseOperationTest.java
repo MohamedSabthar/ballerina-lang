@@ -21,6 +21,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -88,7 +89,7 @@ public class BinaryBitwiseOperationTest {
 
     @Test(description = "Test binary bitwise operations negative scenarios")
     public void testBinaryBitwiseOperationsNegativeScenarios() {
-        Assert.assertEquals(negativeResult.getErrorCount(), 21);
+        Assert.assertEquals(negativeResult.getErrorCount(), 25);
         int index = 0;
         BAssertUtil.validateError(negativeResult, index++, "operator '&' not defined for 'float' and 'int'",
                 26, 14);
@@ -130,7 +131,21 @@ public class BinaryBitwiseOperationTest {
                         "'int:Unsigned16?'", 68, 26);
         BAssertUtil.validateError(negativeResult, index++, "incompatible types: expected 'byte?', found " +
                 "'int:Unsigned16?'", 72, 17);
-        BAssertUtil.validateError(negativeResult, index, "incompatible types: expected 'byte?', found " +
+        BAssertUtil.validateError(negativeResult, index++, "incompatible types: expected 'byte?', found " +
                 "'int:Unsigned32?'", 75, 17);
+        BAssertUtil.validateError(negativeResult, index++, "incompatible types: expected 'byte', found " +
+                "'int:Unsigned32'", 81, 16);
+        BAssertUtil.validateError(negativeResult, index++, "incompatible types: expected 'byte', found " +
+                "'int:Unsigned16'", 82, 16);
+        BAssertUtil.validateError(negativeResult, index++, "incompatible types: expected 'int:Unsigned8', " +
+                "found 'int:Unsigned32'", 83, 25);
+        BAssertUtil.validateError(negativeResult, index, "incompatible types: expected 'int:Unsigned8', " +
+                "found 'int:Unsigned16'", 84, 25);
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
+        negativeResult = null;
     }
 }

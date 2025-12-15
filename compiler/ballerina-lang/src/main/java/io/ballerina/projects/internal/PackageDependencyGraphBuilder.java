@@ -43,7 +43,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * This class is responsible for creating the Package dependency graph with no version conflicts.
@@ -145,7 +144,7 @@ public class PackageDependencyGraphBuilder {
     public Collection<DependencyNode> getAllDependencies() {
         return vertices.values().stream()
                 .filter(vertex -> !vertex.equals(rootDepNode))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public DependencyGraph<DependencyNode> buildGraph() {
@@ -176,7 +175,7 @@ public class PackageDependencyGraphBuilder {
     public Collection<DependencyNode> getUnresolvedNodes() {
         Collection<DependencyNode> unresolvedNodes = unresolvedVertices.stream()
                 .map(vertices::get)
-                .collect(Collectors.toList());
+                .toList();
         this.unresolvedVertices = new HashSet<>();
         return unresolvedNodes;
     }
@@ -201,6 +200,10 @@ public class PackageDependencyGraphBuilder {
 
     public DependencyGraph<DependencyNode> rawGraph() {
         return rawGraphBuilder.build();
+    }
+
+    void addUnresolvedDirectDepToRawGraph(DependencyNode unresolvedDirectDep) {
+        rawGraphBuilder.addDependency(this.rootDepNode, unresolvedDirectDep);
     }
 
     private NodeStatus addDependencyInternal(PackageDescriptor dependent,
@@ -319,6 +322,21 @@ public class PackageDependencyGraphBuilder {
             // Update the vertex anyway
             // This step will update the correct scope, resolution type and repository
             vertices.put(vertex, resolvedPkgDep);
+            if (resolutionOptions.dumpRawGraphs()) {
+                rawGraphBuilder.add(resolvedPkgDep);
+            }
+            // Update the scope of dependencies only if rejected node scope is DEFAULT
+            if (resolvedPkgDep.scope() == PackageDependencyScope.DEFAULT) {
+                for (Vertex depVertex : depGraph.get(vertex)) {
+                    DependencyNode dependencyNode = vertices.get(depVertex);
+                    DependencyNode newDependencyNode = new DependencyNode(dependencyNode.pkgDesc(),
+                            resolvedPkgDep.scope(), dependencyNode.resolutionType());
+                    vertices.put(depVertex, newDependencyNode);
+                    if (resolutionOptions.dumpRawGraphs()) {
+                        rawGraphBuilder.addDependency(resolvedPkgDep, newDependencyNode);
+                    }
+                }
+            }
         }
         return nodeStatus;
     }
@@ -399,7 +417,7 @@ public class PackageDependencyGraphBuilder {
                                 existingPkgDesc.org() + "/" + existingPkgDesc.name() +
                                 " versions: " + existingPkgDesc.version() + ", " + newPkgDesc.version(),
                         DiagnosticSeverity.ERROR);
-                PackageResolutionDiagnostic diagnostic = new PackageResolutionDiagnostic(
+                PackageDiagnostic diagnostic = new PackageDiagnostic(
                         diagnosticInfo, this.rootDepNode.pkgDesc().name().toString());
                 diagnosticList.add(diagnostic);
                 return null;

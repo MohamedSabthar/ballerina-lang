@@ -25,7 +25,8 @@ import org.testng.annotations.Test;
 
 import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.CUSTOM_ERROR;
 import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.IMPORT_RESOLVING_ERROR;
-import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.NON_PUBLIC_OR_UNDEFINED_ACCESS;
+import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.NAME_REF_RESOLVING_ERROR;
+import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.QUALIFIED_VARIABLE_RESOLVING_FAILED;
 import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.REMOTE_METHOD_NOT_FOUND;
 import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExceptionKind.UNSUPPORTED_EXPRESSION;
 
@@ -34,6 +35,7 @@ import static org.ballerinalang.debugger.test.adapter.evaluation.EvaluationExcep
  */
 public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluationBaseTest {
 
+    @Override
     @BeforeClass(alwaysRun = true)
     public void setup() throws BallerinaTestException {
         prepareForEvaluation();
@@ -41,19 +43,19 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void literalEvaluationTest() throws BallerinaTestException {
+    public void literalEvaluationTest() {
         // Todo
     }
 
     @Override
     @Test(enabled = false)
-    public void listConstructorEvaluationTest() throws BallerinaTestException {
+    public void listConstructorEvaluationTest() {
         // Todo
     }
 
     @Override
     @Test(enabled = false)
-    public void mappingConstructorEvaluationTest() throws BallerinaTestException {
+    public void mappingConstructorEvaluationTest() {
         // Todo
     }
 
@@ -68,7 +70,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void xmlTemplateEvaluationTest() throws BallerinaTestException {
+    public void xmlTemplateEvaluationTest() {
         // Todo
     }
 
@@ -94,9 +96,13 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test
-    public void variableReferenceEvaluationTest() throws BallerinaTestException {
+    public void nameReferenceEvaluationTest() throws BallerinaTestException {
+        // undefined name reference evaluation
+        debugTestRunner.assertEvaluationError(context, "unknown", String.format(NAME_REF_RESOLVING_ERROR.getString(),
+                "unknown"));
+
         // undefined constant evaluation
-        debugTestRunner.assertEvaluationError(context, "int:MAX", String.format(NON_PUBLIC_OR_UNDEFINED_ACCESS
+        debugTestRunner.assertEvaluationError(context, "int:MAX", String.format(QUALIFIED_VARIABLE_RESOLVING_FAILED
                 .getString(), "int", "MAX"));
 
         // undefined module evaluation
@@ -106,7 +112,13 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void fieldAccessEvaluationTest() throws BallerinaTestException {
+    public void builtInNameReferenceEvaluationTest() {
+        // Todo
+    }
+
+    @Override
+    @Test(enabled = false)
+    public void fieldAccessEvaluationTest() {
         // Todo
     }
 
@@ -175,7 +187,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
                 "too many arguments in call to 'calculate'.");
 
         debugTestRunner.assertEvaluationError(context, "calculate(5, 6, 7, d = 8)", EvaluationExceptionKind.PREFIX +
-                "undefined defaultable parameter 'd'.");
+                "undefined parameter 'd'.");
 
         debugTestRunner.assertEvaluationError(context, "calculate(5, ...b, 7)", String.format(EvaluationExceptionKind
                 .SYNTAX_ERROR.getString(), "arguments not allowed after rest argument"));
@@ -263,7 +275,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void typeOfExpressionEvaluationTest() throws BallerinaTestException {
+    public void typeOfExpressionEvaluationTest() {
         // Todo
     }
 
@@ -348,7 +360,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void equalityEvaluationTest() throws BallerinaTestException {
+    public void equalityEvaluationTest() {
         // Todo
     }
 
@@ -379,19 +391,19 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
 
     @Override
     @Test(enabled = false)
-    public void conditionalExpressionEvaluationTest() throws BallerinaTestException {
+    public void conditionalExpressionEvaluationTest() {
         // Todo
     }
 
     @Override
     @Test(enabled = false)
-    public void checkingExpressionEvaluationTest() throws BallerinaTestException {
+    public void checkingExpressionEvaluationTest() {
         // Todo
     }
 
     @Override
     @Test(enabled = false)
-    public void trapExpressionEvaluationTest() throws BallerinaTestException {
+    public void trapExpressionEvaluationTest() {
         // Todo
     }
 
@@ -425,23 +437,6 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
                 "        };", String.format(EvaluationExceptionKind
                 .VARIABLE_NOT_FOUND.getString(), "undefinedList"));
 
-        // Query table without providing the contextual type
-        debugTestRunner.assertEvaluationError(context, "table key(id, name) from var customer in customerList" +
-                        "         select {" +
-                        "             id: customer.id," +
-                        "             name: customer.name," +
-                        "             noOfItems: customer.noOfItems" +
-                        "         }" +
-                        "         on conflict onConflictError;"
-                , "Failed to evaluate." + System.lineSeparator() +
-                        "Reason: compilation error(s) found while creating executables for evaluation: " +
-                        System.lineSeparator() +
-                        "field name 'id' used in key specifier is not found in table constraint type" +
-                                                      " 'map<(any|error)>'" +
-                        System.lineSeparator() +
-                        "field name 'name' used in key specifier is not found in table constraint type" +
-                                                      " 'map<(any|error)>'");
-
         // on conflict clauses usages with non-table returns
         debugTestRunner.assertEvaluationError(context, "from var customer in conflictedCustomerList" +
                         "         select {" +
@@ -453,7 +448,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
                 "Failed to evaluate." + System.lineSeparator() +
                         "Reason: compilation error(s) found while creating executables for evaluation: " +
                         System.lineSeparator() +
-                        "on conflict can only be used with queries which produce tables with key specifiers");
+                        "on conflict can only be used with queries which produce maps or tables with key specifiers");
     }
 
     @Override
@@ -514,6 +509,7 @@ public abstract class ExpressionEvaluationNegativeTest extends ExpressionEvaluat
                 String.format(REMOTE_METHOD_NOT_FOUND.getString(), "undefinedFunction", "Child"));
     }
 
+    @Override
     @AfterClass(alwaysRun = true)
     public void cleanUp() {
         debugTestRunner.terminateDebugSession();

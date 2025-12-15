@@ -20,8 +20,10 @@ package io.ballerina.projects.directory;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
-import io.ballerina.projects.BallerinaToml;
 import io.ballerina.projects.BuildOptions;
+import io.ballerina.projects.BuildTool;
+import io.ballerina.projects.BuildToolResolution;
+import io.ballerina.projects.CompilationOptions;
 import io.ballerina.projects.DependencyGraph;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Module;
@@ -35,31 +37,32 @@ import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectEnvironmentBuilder;
 import io.ballerina.projects.ProjectException;
 import io.ballerina.projects.ProjectKind;
+import io.ballerina.projects.ProjectLoadResult;
 import io.ballerina.projects.ResolvedPackageDependency;
+import io.ballerina.projects.environment.Environment;
+import io.ballerina.projects.environment.EnvironmentBuilder;
+import io.ballerina.projects.environment.PackageLockingMode;
 import io.ballerina.projects.internal.BalaFiles;
-import io.ballerina.projects.internal.ManifestUtils;
 import io.ballerina.projects.internal.PackageConfigCreator;
 import io.ballerina.projects.internal.ProjectFiles;
 import io.ballerina.projects.internal.model.BuildJson;
 import io.ballerina.projects.internal.model.Dependency;
+import io.ballerina.projects.internal.model.ToolDependency;
+import io.ballerina.projects.util.FileUtils;
 import io.ballerina.projects.util.ProjectConstants;
 import io.ballerina.projects.util.ProjectPaths;
-import io.ballerina.toml.semantic.TomlType;
-import io.ballerina.toml.semantic.ast.TomlTableNode;
-import io.ballerina.toml.semantic.ast.TopLevelNode;
 import org.wso2.ballerinalang.util.RepoUtils;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -74,41 +77,62 @@ import static io.ballerina.projects.util.ProjectUtils.readBuildJson;
  *
  * @since 2.0.0
  */
-public class BuildProject extends Project {
+public class BuildProject extends Project implements Comparable<Project> {
+
+    static ProjectLoadResult loadProject(Path projectPath, ProjectEnvironmentBuilder environmentBuilder,
+                                         BuildOptions buildOptions, WorkspaceProject workspaceProject, String org) {
+        PackageConfig packageConfig = PackageConfigCreator.createBuildProjectConfig(projectPath,
+                buildOptions.disableSyntaxTree(), org);
+        BuildOptions mergedBuildOptions = ProjectFiles.createBuildOptions(
+                packageConfig, buildOptions, projectPath, org);
+
+        BuildProject buildProject = new BuildProject(environmentBuilder, projectPath, mergedBuildOptions,
+                workspaceProject);
+        buildProject.addPackage(packageConfig);
+        return new ProjectLoadResult(buildProject, buildProject.currentPackage().manifest().diagnostics());
+    }
 
     /**
+     * @deprecated Use {@link io.ballerina.projects.directory.ProjectLoader#load(Path, ProjectEnvironmentBuilder)}
+     * instead.
      * Loads a BuildProject from the provided path.
      *
      * @param projectPath Ballerina project path
      * @return build project
      */
+    @Deprecated(since = "2201.13.0", forRemoval = true)
     public static BuildProject load(ProjectEnvironmentBuilder environmentBuilder, Path projectPath) {
         return load(environmentBuilder, projectPath, BuildOptions.builder().build());
     }
 
     /**
+     * @deprecated Use {@link ProjectLoader#load(Path)} instead.
      * Loads a BuildProject from the provided path.
      *
      * @param projectPath Ballerina project path
      * @return BuildProject instance
      */
+    @Deprecated(since = "2201.13.0", forRemoval = true)
     public static BuildProject load(Path projectPath) {
         return load(projectPath, BuildOptions.builder().build());
     }
 
     /**
+     * @deprecated Use {@link ProjectLoader#load(Path, ProjectEnvironmentBuilder, BuildOptions)} instead.
      * Loads a BuildProject from provided path and build options.
      *
      * @param projectPath  Ballerina project path
      * @param buildOptions build options
      * @return BuildProject instance
      */
+    @Deprecated(since = "2201.13.0", forRemoval = true)
     public static BuildProject load(Path projectPath, BuildOptions buildOptions) {
         ProjectEnvironmentBuilder environmentBuilder = ProjectEnvironmentBuilder.getDefaultBuilder();
         return load(environmentBuilder, projectPath, buildOptions);
     }
 
     /**
+     * @deprecated Use {@link ProjectLoader#load(Path, ProjectEnvironmentBuilder, BuildOptions)}  instead.
      * Loads a BuildProject from provided environment builder, path, build options.
      *
      * @param environmentBuilder custom environment builder
@@ -116,18 +140,23 @@ public class BuildProject extends Project {
      * @param buildOptions build options
      * @return BuildProject instance
      */
+    @Deprecated(since = "2201.13.0", forRemoval = true)
     public static BuildProject load(ProjectEnvironmentBuilder environmentBuilder, Path projectPath,
                                     BuildOptions buildOptions) {
-        PackageConfig packageConfig = PackageConfigCreator.createBuildProjectConfig(projectPath);
-        BuildOptions mergedBuildOptions = ProjectFiles.createBuildOptions(packageConfig, buildOptions, projectPath);
+        PackageConfig packageConfig = PackageConfigCreator.createBuildProjectConfig(projectPath,
+                buildOptions.disableSyntaxTree());
+        BuildOptions mergedBuildOptions = ProjectFiles.createBuildOptions(
+                packageConfig, buildOptions, projectPath, null);
 
-        BuildProject buildProject = new BuildProject(environmentBuilder, projectPath, mergedBuildOptions);
+        BuildProject buildProject = new BuildProject(environmentBuilder, projectPath, mergedBuildOptions,
+                null);
         buildProject.addPackage(packageConfig);
         return buildProject;
     }
 
-    private BuildProject(ProjectEnvironmentBuilder environmentBuilder, Path projectPath, BuildOptions buildOptions) {
-        super(ProjectKind.BUILD_PROJECT, projectPath, environmentBuilder, buildOptions);
+    private BuildProject(ProjectEnvironmentBuilder environmentBuilder, Path projectPath, BuildOptions buildOptions,
+                         WorkspaceProject workspaceProject) {
+        super(ProjectKind.BUILD_PROJECT, projectPath, environmentBuilder, buildOptions, workspaceProject);
         populateCompilerContext();
     }
 
@@ -143,16 +172,49 @@ public class BuildProject extends Project {
         return Optional.empty();
     }
 
+    private Optional<Path> generatedModulePath(ModuleId moduleId) {
+        if (currentPackage().moduleIds().contains(moduleId)) {
+            Optional<Path> generatedModulePath = Optional.of(sourceRoot.
+                    resolve(ProjectConstants.GENERATED_MODULES_ROOT));
+            if (currentPackage().getDefaultModule().moduleId() == moduleId
+                    && Files.isDirectory(generatedModulePath.get())) {
+                return generatedModulePath;
+            }
+            String moduleName = currentPackage().module(moduleId).moduleName().moduleNamePart();
+            if (Files.isDirectory(generatedModulePath.get())) {
+                Optional<Path> generatedModuleDirPath = Optional.of(generatedModulePath.get().resolve(moduleName));
+                if (Files.isDirectory(generatedModuleDirPath.get())) {
+                    return Optional.of(generatedModulePath.get().resolve(moduleName));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     @Override
     public Optional<Path> documentPath(DocumentId documentId) {
         for (ModuleId moduleId : currentPackage().moduleIds()) {
             Module module = currentPackage().module(moduleId);
             Optional<Path> modulePath = modulePath(moduleId);
             if (module.documentIds().contains(documentId)) {
+                Optional<Path> generatedModulePath = generatedModulePath(moduleId);
+                if (generatedModulePath.isPresent() && Files.exists(
+                        generatedModulePath.get().resolve(module.document(documentId).name()))) {
+                    return Optional.of(generatedModulePath.get().resolve(module.document(documentId).name()));
+                }
                 if (modulePath.isPresent()) {
                     return Optional.of(modulePath.get().resolve(module.document(documentId).name()));
                 }
             } else if (module.testDocumentIds().contains(documentId)) {
+                Optional<Path> generatedModulePath = generatedModulePath(moduleId);
+                if (generatedModulePath.isPresent() && Files.exists(
+                        generatedModulePath.get().resolve(ProjectConstants.TEST_DIR_NAME).
+                                resolve(module.document(documentId).name()
+                                        .split(ProjectConstants.TEST_DIR_NAME + "/")[1]))) {
+                    return Optional.of(generatedModulePath.get().resolve(ProjectConstants.TEST_DIR_NAME).
+                            resolve(module.document(documentId).name()
+                                    .split(ProjectConstants.TEST_DIR_NAME + "/")[1]));
+                }
                 if (modulePath.isPresent()) {
                     return Optional.of(modulePath.get()
                             .resolve(ProjectConstants.TEST_DIR_NAME).resolve(
@@ -164,17 +226,41 @@ public class BuildProject extends Project {
     }
 
     @Override
+    public void clearCaches() {
+        resetPackage(this);
+        if (this.workspaceProject == null) {
+            // We assume that the project environment is already set via the #setEnvironment method
+            this.projectEnvironment = ProjectEnvironmentBuilder.getDefaultBuilder().build(this);
+        }
+    }
+
+    /**
+     * Sets the project environment for this build project.
+     * <p>
+     * This method is typically called for workspace projects since the environment
+     * needs to be shared with all projects that belongs to a workspace.
+     *
+     * @param environment the environment configuration to set for this project
+     */
+    void setEnvironment(Environment environment) {
+        this.projectEnvironment = ProjectEnvironmentBuilder.getBuilder(environment).build(this);
+    }
+
+    @Override
     public Project duplicate() {
         BuildOptions duplicateBuildOptions = BuildOptions.builder().build().acceptTheirs(buildOptions());
-        BuildProject buildProject = new BuildProject(
-                ProjectEnvironmentBuilder.getDefaultBuilder(), this.sourceRoot, duplicateBuildOptions);
-        return cloneProject(buildProject);
+        Environment environment = EnvironmentBuilder.getBuilder().setWorkspace(workspaceProject).build();
+        BuildProject buildProject = new BuildProject(ProjectEnvironmentBuilder.getBuilder(environment),
+                this.sourceRoot, duplicateBuildOptions, this.workspaceProject);
+        return resetPackage(buildProject);
     }
 
     @Override
     public DocumentId documentId(Path file) {
         if (isFilePathInProject(file)) {
             Path parent = Optional.of(file.toAbsolutePath().getParent()).get();
+            String parentFileName = Optional.of(parent.getFileName()).get().toString();
+            boolean isDefaultModule = false;
             for (ModuleId moduleId : this.currentPackage().moduleIds()) {
                 String moduleDirName;
                 // Check for the module name contains a dot and not being the default module
@@ -183,10 +269,12 @@ public class BuildProject extends Project {
                             .split(this.currentPackage().packageName().toString() + "\\.")[1];
                 } else {
                     moduleDirName = Optional.of(this.sourceRoot.getFileName()).get().toString();
+                    isDefaultModule = true;
                 }
 
                 Module module = this.currentPackage().module(moduleId);
-                if (Optional.of(parent.getFileName()).get().toString().equals(moduleDirName)) {
+                if (parentFileName.equals(moduleDirName) ||
+                        (isDefaultModule && ProjectConstants.GENERATED_MODULES_ROOT.equals(parentFileName))) {
                     // this is a source file
                     for (DocumentId documentId : module.documentIds()) {
                         if (module.document(documentId).name().equals(
@@ -194,10 +282,12 @@ public class BuildProject extends Project {
                             return documentId;
                         }
                     }
-                } else if (Optional.of(parent.getFileName()).get().toString().equals(ProjectConstants.TEST_DIR_NAME)) {
+                } else if (ProjectConstants.TEST_DIR_NAME.equals(parentFileName)) {
                     // this is a test file
-                    if (Optional.of(Optional.of(parent.getParent()).get().getFileName()).get().toString()
-                            .equals(moduleDirName)) {
+                    Path modulePath = Optional.of(parent.getParent()).get();
+                    if (Optional.of(modulePath.getFileName()).get().toString()
+                            .equals(moduleDirName) || Optional.of(Optional.of(modulePath.getParent()).get()
+                            .getFileName()).get().toString().equals(moduleDirName)) {
                         for (DocumentId documentId : module.testDocumentIds()) {
                             String[] splitName = module.document(documentId).name()
                                     .split(ProjectConstants.TEST_DIR_NAME + "/");
@@ -210,7 +300,7 @@ public class BuildProject extends Project {
                 }
             }
         }
-        throw new ProjectException("provided path does not belong to the project");
+        throw new ProjectException("'" + file.toString() + "' does not belong to the current project");
     }
 
     private boolean isFilePathInProject(Path filepath) {
@@ -222,9 +312,12 @@ public class BuildProject extends Project {
         return true;
     }
 
+    @Override
     public void save() {
         Path buildFilePath = this.targetDir().resolve(BUILD_FILE);
-        boolean shouldUpdate = this.currentPackage().getResolution().autoUpdate();
+        PackageLockingMode packageLockingMode = this.currentPackage().getResolution().resolutionOptions()
+                .packageLockingMode();
+        boolean shouldUpdate = !packageLockingMode.equals(PackageLockingMode.HARD);
 
         // if build file does not exists
         if (!buildFilePath.toFile().exists()) {
@@ -245,14 +338,23 @@ public class BuildProject extends Project {
             // check whether buildJson is null and last updated time has expired
             if (buildJson != null && !shouldUpdate) {
                 buildJson.setLastBuildTime(System.currentTimeMillis());
+
+                Path projectPath = this.currentPackage().project().sourceRoot();
+                Map<String, Long> lastModifiedTime = new HashMap<>();
+                lastModifiedTime.put(this.currentPackage().packageName().value(),
+                        FileUtils.lastModifiedTimeOfBalProject(projectPath));
+                buildJson.setLastModifiedTime(lastModifiedTime);
+                buildJson.setLastBalTomlUpdateTime(projectPath.resolve(BALLERINA_TOML).toFile().lastModified());
+
+                List<String> imports = this.currentPackage().getResolution().imports();
+                buildJson.setImports(imports);
+
                 writeBuildFile(buildFilePath, buildJson);
             } else {
+
                 writeBuildFile(buildFilePath);
             }
         }
-
-        // write package name to Ballerina.toml
-        writePackageNameInBallerinaToml();
     }
 
     private void writeDependencies() {
@@ -264,12 +366,18 @@ public class BuildProject extends Project {
                 }
                 return o1.getOrg().compareTo(o2.getOrg());
             };
+            Comparator<ToolDependency> toolComparator = Comparator.comparing(ToolDependency::getId);
 
+            // Fetch and sort package dependencies
             List<Dependency> pkgDependencies = getPackageDependencies();
             pkgDependencies.sort(comparator);
 
+            // Fetch and sort tool dependencies
+            List<ToolDependency> toolDependencies = getToolDependencies();
+            toolDependencies.sort(toolComparator);
+
             Path dependenciesTomlFile = currentPackage.project().sourceRoot().resolve(DEPENDENCIES_TOML);
-            String dependenciesContent = getDependenciesTomlContent(pkgDependencies);
+            String dependenciesContent = getDependenciesTomlContent(pkgDependencies, toolDependencies);
             if (!pkgDependencies.isEmpty()) {
                 // write content to Dependencies.toml file
                 createIfNotExists(dependenciesTomlFile);
@@ -324,6 +432,10 @@ public class BuildProject extends Project {
             Dependency dependency = new Dependency(aPackage.packageOrg().toString(), aPackage.packageName().value(),
                                                    aPackage.packageVersion().toString());
 
+            if (aPackage.project().kind().equals(ProjectKind.BUILD_PROJECT)) { //TODO
+                // if the direct dependency is a build project, skip it
+                continue;
+            }
             // get modules of the direct dependency package
             BalaFiles.DependencyGraphResult packageDependencyGraph = BalaFiles
                     .createPackageDependencyGraph(directDependency.packageInstance().project().sourceRoot());
@@ -369,6 +481,21 @@ public class BuildProject extends Project {
         }
 
         return dependencies;
+    }
+
+    private List<ToolDependency> getToolDependencies() {
+        List<ToolDependency> toolDependencies = new ArrayList<>();
+        CompilationOptions resolutionOptions = CompilationOptions.builder().setOffline(true).build();
+        BuildToolResolution buildToolResolution = this.currentPackage().getBuildToolResolution(resolutionOptions);
+        if (buildToolResolution != null) {
+            List<BuildTool> tools = buildToolResolution.getResolvedTools();
+            for (BuildTool tool : tools) {
+                ToolDependency toolDependency = new ToolDependency(
+                        tool.id().value(), tool.org().value(), tool.name().value(), tool.version().toString());
+                toolDependencies.add(toolDependency);
+            }
+        }
+        return toolDependencies;
     }
 
     private List<Dependency> getTransitiveDependencies(DependencyGraph<ResolvedPackageDependency> dependencyGraph,
@@ -424,9 +551,16 @@ public class BuildProject extends Project {
         }
     }
 
-    private static void writeBuildFile(Path buildFilePath) {
+    private void writeBuildFile(Path buildFilePath) {
+        Path projectPath = this.currentPackage().project().sourceRoot();
+        Map<String, Long> lastModifiedTime = new HashMap<>();
+        lastModifiedTime.put(this.currentPackage().packageName().value(),
+                FileUtils.lastModifiedTimeOfBalProject(projectPath));
+
+        List<String> imports = this.currentPackage().getResolution().imports();
+        long balTomlLastModified = projectPath.resolve(BALLERINA_TOML).toFile().lastModified();
         BuildJson buildJson = new BuildJson(System.currentTimeMillis(), System.currentTimeMillis(),
-                RepoUtils.getBallerinaShortVersion());
+                RepoUtils.getBallerinaShortVersion(), lastModifiedTime, imports, balTomlLastModified);
         writeBuildFile(buildFilePath, buildJson);
     }
 
@@ -444,155 +578,47 @@ public class BuildProject extends Project {
         }
     }
 
-    private void writePackageNameInBallerinaToml() {
-        Path ballerinaTomlPath = this.currentPackage().project().sourceRoot().resolve(BALLERINA_TOML);
-        String org = this.currentPackage().descriptor().org().value();
-        String packageName = this.currentPackage().descriptor().name().value();
-        String version = this.currentPackage().descriptor().version().value().toString();
-        Optional<BallerinaToml> ballerinaToml = this.currentPackage().ballerinaToml();
-        if (ballerinaToml.isPresent()) {
-            TomlTableNode tomlAstNode = ballerinaToml.get().tomlAstNode();
-            if (tomlAstNode.entries().isEmpty()) {
-                // Empty Ballerina.toml file
-                // write org, package name & version with [package]
-                writePackageTableArrayWithPackageName(ballerinaTomlPath, org, packageName, version);
-                return;
-            }
-
-            TopLevelNode topLevelPkgNode = tomlAstNode.entries().get("package");
-            if (topLevelPkgNode == null || topLevelPkgNode.kind() != TomlType.TABLE) {
-                // No [package] section in Ballerina.toml
-                // write org, package name & version with [package]
-                writePackageTableArrayWithPackageName(ballerinaTomlPath, org, packageName, version);
-                return;
-            }
-
-            TomlTableNode pkgNode = (TomlTableNode) topLevelPkgNode;
-            if (pkgNode.entries().isEmpty()) {
-                // [package] section is there, but no entries
-                // write org, package name & version to existing [package]
-                writePackageNameInsideExistingEmptyPackageTable(ballerinaTomlPath, org, packageName, version);
-                return;
-            }
-
-            TopLevelNode pkgNameNode = pkgNode.entries().get("name");
-            TopLevelNode pkgOrgNode = pkgNode.entries().get("org");
-            TopLevelNode pkgVersionNode = pkgNode.entries().get("version");
-            if (pkgNameNode == null || pkgOrgNode == null || pkgVersionNode == null
-                    || pkgNameNode.kind() == TomlType.NONE || pkgOrgNode.kind() == TomlType.NONE
-                    || pkgVersionNode.kind() == TomlType.NONE) {
-                // write package org, name and version to existing [package]
-                writePackageNameInsideExistingPackageTable(ballerinaTomlPath, org, packageName, version);
-                return;
-            }
-            String ballerinaTomlPkgName = ManifestUtils.getStringFromTomlTableNode(pkgNameNode);
-            String ballerinaTomlPkgOrg = ManifestUtils.getStringFromTomlTableNode(pkgNameNode);
-            String ballerinaTomlPkgVersion = ManifestUtils.getStringFromTomlTableNode(pkgNameNode);
-            if (ballerinaTomlPkgName == null || ballerinaTomlPkgOrg == null || ballerinaTomlPkgVersion == null) {
-                // write package org, name and version to existing [package]
-                writePackageNameInsideExistingPackageTable(ballerinaTomlPath, org, packageName, version);
-            }
-            // if package name available
-            // do nothing
-        }
-    }
-
-    private void writePackageTableArrayWithPackageName(Path ballerinaTomlPath, String org,
-                                                       String packageName, String version) {
-        StringBuilder content = new StringBuilder();
-        boolean packageAdded = false;
-        try (BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(ballerinaTomlPath)))) {
-            String line = reader.readLine();
-            while (line != null) {
-                if (!packageAdded && !line.trim().startsWith("#")) {
-                    content.append("[package]\n");
-                    content.append("org = \"").append(org).append("\"\n");
-                    content.append("name = \"").append(packageName).append("\"\n");
-                    content.append("version = \"").append(version).append("\"\n\n");
-                    packageAdded = true;
-                }
-                content.append(line).append("\n");
-                // read next line
-                line = reader.readLine();
-            }
-        } catch (IOException e) {
-            throw new ProjectException("Writing to 'Ballerina.toml' failed");
-        }
-
-        // Write updated content to Ballerina.toml
-        writeContent(ballerinaTomlPath, String.valueOf(content).trim());
-    }
-
-    private void writePackageNameInsideExistingEmptyPackageTable(Path ballerinaTomlPath, String org,
-                                                                 String packageName, String version) {
-        StringBuilder content = new StringBuilder();
-        boolean packageNameAdded = false;
-        try (BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(ballerinaTomlPath)))) {
-            String line = reader.readLine();
-            while (line != null) {
-                content.append(line).append("\n");
-                if (!packageNameAdded && line.trim().contains("[package]")) {
-                    content.append("org = \"").append(org).append("\"\n");
-                    content.append("name = \"").append(packageName).append("\"\n");
-                    content.append("version = \"").append(version).append("\"\n\n");
-                    packageNameAdded = true;
-                }
-                // read next line
-                line = reader.readLine();
-            }
-        } catch (IOException e) {
-            throw new ProjectException("Writing to 'Ballerina.toml' failed");
-        }
-
-        // Write updated content to Ballerina.toml
-        writeContent(ballerinaTomlPath, String.valueOf(content).trim());
-    }
-
-    private void writePackageNameInsideExistingPackageTable(Path ballerinaTomlPath, String org,
-                                                            String packageName, String version) {
-        StringBuilder content = new StringBuilder();
-        boolean packageNameAdded = false;
-        boolean packageSection = false;
-        try (BufferedReader reader = new BufferedReader(new FileReader(String.valueOf(ballerinaTomlPath)))) {
-            String line = reader.readLine();
-            while (line != null) {
-                String lineWithoutSpaces = line.replaceAll("\\s", "");
-                if (packageSection &&
-                        (lineWithoutSpaces.contains("org") ||
-                                lineWithoutSpaces.contains("name") ||
-                                lineWithoutSpaces.contains("version"))) {
-                    // read next line
-                    line = reader.readLine();
-                    continue;
-                }
-                content.append(line).append("\n");
-                if (!packageNameAdded && line.trim().contains("[package]")) {
-                    content.append("org = \"").append(org).append("\"\n");
-                    content.append("name = \"").append(packageName).append("\"\n");
-                    content.append("version = \"").append(version).append("\"\n");
-                    packageNameAdded = true;
-                    packageSection = true;
-                }
-                if (line.trim().isEmpty()) {
-                    packageSection = false;
-                }
-                // read next line
-                line = reader.readLine();
-            }
-        } catch (IOException e) {
-            throw new ProjectException("Writing to 'Ballerina.toml' failed");
-        }
-
-        // Write updated content to Ballerina.toml
-        writeContent(ballerinaTomlPath, String.valueOf(content).trim());
-    }
-
     @Override
     public Path targetDir() {
         if (this.buildOptions().getTargetPath() == null) {
             return this.sourceRoot.resolve(ProjectConstants.TARGET_DIR_NAME);
         } else {
-            return Paths.get(this.buildOptions().getTargetPath());
+            return Path.of(this.buildOptions().getTargetPath());
         }
+    }
+
+    @Override
+    public Path generatedResourcesDir() {
+        Path generatedResourcesPath = targetDir().resolve(ProjectConstants.RESOURCE_DIR_NAME);
+        if (!Files.exists(generatedResourcesPath)) {
+            try {
+                Files.createDirectories(generatedResourcesPath);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return generatedResourcesPath;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof BuildProject other)) {
+            return false;
+        }
+
+        return this.sourceRoot.equals(other.sourceRoot());
+    }
+
+    @Override
+    public int hashCode() {
+        return sourceRoot.hashCode();
+    }
+
+    @Override
+    public int compareTo(Project other) {
+        return this.sourceRoot.compareTo(other.sourceRoot());
     }
 }

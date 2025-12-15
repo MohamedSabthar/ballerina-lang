@@ -25,7 +25,10 @@ import io.ballerina.compiler.internal.parser.ParserFactory;
  *
  * @since 1.3.0
  */
-public class NodeParser {
+public final class NodeParser {
+
+    private NodeParser() {
+    }
 
     /**
      * Parses the input as an action or expression.
@@ -124,5 +127,72 @@ public class NodeParser {
     public static TypeDescriptorNode parseTypeDescriptor(String text) {
         BallerinaParser parser = ParserFactory.getParser(text);
         return parser.parseAsTypeDescriptor().createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as an object member.
+     *
+     * @param text the input
+     * @return a {@code Node}
+     */
+    public static Node parseObjectMember(String text) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parseAsObjectMember().createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as a module part.
+     *
+     * @param text the input
+     * @return a {@code ModulePartNode}
+     */
+    public static ModulePartNode parseModulePart(String text) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parse().createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as an intermediate clause.
+     *
+     * @param text the input
+     * @param allowActions Allow actions
+     * @return a {@code IntermediateClauseNode}
+     */
+    public static IntermediateClauseNode parseIntermediateClause(String text, boolean allowActions) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parseAsIntermediateClause(allowActions).createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as a let variable declaration.
+     *
+     * @param text the input
+     * @return a {@code LetVariableDeclarationNode}
+     */
+    public static LetVariableDeclarationNode parseLetVarDeclaration(String text, boolean allowActions) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parseAsLetVarDeclaration(allowActions).createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as an annotation.
+     *
+     * @param text the input
+     * @return a {@code AnnotationNode}
+     */
+    public static AnnotationNode parseAnnotation(String text) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parseAsAnnotation().createUnlinkedFacade();
+    }
+
+    /**
+     * Parses the input as a markdown documentation.
+     *
+     * @param text the input
+     * @return a {@code MarkdownDocumentationNode}
+     */
+    public static MarkdownDocumentationNode parseMarkdownDocumentation(String text) {
+        BallerinaParser parser = ParserFactory.getParser(text);
+        return parser.parseAsMarkdownDocumentation().createUnlinkedFacade();
     }
 }

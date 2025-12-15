@@ -25,6 +25,7 @@ import io.ballerina.projects.EmitResult;
 import io.ballerina.projects.JBallerinaBackend;
 import io.ballerina.projects.JvmTarget;
 import io.ballerina.projects.Module;
+import io.ballerina.projects.ModuleDescriptor;
 import io.ballerina.projects.ModuleId;
 import io.ballerina.projects.ModuleMd;
 import io.ballerina.projects.ModuleName;
@@ -51,7 +52,6 @@ import org.wso2.ballerinalang.compiler.util.CompilerContext;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -64,7 +64,7 @@ import java.util.Optional;
  */
 public class TestBalaProject {
 
-    private static final Path RESOURCE_DIRECTORY = Paths.get("src", "test", "resources");
+    private static final Path RESOURCE_DIRECTORY = Path.of("src", "test", "resources");
 
     @Test(description = "tests loading a valid bala project")
     public void testBalaProjectAPI() {
@@ -92,7 +92,7 @@ public class TestBalaProject {
         Assert.assertEquals(manifest.authors().get(0), "wso2");
         Assert.assertEquals(manifest.exportedModules().size(), 2);
         Assert.assertEquals(manifest.exportedModules().get(0), "winery");
-        Assert.assertEquals(manifest.exportedModules().get(1), "winery.service");
+        Assert.assertEquals(manifest.exportedModules().get(1), "winery.services");
 
         // 3) Load the default module
         Module defaultModule = currentPackage.getDefaultModule();
@@ -130,8 +130,8 @@ public class TestBalaProject {
         PackageResolution resolution = currentPackage.getResolution();
         DependencyGraph<ResolvedPackageDependency> packageDescriptorDependencyGraph = resolution.dependencyGraph();
         Assert.assertEquals(packageDescriptorDependencyGraph.getNodes().size(), 1);
-        DependencyGraph<ModuleId> moduleIdDependencyGraph = currentPackage.moduleDependencyGraph();
-        Assert.assertEquals(moduleIdDependencyGraph.getNodes().size(), 3);
+        DependencyGraph<ModuleDescriptor> moduleDescriptorDependencyGraph = currentPackage.moduleDependencyGraph();
+        Assert.assertEquals(moduleDescriptorDependencyGraph.getNodes().size(), 3);
 
         // compiler plugin
         Optional<CompilerPluginDescriptor> pluginDescriptor = currentPackage.compilerPluginDescriptor();
@@ -162,7 +162,7 @@ public class TestBalaProject {
         Target target = new Target(project.sourceRoot());
         Path baloPath = target.getBalaPath();
         // invoke write balo method
-        JBallerinaBackend jBallerinaBackend = JBallerinaBackend.from(packageCompilation, JvmTarget.JAVA_11);
+        JBallerinaBackend jBallerinaBackend = JBallerinaBackend.from(packageCompilation, JvmTarget.JAVA_21);
         EmitResult emitResult = jBallerinaBackend.emit(JBallerinaBackend.OutputType.BALA, baloPath);
 
         // Load the balo as a project
@@ -228,7 +228,7 @@ public class TestBalaProject {
 
         // try to get id of a non-existing file
         try {
-            balaProject.documentId(Paths.get("foo.bal"));
+            balaProject.documentId(Path.of("foo.bal"));
             Assert.fail("expected a ProjectException");
         } catch (ProjectException e) {
             // ignore
@@ -237,14 +237,6 @@ public class TestBalaProject {
         // try to get id of a non-bal file from the project
         try {
             balaProject.documentId(balaPath.resolve("bala.json"));
-            Assert.fail("expected a ProjectException");
-        } catch (ProjectException e) {
-            // ignore
-        }
-
-        // try to get id of a non-bal file from the project
-        try {
-            balaProject.documentId(null);
             Assert.fail("expected a ProjectException");
         } catch (ProjectException e) {
             // ignore
@@ -341,36 +333,19 @@ public class TestBalaProject {
     public void testLoadResourcesFromBala() {
         Path balaPath = RESOURCE_DIRECTORY.resolve("balaloader").resolve("foo-winery-any-0.1.0.bala");
         Project balaProject = TestUtils.loadProject(balaPath);
-        for (ModuleId moduleId : balaProject.currentPackage().moduleIds()) {
-            Module module = balaProject.currentPackage().module(moduleId);
-            if (module.moduleName().toString().equals("winery")) {
-                Assert.assertEquals(module.resourceIds().size(), 1);
-                Assert.assertEquals(module.resource(module.resourceIds().stream().findFirst().orElseThrow()).name(),
-                        "main.json");
-            } else if (module.moduleName().toString().equals("winery.storage")) {
-                Assert.assertEquals(module.resourceIds().size(), 1);
-                Assert.assertEquals(module.resource(module.resourceIds().stream().findFirst().orElseThrow()).name(),
-                        "db.json");
-            } else {
-                Assert.assertEquals(module.resourceIds().size(), 4);
-            }
-        }
+        // Ignores module level resources
+        Assert.assertEquals(balaProject.currentPackage().resourceIds().size(), 1);
     }
 
     @Test
     public void testLoadResourcesFromExtractedBala() {
         Path balaPath = RESOURCE_DIRECTORY.resolve("balaloader").resolve("extracted-bala");
         Project balaProject = TestUtils.loadProject(balaPath);
-        for (ModuleId moduleId : balaProject.currentPackage().moduleIds()) {
-            Module module = balaProject.currentPackage().module(moduleId);
-            if (module.moduleName().toString().equals("a")) {
-                Assert.assertEquals(module.resourceIds().size(), 1);
-                Assert.assertEquals(module.resource(module.resourceIds().stream().findFirst().orElseThrow()).name(),
-                        "config/default.conf");
-            } else {
-                Assert.assertEquals(module.resourceIds().size(), 0);
-            }
-        }
+        Package pkg = balaProject.currentPackage();
+        Assert.assertEquals(pkg.resourceIds().size(), 1);
+        Assert.assertEquals(pkg.resource(
+                        pkg.resourceIds().stream().findFirst().orElseThrow()).name(),
+                "config/default.conf");
     }
 
     @Test(description = "tests calling targetDir for balaProjects")

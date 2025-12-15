@@ -17,12 +17,22 @@
  */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.Module;
+import io.ballerina.runtime.api.constants.TypeConstants;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.SemType;
+import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.values.BIterator;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BString;
+import io.ballerina.runtime.internal.types.BStringType;
 
+import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Class representing ballerina strings.
@@ -31,17 +41,23 @@ import java.util.Map;
  */
 public abstract class StringValue implements BString, SimpleValue {
 
+    private static final BasicTypeBitSet BASIC_TYPE = Builder.getStringType();
+    private static final BStringType STRING_TYPE =
+            new BStringType(TypeConstants.STRING_TNAME, new Module(null, null, null));
     final String value;
     final boolean isNonBmp;
+    private BStringType type;
+    private boolean shapeCalculated = false;
 
     protected StringValue(String value, boolean isNonBmp) {
         this.value = value;
         this.isNonBmp = isNonBmp;
+        this.type = STRING_TYPE;
     }
 
     @Override
     public Type getType() {
-        return PredefinedTypes.TYPE_STRING;
+        return type;
     }
 
     @Override
@@ -55,7 +71,7 @@ public abstract class StringValue implements BString, SimpleValue {
     }
 
     @Override
-    public IteratorValue getIterator() {
+    public IteratorValue<String> getIterator() {
         return new CharIterator(this);
     }
 
@@ -94,10 +110,38 @@ public abstract class StringValue implements BString, SimpleValue {
         if (str == this) {
             return true;
         }
-        if (str instanceof BString) {
-            return ((BString) str).getValue().equals(value);
+        if (str instanceof BString bString) {
+            return bString.getValue().equals(value);
         }
         return false;
     }
 
+    @Override
+    public Optional<SemType> inherentTypeOf(Context cx) {
+        if (!shapeCalculated) {
+            this.type = BStringType.singletonType(value);
+        }
+        return Optional.of(this.type.shape());
+    }
+
+    @Override
+    public BasicTypeBitSet getBasicType() {
+        return BASIC_TYPE;
+    }
+
+    @Override
+    public Iterator<?> getJavaIterator() {
+        BIterator<String> iterator = getIterator();
+        return new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Object next() {
+                return StringUtils.fromString(iterator.next());
+            }
+        };
+    }
 }

@@ -35,6 +35,7 @@ import org.eclipse.lsp4j.debug.NextArguments;
 import org.eclipse.lsp4j.debug.OutputEventArguments;
 import org.eclipse.lsp4j.debug.OutputEventArgumentsCategory;
 import org.eclipse.lsp4j.debug.PauseArguments;
+import org.eclipse.lsp4j.debug.RestartArguments;
 import org.eclipse.lsp4j.debug.ScopesArguments;
 import org.eclipse.lsp4j.debug.ScopesResponse;
 import org.eclipse.lsp4j.debug.SetBreakpointsArguments;
@@ -88,6 +89,8 @@ public class DebugTestRunner {
     private DebugHitListener hitListener;
     private AssertionMode assertionMode;
     private SoftAssert softAsserter;
+    private final boolean isProjectBasedTest;
+    private boolean clientSupportsRunInTerminal;
 
     private static final int SCHEDULER_INTERVAL_MS = 1000;
     private static final Logger LOGGER = LoggerFactory.getLogger(DebugTestRunner.class);
@@ -101,6 +104,7 @@ public class DebugTestRunner {
             testEntryFilePath = testSingleFileBaseDir.resolve(testModuleFileName);
         }
 
+        this.isProjectBasedTest = isProjectBasedTest;
         // Hard assertions will be used by default.
         assertionMode = AssertionMode.HARD_ASSERT;
     }
@@ -142,11 +146,28 @@ public class DebugTestRunner {
      * @throws BallerinaTestException if any exception is occurred during initialization.
      */
     public void initDebugSession(DebugUtils.DebuggeeExecutionKind executionKind) throws BallerinaTestException {
+        initDebugSession(executionKind, "");
+    }
+
+    /**
+     * Initialize test debug session.
+     *
+     * @param executionKind Defines ballerina command type to be used to launch the debuggee.(If set to null, adapter
+     *                      will try to attach to the debuggee, instead of launching)
+     * @param terminalKind  The terminal type, if the debug session should be launched in a separate terminal
+     * @throws BallerinaTestException if any exception is occurred during initialization.
+     */
+    public boolean initDebugSession(DebugUtils.DebuggeeExecutionKind executionKind, String terminalKind)
+            throws BallerinaTestException {
         HashMap<String, Object> launchConfigs = new HashMap<>();
         HashMap<String, Object> extendedCapabilities = new HashMap<>();
         extendedCapabilities.put("supportsReadOnlyEditors", true);
         launchConfigs.put("capabilities", extendedCapabilities);
+        if (!terminalKind.isEmpty()) {
+            launchConfigs.put("terminal", terminalKind);
+        }
         initDebugSession(executionKind, launchConfigs);
+        return debugClientConnector.getRequestManager().getDidRunInIntegratedTerminal();
     }
 
     /**
@@ -189,7 +210,7 @@ public class DebugTestRunner {
                                  int port, Map<String, Object> launchArgs) throws BallerinaTestException {
 
         debugClientConnector = new DAPClientConnector(balServer.getServerHome(), testProjectPath, testEntryFilePath,
-                port);
+                port, clientSupportsRunInTerminal);
         debugClientConnector.createConnection();
         if (debugClientConnector.isConnected()) {
             isConnected = true;
@@ -204,6 +225,7 @@ public class DebugTestRunner {
         if (executionKind == DebugUtils.DebuggeeExecutionKind.BUILD) {
             attachToDebuggee();
         } else {
+            debugClientConnector.getRequestManager().setIsProjectBasedTest(isProjectBasedTest);
             launchDebuggee(executionKind, launchArgs);
         }
     }
@@ -241,7 +263,7 @@ public class DebugTestRunner {
             throws BallerinaTestException {
         testBreakpoints.add(breakpoint);
         List<BallerinaTestDebugPoint> breakpointsToBeSent = new ArrayList<>();
-        for (org.ballerinalang.debugger.test.utils.BallerinaTestDebugPoint bp : testBreakpoints) {
+        for (BallerinaTestDebugPoint bp : testBreakpoints) {
             if (bp.getSource().getPath().equals(breakpoint.getSource().getPath())) {
                 breakpointsToBeSent.add(bp);
             }
@@ -265,19 +287,20 @@ public class DebugTestRunner {
             sourceBreakpoints.get(bp.getSource()).add(bp.getDAPBreakPoint());
         }
 
+        SetBreakpointsResponse response = null;
         // Sends "setBreakpoints()" requests per source file.
         for (Map.Entry<Source, List<SourceBreakpoint>> entry : sourceBreakpoints.entrySet()) {
             SetBreakpointsArguments breakpointRequestArgs = new SetBreakpointsArguments();
             breakpointRequestArgs.setSource(entry.getKey());
             breakpointRequestArgs.setBreakpoints(entry.getValue().toArray(new SourceBreakpoint[0]));
             try {
-                return debugClientConnector.getRequestManager().setBreakpoints(breakpointRequestArgs);
+                response = debugClientConnector.getRequestManager().setBreakpoints(breakpointRequestArgs);
             } catch (Exception e) {
                 LOGGER.error("SetBreakpoints request failed.", e);
                 throw new BallerinaTestException("Breakpoints request failed.", e);
             }
         }
-        return null;
+        return response;
     }
 
     /**
@@ -289,7 +312,7 @@ public class DebugTestRunner {
     public void removeBreakPoint(BallerinaTestDebugPoint breakpoint) throws BallerinaTestException {
         testBreakpoints.remove(breakpoint);
         List<BallerinaTestDebugPoint> breakpointsToBeSent = new ArrayList<>();
-        for (org.ballerinalang.debugger.test.utils.BallerinaTestDebugPoint bp : testBreakpoints) {
+        for (BallerinaTestDebugPoint bp : testBreakpoints) {
             if (bp.getSource().getPath().equals(breakpoint.getSource().getPath())) {
                 breakpointsToBeSent.add(bp);
             }
@@ -360,6 +383,21 @@ public class DebugTestRunner {
         } catch (Exception e) {
             LOGGER.warn("Pause request failed", e);
             throw new BallerinaTestException("Pause request failed", e);
+        }
+    }
+
+    /**
+     * Restarts the execution of the debuggee program.
+     *
+     * @throws BallerinaTestException if an error occurs when resuming program.
+     */
+    public void restartProgram() throws BallerinaTestException {
+        try {
+            RestartArguments restartArgs = new RestartArguments();
+            debugClientConnector.getRequestManager().restart(restartArgs);
+        } catch (Exception e) {
+            LOGGER.warn("Restart request failed", e);
+            throw new BallerinaTestException("Restart request failed", e);
         }
     }
 
@@ -499,25 +537,26 @@ public class DebugTestRunner {
      */
     public Map<String, Variable> fetchVariables(StoppedEventArguments args, VariableScope scope)
             throws BallerinaTestException {
-        Map<String, Variable> variables = new HashMap<>();
         if (!hitListener.getConnector().isConnected()) {
-            return variables;
+            throw new BallerinaTestException("Debug server is not connected.");
         }
-        StackTraceArguments stackTraceArgs = new StackTraceArguments();
+        StackTraceArguments traceArgs = new StackTraceArguments();
         VariablesArguments variableArgs = new VariablesArguments();
         ScopesArguments scopeArgs = new ScopesArguments();
-        stackTraceArgs.setThreadId(args.getThreadId());
+        traceArgs.setThreadId(args.getThreadId());
 
         try {
-            StackTraceResponse stackResp = hitListener.getConnector().getRequestManager().stackTrace(stackTraceArgs);
+            StackTraceResponse stackResp = hitListener.getConnector().getRequestManager().stackTrace(traceArgs);
             StackFrame[] stackFrames = stackResp.getStackFrames();
             if (stackFrames.length == 0) {
-                return variables;
+                throw new BallerinaTestException("Stack frame response does not contain any frames");
             }
             scopeArgs.setFrameId(scope == VariableScope.LOCAL ? stackFrames[0].getId() : -stackFrames[0].getId());
             ScopesResponse scopesResp = hitListener.getConnector().getRequestManager().scopes(scopeArgs);
             variableArgs.setVariablesReference(scopesResp.getScopes()[0].getVariablesReference());
             VariablesResponse variableResp = hitListener.getConnector().getRequestManager().variables(variableArgs);
+
+            Map<String, Variable> variables = new HashMap<>();
             Arrays.stream(variableResp.getVariables()).forEach(variable -> variables.put(variable.getName(), variable));
             return variables;
         } catch (Exception e) {
@@ -765,8 +804,8 @@ public class DebugTestRunner {
             result.setVariablesReference(evaluateResp.getVariablesReference());
             return result;
         } catch (Exception e) {
-            LOGGER.warn("Error occurred when fetching debug hit variables", e);
-            throw new BallerinaTestException("Error occurred when fetching debug hit variables", e);
+            LOGGER.warn("Error occurred when evaluating expression", e);
+            throw new BallerinaTestException("Error occurred when evaluating expression", e);
         }
     }
 
@@ -850,6 +889,10 @@ public class DebugTestRunner {
 
     public void endSoftAssertions() {
         softAsserter.assertAll();
+    }
+
+    public void setClientSupportsRunInTerminal(boolean clientSupportsRunInTerminal) {
+        this.clientSupportsRunInTerminal = clientSupportsRunInTerminal;
     }
 
     /**

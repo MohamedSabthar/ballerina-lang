@@ -355,6 +355,100 @@ function testHashCollisionHandlingScenarios() {
 
 }
 
+function testHashCollisionInQueryWithAdd() {
+    table<record {readonly int|string|float? k;}> key(k) tbl1 = table [{k: "10"}];
+    table<record {readonly int|string|float? k;}> tbl2 = table [{k: 0}];
+    table<record {readonly int|string|float? k;}> key(k) tbl3 = table [
+        {k: "10"}, {k: 5}, {k: ()}, {k: -31}, {k: 0}, {k: 100.05}, {k: 30}];
+
+    tbl1.add({k: 5});
+    tbl1.add({k: ()});
+    tbl1.add({k: -31});
+    tbl1.add({k: 0});
+    tbl1.add({k: 100.05});
+    tbl1.add({k: 30});
+    assertEquals(tbl3, tbl1);
+
+    table<record {|readonly int|string|float? k; anydata...;|}> tbl4 =
+        from var tid in tbl1
+            where tid["k"] == 0
+            select tid;
+    assertEquals(tbl2, tbl4);
+
+    _ = tbl1.remove(());
+    table<record {|readonly int|string|float? k; anydata...;|}> tbl5 =
+        from var tid in tbl1
+            where tid["k"] == 0
+            select tid;
+    assertEquals(tbl2, tbl5);
+}
+
+function testHashCollisionInQueryWithPut() {
+    table<record {readonly int|string|float? k; int v;}> key(k) tbl1 = table [{k: "10", v: 1}];
+    table<record {readonly int|string|float? k; int v;}> tbl2 = table [{k: 0, v: 2}];
+    table<record {readonly int|string|float? k; int v;}> key(k) tbl3 = table [
+        {k: "10", v: 1}, {k: 5, v: 2}, {k: 0, v: 2}, {k: (), v: 3}, {k: -31, v: 4}, {k: 100.05, v: 1}, {k: 30, v: 2}];
+
+    tbl1.put({k: 5, v: 1});
+    tbl1.put({k: (), v: 1});
+    tbl1.put({k: -31, v: 4});
+    tbl1.put({k: 0, v: 2});
+    tbl1.put({k: 5, v: 2});
+    tbl1.put({k: 100.05, v: 1});
+    tbl1.put({k: 30, v: 2});
+    tbl1.put({k: (), v: 3});
+    assertEquals(tbl3, tbl1);
+
+    table<record {|readonly int|string|float? k; anydata...;|}> tbl4 =
+        from var tid in tbl1
+            where tid["k"] == 0
+            select tid;
+    assertEquals(tbl2, tbl4);
+
+    _ = tbl1.remove(());
+    table<record {|readonly int|string|float? k; anydata...;|}> tbl5 =
+        from var tid in tbl1
+            where tid["k"] == 0
+            select tid;
+    assertEquals(tbl2, tbl5);
+}
+
+function testHashCollisionInFilter() {
+    table<record {readonly int|string|float? k;}> key(k) tbl1 = table [{k: "10"}];
+    table<record {readonly int|string|float? k;}> key(k) tbl2 = table [{k: ()}, {k: 0}];
+
+    tbl1.put({k: 5});
+    tbl1.put({k: ()});
+    tbl1.put({k: -31});
+    tbl1.put({k: 0});
+    tbl1.put({k: 100.05});
+    tbl1.put({k: 30});
+
+    table<record {readonly int|string|float? k;}> tbl4 = tbl1.filter(
+        function(record {readonly int|string|float? k;} tid) returns boolean 
+            => tid["k"] == 0 || tid["k"] == ());
+    assertEquals(tbl2, tbl4);
+}
+public function testGetKeysOfHashCollidedKeys() {
+    table<record {readonly int? k;}> key(k) tbl1 = table [
+        {k: 5}, {k: 0}, {k: ()}, {k: 2}
+    ];
+
+    assertEquals(tbl1.keys(), [5, 0, (), 2]);
+
+    table<record {readonly int? k;}> key(k) tbl2 = table [
+        {k: 5}, {k: 0}, {k: 2}
+    ];
+    tbl2.add({k: ()});
+    assertEquals(tbl2.keys(), [5, 0, 2, ()]);
+
+    table<record {readonly int? k;}> key(k) tbl3 = table [
+        {k: 5}, {k: 0}, {k: 2}
+    ];
+    tbl3.put({k: ()});
+    assertEquals(tbl3.keys(), [5, 0, 2, ()]);
+}
+
 function testGetKeyList() returns any[] {
     return tab.keys();
 }
@@ -681,6 +775,100 @@ function testRemoveThenIterate() returns boolean {
         ar.push(v);
     }
     return ar.length() == 2 && ar[0].name == "John" && ar[1].name == "Jim";
+}
+
+function testRemoveEmptyThenIterate() returns boolean {
+    table<Employee> key(name) data = table [
+        { name: "Mary", department: "IT"},
+        { name: "John", department: "HR" },
+        { name: "Jim", department: "Admin" }
+    ];
+
+    Employee[] ar = [];
+    var rm1 = data.remove("Mary");
+    var rm2 = data.remove("John");
+    var rm3 = data.remove("Jim");
+
+    foreach var v in data {
+        ar.push(v);
+    }
+    return ar.length() == 0;
+}
+
+function testRemoveEmptyAddThenIterate() returns boolean {
+    table<Employee> key(name) data = table [
+        { name: "Mary", department: "IT"},
+        { name: "John", department: "HR" },
+        { name: "Jim", department: "Admin" }
+    ];
+
+    Employee[] ar = [];
+    var rm1 = data.remove("Mary");
+    var rm2 = data.remove("John");
+    var rm3 = data.remove("Jim");
+
+    Employee newEmp = { name: "JesB", department: "Security" };
+    data.add(newEmp);
+    foreach var v in data {
+        ar.push(v);
+    }
+    return ar.length() == 1 && ar[0].name == "JesB";
+}
+
+function testRemoveEmptyIterateThenAdd() returns boolean {
+    table<Employee> key(name) data = table [
+        { name: "Mary", department: "IT"},
+        { name: "John", department: "HR" },
+        { name: "Jim", department: "Admin" }
+    ];
+
+    Employee[] ar = [];
+    var rm1 = data.remove("Mary");
+    var rm2 = data.remove("John");
+    var rm3 = data.remove("Jim");
+
+    foreach var v in data {
+        ar.push(v);
+    }
+    data.add({name: "JesB", department: "Security"});
+    return data.length() == 1 && data["JesB"]?.name == "JesB" && ar.length() == 0;
+}
+
+function testRemoveEmptyIterateThenAddQueryExpr() returns boolean {
+    table<Employee> key(name) data = table [
+            {name: "Mary", department: "IT"},
+            {name: "John", department: "HR"},
+            {name: "Jim", department: "Admin"}
+        ];
+
+    var _ = data.remove("Mary");
+    var _ = data.remove("John");
+    var _ = data.remove("Jim");
+
+    Employee[] ar = from var v in data
+        select v;
+    data.add({name: "JesB", department: "Security"});
+    return data.length() == 1 && data["JesB"]?.name == "JesB" && ar.length() == 0;
+}
+
+function testRemoveEmptyIterateThenAddQueryAction() returns boolean|error {
+    table<Employee> key(name) data = table [
+            {name: "Mary", department: "IT"},
+            {name: "John", department: "HR"},
+            {name: "Jim", department: "Admin"}
+        ];
+
+    Employee[] ar = [];
+    var _ = data.remove("Mary");
+    var _ = data.remove("John");
+    var _ = data.remove("Jim");
+
+    check from var v in data
+        do {
+            ar.push(v);
+        };
+    data.add({name: "JesB", department: "Security"});
+    return data.length() == 1 && data["JesB"]?.name == "JesB" && ar.length() == 0;
 }
 
 function testAddInconsistentDataToKeylessTbl() {
@@ -1147,6 +1335,91 @@ function testLengthWithEmptyKeyedKeyLessTbl() {
             {name: "Draco", age: 23}
         ];
     assertEquals(4, personTable.length());
+}
+
+type Coordinate1 record {|
+    readonly int x;
+    int y?;
+|};
+
+function testTableIterationAfterPut1() {
+    table<Coordinate1> key(x) positions = table [];
+    positions.put({x: 0});
+    positions.put({x: 1});
+    positions.put({x: -1});
+    assertEquals(positions.toString(), "[{\"x\":0},{\"x\":1},{\"x\":-1}]");
+    int sum = -2;
+    foreach var position in positions {
+        sum = sum + position.x;
+    }
+    assertEquals(sum, -2);
+}
+
+type Coordinate2 record {|
+    readonly float x;
+    int y?;
+|};
+
+function testTableIterationAfterPut2() {
+    table<Coordinate2> key(x) positions = table [];
+    positions.put({x: 0});
+    positions.put({x: 1});
+    positions.put({x: -1});
+    assertEquals(positions.toString(), "[{\"x\":0.0},{\"x\":1.0},{\"x\":-1.0}]");
+    float sum = -2;
+    foreach var position in positions {
+        sum = sum + position.x;
+    }
+    assertEquals(sum, -2.0);
+}
+
+type Coordinate3 record {|
+    readonly decimal x;
+    int y?;
+|};
+
+function testTableIterationAfterPut3() {
+    table<Coordinate3> key(x) positions = table [];
+    positions.put({x: 0});
+    positions.put({x: 1});
+    positions.put({x: -1});
+    assertEquals(positions.toString(), "[{\"x\":0},{\"x\":1},{\"x\":-1}]");
+    decimal sum = -2;
+    foreach var position in positions {
+        sum = sum + position.x;
+    }
+    assertEquals(sum, -2d);
+}
+
+type Position record {|
+    readonly int x;
+    readonly int y;
+|};
+
+Position 'start = {x: 0, y: 0};
+Position end = {x: 5, y: 5};
+
+function testTableIterationAfterPut4() {
+    int iterations = 0;
+    int length = 0;
+    table<Position> key(x,y) possible = table [];
+    possible.add('start);
+    while !possible.hasKey([end.x, end.y]) {
+        iterations = iterations + 1;
+        table<Position> key(x,y) next = table [];
+        foreach var p in possible {
+            next.put({x: p.x, y: p.y});
+            next.put({x: p.x + 1, y: p.y});
+            next.put({x: p.x - 1, y: p.y});
+            next.put({x: p.x, y: p.y + 1});
+            next.put({x: p.x, y: p.y - 1});
+        }
+        var _ = next.removeIfHasKey(['start.x, 'start.y - 1]);
+        possible = next;
+        length = possible.length();
+    }
+    assertEquals(iterations, 10);
+    assertEquals(length, 218);
 }
 
 const ASSERTION_ERROR_REASON = "AssertionError";

@@ -18,10 +18,18 @@
 package org.wso2.ballerinalang.compiler.semantics.model.symbols;
 
 import io.ballerina.tools.diagnostics.Location;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
+import io.ballerina.types.SemTypes;
+import io.ballerina.types.definition.FunctionDefinition;
+import org.ballerinalang.model.symbols.SymbolKind;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BInvokableType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.util.Name;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * {@code BResourceFunction} represents a resource function in Ballerina.
@@ -32,14 +40,13 @@ public class BResourceFunction extends BAttachedFunction {
 
     public List<BVarSymbol> pathParams;
     public BVarSymbol restPathParam;
-    public List<Name> resourcePath;
     public Name accessor;
+    public List<BResourcePathSegmentSymbol> pathSegmentSymbols;
 
     public BResourceFunction(Name funcName, BInvokableSymbol symbol, BInvokableType type,
-                             List<Name> resourcePath, Name accessor, List<BVarSymbol> pathParams,
+                             Name accessor, List<BVarSymbol> pathParams,
                              BVarSymbol restPathParam, Location pos) {
         super(funcName, symbol, type, pos);
-        this.resourcePath = resourcePath;
         this.accessor = accessor;
         this.pathParams = pathParams;
         this.restPathParam = restPathParam;
@@ -49,8 +56,43 @@ public class BResourceFunction extends BAttachedFunction {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("resource function ").append(accessor).append(" ");
-        sb.append(resourcePath.stream().map(r -> r.value).reduce((a, b) -> a + "/" + b).get());
-        sb.append(" ").append(type.getTypeSignature());
+        int pathSegmentCount = pathSegmentSymbols.size();
+        List<String> resourcePathStrings = new ArrayList<>(pathSegmentCount);
+        for (BResourcePathSegmentSymbol pathSym : pathSegmentSymbols) {
+            if (pathSym.kind == SymbolKind.RESOURCE_PATH_PARAM_SEGMENT) {
+                resourcePathStrings.add("[" + pathSym.type + "]");
+            } else if (pathSym.kind == SymbolKind.RESOURCE_PATH_REST_PARAM_SEGMENT) {
+                resourcePathStrings.add("[" + pathSym.type + "...]");
+            } else {
+                resourcePathStrings.add(pathSym.name.value);
+            }
+        }
+        
+        sb.append(resourcePathStrings.stream().reduce((a, b) -> a + "/" + b).get());
+        
+        // Remove path params from `type.paramTypes`, otherwise path prams will appear in function signature
+        List<BType> originalParamTypes = type.paramTypes;
+        int pathParamCount = this.pathParams.size() + (this.restPathParam == null ? 0 : 1);
+        List<BType> paramTypes = new ArrayList<>(originalParamTypes.size() - pathParamCount);
+        paramTypes.addAll(originalParamTypes.subList(pathParamCount, originalParamTypes.size()));
+        type.paramTypes = paramTypes;
+        
+        sb.append(type.getTypeSignature());
+
+        type.paramTypes = originalParamTypes;
         return sb.toString();
+    }
+
+    @Override
+    public SemType semType() {
+        List<SemType> params = new ArrayList<>();
+        params.add(SemTypes.stringConst(accessor.value));
+        for (var each : pathSegmentSymbols) {
+            params.add(Objects.requireNonNullElse(each.type.semType(), PredefinedType.NEVER));
+        }
+        for (var param : this.type.paramTypes) {
+            params.add(Objects.requireNonNullElse(param.semType(), PredefinedType.NEVER));
+        }
+        return this.type.getSemTypeWithParams(params, new FunctionDefinition());
     }
 }

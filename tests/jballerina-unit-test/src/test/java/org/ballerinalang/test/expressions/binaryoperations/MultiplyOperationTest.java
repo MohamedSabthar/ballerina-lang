@@ -16,12 +16,13 @@
  */
 package org.ballerinalang.test.expressions.binaryoperations;
 
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BAssertUtil;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -52,7 +53,7 @@ public class MultiplyOperationTest {
         Assert.assertEquals(actual, expected);
     }
 
-    @Test(description = "Test two int multiply overflow expression", expectedExceptions = BLangRuntimeException.class,
+    @Test(description = "Test two int multiply overflow expression", expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = "error: \\{ballerina}NumberOverflow \\{\"message\":\"int range " +
                     "overflow\"\\}.*")
     public void testIntOverflowByMultiplication() {
@@ -91,7 +92,7 @@ public class MultiplyOperationTest {
 
     @Test(description = "Test binary statement with errors")
     public void testMultiplyStmtNegativeCases() {
-        Assert.assertEquals(resultNegative.getErrorCount(), 7);
+        Assert.assertEquals(resultNegative.getErrorCount(), 8);
         int i = 0;
         BAssertUtil.validateError(resultNegative, i++, "operator '*' not defined for 'json' and 'json'", 8, 10);
         BAssertUtil.validateError(resultNegative, i++, "operator '*' not defined for 'float' and 'string'", 14, 9);
@@ -101,6 +102,8 @@ public class MultiplyOperationTest {
                 "'(string|string:Char)'", 30, 17);
         BAssertUtil.validateError(resultNegative, i++, "operator '*' not defined for 'float' and 'decimal'", 37, 14);
         BAssertUtil.validateError(resultNegative, i++, "operator '*' not defined for 'float' and 'decimal'", 38, 14);
+        BAssertUtil.validateError(resultNegative, i++, "'9223372036854775808' is out of range " +
+                "for 'int'", 51, 17);
     }
 
     @Test(description = "Test multiplication of nullable values")
@@ -154,5 +157,16 @@ public class MultiplyOperationTest {
                 "testNoShortCircuitingInMultiplicationWithNullable",
                 "testNoShortCircuitingInMultiplicationWithNonNullable"
         };
+    }
+
+    @Test
+    public void testDecimalMultiplicationUnderflow() {
+        BRunUtil.invoke(result, "testDecimalMultiplicationUnderflow");
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
+        resultNegative = null;
     }
 }

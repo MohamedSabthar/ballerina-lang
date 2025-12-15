@@ -19,6 +19,16 @@ package io.ballerina.projects.internal.configschema;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import io.ballerina.types.ComplexSemType;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
+import io.ballerina.types.subtypedata.BooleanSubtype;
+import io.ballerina.types.subtypedata.DecimalSubtype;
+import io.ballerina.types.subtypedata.FloatSubtype;
+import io.ballerina.types.subtypedata.IntSubtype;
+import io.ballerina.types.subtypedata.StringSubtype;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BArrayType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BField;
@@ -30,15 +40,23 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTypeReferenceType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangLiteral;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangNumericLiteral;
+import org.wso2.ballerinalang.compiler.semantics.model.types.SemNamedType;
+import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.compiler.util.TypeTags;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 
+import static io.ballerina.types.Core.getComplexSubtypeData;
+import static io.ballerina.types.SemTypes.isSubtypeSimple;
+import static io.ballerina.types.BasicTypeCode.BT_BOOLEAN;
+import static io.ballerina.types.BasicTypeCode.BT_DECIMAL;
+import static io.ballerina.types.BasicTypeCode.BT_FLOAT;
+import static io.ballerina.types.BasicTypeCode.BT_INT;
+import static io.ballerina.types.BasicTypeCode.BT_STRING;
 import static org.wso2.ballerinalang.compiler.util.TypeTags.BOOLEAN;
 import static org.wso2.ballerinalang.compiler.util.TypeTags.BYTE;
 import static org.wso2.ballerinalang.compiler.util.TypeTags.DECIMAL;
@@ -55,7 +73,7 @@ public class TypeConverter {
     static final String ADDITIONAL_PROPERTIES = "additionalProperties";
     static final String TYPE = "type";
     // Stores already visited complex types against the type name
-    private Map<String, VisitedType> visitedTypeMap = new HashMap<>();
+    private final Map<String, VisitedType> visitedTypeMap = new HashMap<>();
 
     private VisitedType getVisitedType(String typeName) {
         if (visitedTypeMap.containsKey(typeName)) {
@@ -82,49 +100,57 @@ public class TypeConverter {
      */
     JsonObject getType(BType type) {
         JsonObject typeNode = new JsonObject();
+        type = Types.getReferredType(type);
         if (TypeTags.isSimpleBasicType(type.tag)) {
             String typeVal = getSimpleType(type);
             typeNode.addProperty(TYPE, typeVal);
         } else {
-            if (TypeTags.INTERSECTION == type.tag && type instanceof BIntersectionType) {
-                BType effectiveType = ((BIntersectionType) type).getEffectiveType();
+            if (TypeTags.INTERSECTION == type.tag && type instanceof BIntersectionType intersectionType) {
+                BType effectiveType = Types.getImpliedType(type);
+                if (TypeTags.isSimpleBasicType(effectiveType.tag)) {
+                    String typeVal = getSimpleType(effectiveType);
+                    typeNode.addProperty(TYPE, typeVal);
+                    return typeNode;
+                }
+
                 VisitedType visitedType = getVisitedType(effectiveType.toString());
                 if (visitedType != null) {
                     if (visitedType.isCompleted()) {
                         return visitedType.getTypeNode();
-                    } else {
-                        JsonObject nullType = new JsonObject();
-                        nullType.addProperty(TYPE, "null");
-                        return nullType;
                     }
+
+                    JsonObject nullType = new JsonObject();
+                    nullType.addProperty(TYPE, "null");
+                    return nullType;
                 } else {
                     visitedTypeMap.put(effectiveType.toString(), new VisitedType());
                 }
-                if (TypeTags.ARRAY == effectiveType.tag && effectiveType instanceof BArrayType) {
-                    generateArrayType(typeNode, (BArrayType) effectiveType);
+
+                if (TypeTags.ARRAY == effectiveType.tag && effectiveType instanceof BArrayType arrayType) {
+                    generateArrayType(typeNode, arrayType);
                 }
-                if (TypeTags.RECORD == effectiveType.tag && effectiveType instanceof BRecordType) {
-                    typeNode = generateRecordType((BRecordType) effectiveType);
+                if (TypeTags.RECORD == effectiveType.tag && effectiveType instanceof BRecordType recordType) {
+                    typeNode = generateRecordType(recordType, intersectionType);
                 }
-                if (TypeTags.MAP == effectiveType.tag && effectiveType instanceof BMapType) {
-                    generateMapType(typeNode, (BMapType) effectiveType);
+                if (TypeTags.MAP == effectiveType.tag && effectiveType instanceof BMapType mapType) {
+                    generateMapType(typeNode, mapType);
                 }
-                if (TypeTags.UNION == effectiveType.tag && effectiveType instanceof BUnionType) {
-                    generateUnionType(typeNode, (BUnionType) effectiveType);
+                if (TypeTags.UNION == effectiveType.tag && effectiveType instanceof BUnionType unionType) {
+                    generateUnionType(typeNode, unionType);
                 }
-                if (TypeTags.TABLE == effectiveType.tag && effectiveType instanceof BTableType) {
-                    generateTableType(typeNode, (BTableType) effectiveType);
+                if (TypeTags.TABLE == effectiveType.tag && effectiveType instanceof BTableType tableType) {
+                    generateTableType(typeNode, tableType);
                 }
                 completeVisitedTypeEntry(effectiveType.toString(), typeNode);
-            } else if (TypeTags.UNION == type.tag && type instanceof BUnionType) {
+            } else if (TypeTags.UNION == type.tag && type instanceof BUnionType unionType) {
                 // Handles enums
-                generateUnionType(typeNode, (BUnionType) type);
+                generateUnionType(typeNode, unionType);
             }
             // When the type is a union of singletons
-            if (TypeTags.FINITE == type.tag && type instanceof BFiniteType) {
+            if (TypeTags.FINITE == type.tag && type instanceof BFiniteType finiteType) {
                 JsonArray enumArray = new JsonArray();
                 // Singletons can be mapped to enum in JSON
-                getEnumArray(enumArray, (BFiniteType) type);
+                getEnumArray(enumArray, finiteType);
                 typeNode.add("enum", enumArray);
             }
         }
@@ -154,7 +180,7 @@ public class TypeConverter {
      * @param effectiveType BRecordType with record details
      * @return JsonObject with record details
      */
-    private JsonObject generateRecordType(BRecordType effectiveType) {
+    private JsonObject generateRecordType(BRecordType effectiveType, BIntersectionType intersectionType) {
         JsonObject typeNode;
         LinkedHashMap<String, BField> fieldLinkedHashMap = effectiveType.getFields();
         JsonObject effectiveTypeNode = new JsonObject();
@@ -172,11 +198,16 @@ public class TypeConverter {
         if (!requiredFields.isEmpty()) {
             typeNode.add("required", requiredFields);
         }
-        // Get record type and set the type name as a property
-        if (effectiveType.getIntersectionType().isPresent()) {
-            for (BType bType : effectiveType.getIntersectionType().get().getConstituentTypes()) {
+        BTypeSymbol intersectionSymbol = intersectionType.tsymbol;
+        // The tsymbol name is implicitly empty
+        if (intersectionSymbol.name != Names.EMPTY) {
+            typeNode.addProperty("name", intersectionSymbol.toString().trim());
+        } else {
+            // Get record type and set the type name as a property
+            for (BType bType : intersectionType.getConstituentTypes()) {
                 // Does not consider anonymous records
-                if (bType instanceof BTypeReferenceType) {
+                if (bType.tag == TypeTags.TYPEREFDESC) {
+                    // Revisit with https://github.com/ballerina-platform/ballerina-lang/issues/24078
                     typeNode.addProperty("name", bType.toString().trim());
                 }
             }
@@ -232,13 +263,13 @@ public class TypeConverter {
                     (TypeTags.INTERSECTION == member.tag && member instanceof BIntersectionType)) {
                 JsonObject memberObj = getType(member);
                 memberArray.add(memberObj);
-            } else if (TypeTags.FINITE == member.tag && member instanceof BFiniteType) {
-                getEnumArray(enumArray, (BFiniteType) member);
-            } else if (TypeTags.TYPEREFDESC == member.tag && member instanceof BTypeReferenceType) {
+            } else if (TypeTags.FINITE == member.tag && member instanceof BFiniteType finiteType) {
+                getEnumArray(enumArray, finiteType);
+            } else if (TypeTags.TYPEREFDESC == member.tag && member instanceof BTypeReferenceType typeReferenceType) {
                 // When union member refers to another union type, update those union members as well
-                BType referredType = ((BTypeReferenceType) member).referredType;
-                if (TypeTags.UNION == referredType.tag && referredType instanceof BUnionType) {
-                    LinkedHashSet<BType> subMembers = ((BUnionType) referredType).getMemberTypes();
+                BType referredType = typeReferenceType.referredType;
+                if (TypeTags.UNION == referredType.tag && referredType instanceof BUnionType unionType) {
+                    LinkedHashSet<BType> subMembers = unionType.getMemberTypes();
                     updateUnionMembers(subMembers, memberArray, enumArray);
                 }
             }
@@ -251,24 +282,33 @@ public class TypeConverter {
      * @param enumArray JSON array to add the enum values
      * @param finiteType BFiniteType to retrieve enum values from
      */
+    @SuppressWarnings("OptionalGetWithoutIsPresent") // xxxSubtypeSingleValue() are guaranteed to have a value
     private static void getEnumArray(JsonArray enumArray, BFiniteType finiteType) {
-        Object[] values = finiteType.getValueSpace().toArray();
-        for (Object finiteValue : values) {
-            if (finiteValue instanceof BLangNumericLiteral) {
-                BType bType = ((BLangNumericLiteral) finiteValue).getBType();
-                // In the BLangNumericLiteral the integer typed values are represented as numeric values
-                // while the decimal values are represented as String
-                Object value = ((BLangNumericLiteral) finiteValue).getValue();
-                if (TypeTags.isIntegerTypeTag(bType.tag)) {
-                    // Any integer can be considered as a long and added as a numeric value to the enum array
-                    if (value instanceof Long) {
-                        enumArray.add((Long) value);
-                    }
-                } else {
-                    enumArray.add(Double.parseDouble(value.toString()));
-                }
-            } else if (finiteValue instanceof BLangLiteral) {
-                enumArray.add(((BLangLiteral) finiteValue).getValue().toString());
+        for (SemNamedType semNamedType : finiteType.valueSpace) {
+            SemType s = semNamedType.semType();
+            if (PredefinedType.NIL.equals(s)) {
+                enumArray.add(Names.NIL_VALUE.value);
+                continue;
+            }
+
+            ComplexSemType cs = (ComplexSemType) s;
+            if (isSubtypeSimple(s, PredefinedType.BOOLEAN)) {
+                boolean boolVal = BooleanSubtype.booleanSubtypeSingleValue(getComplexSubtypeData(cs, BT_BOOLEAN)).get();
+                enumArray.add(boolVal ? Names.TRUE.value : Names.FALSE.value);
+            } else if (isSubtypeSimple(s, PredefinedType.INT)) {
+                long longVal = IntSubtype.intSubtypeSingleValue(getComplexSubtypeData(cs, BT_INT)).get();
+                enumArray.add(longVal);
+            } else if (isSubtypeSimple(s, PredefinedType.FLOAT)) {
+                double doubleVal = FloatSubtype.floatSubtypeSingleValue(getComplexSubtypeData(cs, BT_FLOAT)).get();
+                enumArray.add(doubleVal);
+            } else if (isSubtypeSimple(s, PredefinedType.DECIMAL)) {
+                BigDecimal bVal = DecimalSubtype.decimalSubtypeSingleValue(getComplexSubtypeData(cs, BT_DECIMAL)).get();
+                enumArray.add(bVal.toString());
+            } else if (isSubtypeSimple(s, PredefinedType.STRING)) {
+                String stringVal = StringSubtype.stringSubtypeSingleValue(getComplexSubtypeData(cs, BT_STRING)).get();
+                enumArray.add(stringVal);
+            } else {
+                throw new IllegalStateException("Unexpected value space type: " + s);
             }
         }
     }
@@ -285,16 +325,12 @@ public class TypeConverter {
         } else if (TypeTags.isStringTypeTag(type.tag)) {
             return "string";
         } else {
-            switch (type.tag) {
-                case BYTE:
-                case FLOAT:
-                case DECIMAL:
-                    return "number";
-                case BOOLEAN:
-                    return "boolean";
-                default:
-                    return "";
-            }
+            return switch (type.tag) {
+                case FLOAT, DECIMAL -> "number";
+                case BOOLEAN -> "boolean";
+                case BYTE -> "integer";
+                default -> "";
+            };
         }
     }
 

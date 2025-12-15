@@ -48,10 +48,10 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.regex.Matcher;
@@ -60,16 +60,29 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.ballerinalang.test.runtime.util.TesterinaConstants.BLANG_SRC_FILE_SUFFIX;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.CLASS_EXTENSION;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.DOT;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.PATH_SEPARATOR;
 import static org.ballerinalang.test.runtime.util.TesterinaConstants.REPORT_XML_FILE;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.REPORT_ZIP_NAME;
+import static org.wso2.ballerinalang.compiler.util.ProjectDirConstants.BALLERINA_HOME;
+import static org.wso2.ballerinalang.compiler.util.ProjectDirConstants.BALLERINA_HOME_LIB;
 
 /**
  * Class containing utility methods required to generate the coverage report.
  *
  * @since 1.2.0
  */
-public class CodeCoverageUtils {
+public final class CodeCoverageUtils {
+
+    private  static final String REPORT_ZIP_DIRECTORY = Path.of(System.getProperty(BALLERINA_HOME))
+            .resolve(BALLERINA_HOME_LIB).resolve(TesterinaConstants.TOOLS_DIR_NAME)
+            .resolve(TesterinaConstants.COVERAGE_DIR).resolve(REPORT_ZIP_NAME).toString()
+            .replace(REPORT_ZIP_NAME, "");
 
     private static final PrintStream errStream = System.err;
+
+    private CodeCoverageUtils() {}
 
     /**
      * Checks if a given code coverage report format was requested by user.
@@ -89,15 +102,17 @@ public class CodeCoverageUtils {
     /**
      * Util method to extract required class files for code coverage analysis.
      *
-     * @param source      path of testable jar
-     * @param destination path to extract the classes
-     * @param orgName     org name of the project being executed
-     * @param moduleName  name of the module being executed
+     * @param source                path of testable jar
+     * @param destination           path to extract the classes
+     * @param orgName               org name of the project being executed
+     * @param moduleName            name of the module being executed
+     * @param externalExclusionList set of class to be excluded
      * @throws NoSuchFileException if source file doesnt exist
      */
     public static void unzipCompiledSource(Path source, Path destination, String orgName,
                                            String moduleName, boolean enableIncludesFilter,
-                                           String includesInCoverage) throws NoSuchFileException {
+                                           String includesInCoverage, Set<String> externalExclusionList)
+                                            throws NoSuchFileException {
         String destJarDir = destination.toString();
         try (JarFile jarFile = new JarFile(source.toFile())) {
             Enumeration<JarEntry> enu = jarFile.entries();
@@ -106,6 +121,11 @@ public class CodeCoverageUtils {
                 File file = new File(destJarDir, entry.getName());
                 if (isRequiredFile(entry.getName(), orgName, enableIncludesFilter,
                         includesInCoverage)) {
+                    String classEntry = entry.getName().replace(CLASS_EXTENSION, "")
+                            .replace(PATH_SEPARATOR, DOT);
+                    if (externalExclusionList != null && externalExclusionList.contains(classEntry)) {
+                        continue;
+                    }
                     if (!file.exists()) {
                         Files.createDirectories(file.getParentFile().toPath());
                     }
@@ -130,18 +150,10 @@ public class CodeCoverageUtils {
 
     private static boolean isRequiredFile(String path, String orgName, boolean enableIncludesFilter,
                                           String includesInCoverage) {
-        if (path.contains("$_init") || path.contains("META-INF") || path.contains("/tests/")) {
-            return false;
-        } else if (path.contains("Frame") && path.contains("module")) {
-            return false;
-        } else if (path.contains("Frame") && path.contains(orgName)) {
-            return false;
-        } else if (path.contains("module-info.class")) {
-            return false;
-        } else if (enableIncludesFilter && !isIncluded(path, includesInCoverage)) {
-            return false;
-        }
-        return true;
+        return !(path.contains("$_init") || path.contains("META-INF") || path.contains("/tests/")
+                || (path.contains("$frame$") && (path.contains("module") || path.contains(orgName)))
+                || path.contains("module-info.class")
+                || (enableIncludesFilter && !isIncluded(path, includesInCoverage)));
     }
 
     private static String normalizeRegexPattern(String pattern) {
@@ -155,7 +167,7 @@ public class CodeCoverageUtils {
     private static boolean isIncluded(String path, String includesInCoverage) {
         boolean isIncluded = false;
         if (includesInCoverage != null) {
-            List<String> includedPackages = Arrays.asList(includesInCoverage.split(":"));
+            String[] includedPackages = includesInCoverage.split(":");
             for (String packageName : includedPackages) {
                 packageName = packageName.replace(".", "/");
                 Pattern pattern = Pattern.compile(normalizeRegexPattern(packageName));
@@ -198,10 +210,8 @@ public class CodeCoverageUtils {
         final ZipInputStream zipStream = new ZipInputStream(source);
         ZipEntry nextEntry;
         while ((nextEntry = zipStream.getNextEntry()) != null) {
-            final String name = nextEntry.getName();
-            // only extract files
-            if (!name.endsWith("/")) {
-                final File nextFile = new File(target, name);
+            if (!nextEntry.isDirectory()) {
+                final File nextFile = new File(target, nextEntry.getName());
 
                 // create directories
                 final File parent = nextFile.getParentFile();
@@ -213,7 +223,6 @@ public class CodeCoverageUtils {
                 try (OutputStream targetStream = new FileOutputStream(nextFile)) {
                     final int bufferSize = 4 * 1024;
                     final byte[] buffer = new byte[bufferSize];
-
                     int nextCount;
                     while ((nextCount = zipStream.read(buffer)) >= 0) {
                         targetStream.write(buffer, 0, nextCount);
@@ -326,10 +335,21 @@ public class CodeCoverageUtils {
      */
     private static List<ILine> modifyLines(ISourceFileCoverage sourcefile) {
         List<ILine> modifiedLines = new ArrayList<>();
-        for (int i = sourcefile.getFirstLine(); i <= sourcefile.getLastLine(); i++) {
-            ILine line = sourcefile.getLine(i);
+        int i = sourcefile.getFirstLine();
+        ILine line;
+        // Jacoco gives coverage to line 0 which is not exist. This causes codecov processing to fail. Those lines
+        // will be removed from coverage report.
+        if (i == 0 && ((line = sourcefile.getLine(i)).getInstructionCounter().getTotalCount() > 0 ||
+                line.getBranchCounter().getTotalCount() > 0)) {
+            i = 1;
+            ILine modifiedLine = new PartialCoverageModifiedLine(null, null);
+            modifiedLines.add(modifiedLine);
+        }
+        while (i <= sourcefile.getLastLine()) {
+            line = sourcefile.getLine(i);
             ILine modifiedLine = new PartialCoverageModifiedLine(line.getInstructionCounter(), line.getBranchCounter());
             modifiedLines.add(modifiedLine);
+            i++;
         }
         return modifiedLines;
     }

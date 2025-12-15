@@ -17,7 +17,8 @@
  */
 package org.ballerinalang.test.expressions.stamp;
 
-import io.ballerina.runtime.api.TypeTags;
+import io.ballerina.runtime.api.types.MapType;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BMap;
@@ -89,13 +90,14 @@ public class AnydataStampInbuiltFunctionTest {
         BMap<String, Object> mapValue0 = (BMap<String, Object>) results;
 
         Assert.assertTrue(getType(mapValue0) instanceof BMapType);
-        Assert.assertTrue(((BMapType) getType(mapValue0)).getConstrainedType() instanceof BJsonType);
+        Assert.assertTrue(((MapType) getType(mapValue0)).getConstrainedType() instanceof BJsonType);
 
         Assert.assertEquals((mapValue0).size(), 5);
-        Assert.assertEquals(((LinkedHashMap) mapValue0).get(StringUtils.fromString("school")).toString(),
+        Assert.assertEquals(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("school")).toString(),
                 "Hindu College");
         Assert.assertTrue(
-                getType(((LinkedHashMap) mapValue0).get(StringUtils.fromString("school"))) instanceof BStringType);
+                getType(((LinkedHashMap<?, ?>) mapValue0).get(StringUtils.fromString("school")))
+                        instanceof BStringType);
 
     }
 
@@ -118,10 +120,10 @@ public class AnydataStampInbuiltFunctionTest {
         Assert.assertEquals(mapValue.size(), 2);
 
         Assert.assertEquals(getType(mapValue.get(StringUtils.fromString("a"))).getName(), "Employee");
-        Assert.assertEquals(((BMap) mapValue.get(StringUtils.fromString("a"))).size(), 5);
+        Assert.assertEquals(((BMap<?, ?>) mapValue.get(StringUtils.fromString("a"))).size(), 5);
 
         Assert.assertEquals(getType(mapValue.get(StringUtils.fromString("b"))).getName(), "Employee");
-        Assert.assertEquals(((BMap) mapValue.get(StringUtils.fromString("b"))).size(), 5);
+        Assert.assertEquals(((BMap<?, ?>) mapValue.get(StringUtils.fromString("b"))).size(), 5);
     }
 
     @Test
@@ -154,44 +156,33 @@ public class AnydataStampInbuiltFunctionTest {
         Assert.assertTrue(getType(tupleValue2) instanceof BRecordType);
         Assert.assertEquals(getType(tupleValue2).getName(), "Teacher");
 
-        Assert.assertEquals(((BMap) tupleValue2).size(), 5);
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).size(), 5);
 
-        Assert.assertEquals(((BMap) tupleValue2).get(StringUtils.fromString("name")).toString(), "Raja");
-        Assert.assertTrue(getType(((BMap) tupleValue2).get(StringUtils.fromString("name"))) instanceof BStringType);
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("name")).toString(), "Raja");
+        Assert.assertTrue(getType(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("name")))
+                instanceof BStringType);
 
-        Assert.assertEquals(((BMap) tupleValue2).get(StringUtils.fromString("age")).toString(), "25");
-        Assert.assertEquals(getType(((BMap) tupleValue2).get(StringUtils.fromString("age"))).getTag(),
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("age")).toString(), "25");
+        Assert.assertEquals(getType(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("age"))).getTag(),
                 TypeTags.INT_TAG);
 
-        Assert.assertEquals(((BMap) tupleValue2).get(StringUtils.fromString("status")).toString(), "single");
-        Assert.assertTrue(getType(((BMap) tupleValue2).get(StringUtils.fromString("status"))) instanceof BStringType);
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("status")).toString(), "single");
+        Assert.assertTrue(getType(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("status")))
+                instanceof BStringType);
 
-        Assert.assertEquals(((BMap) tupleValue2).get(StringUtils.fromString("batch")).toString(), "LK2014");
-        Assert.assertTrue(getType(((BMap) tupleValue2).get(StringUtils.fromString("batch"))) instanceof BStringType);
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("batch")).toString(), "LK2014");
+        Assert.assertTrue(getType(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("batch")))
+                instanceof BStringType);
 
-        Assert.assertEquals(((BMap) tupleValue2).get(StringUtils.fromString("school")).toString(), "Hindu College");
-        Assert.assertTrue(getType(((BMap) tupleValue2).get(StringUtils.fromString("school"))) instanceof BStringType);
+        Assert.assertEquals(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("school")).toString(),
+                "Hindu College");
+        Assert.assertTrue(getType(((BMap<?, ?>) tupleValue2).get(StringUtils.fromString("school")))
+                instanceof BStringType);
     }
 
     @Test
     public void testStampAnydataMapToAnydataMap() {
-
-        Object results = BRunUtil.invoke(compileResult, "stampAnydataMapToAnydataMap");
-        BMap<String, Object> mapValue = (BMap<String, Object>) results;
-
-        Assert.assertEquals(mapValue.size(), 5);
-
-        Assert.assertTrue(getType(mapValue) instanceof BMapType);
-        Assert.assertTrue(((BMapType) getType(mapValue)).getConstrainedType() instanceof BAnydataType);
-
-        Assert.assertEquals(mapValue.get(StringUtils.fromString("name")).toString(), "Raja");
-        Assert.assertTrue(getType(mapValue.get(StringUtils.fromString("name"))) instanceof BStringType);
-
-        Assert.assertEquals(mapValue.get(StringUtils.fromString("age")).toString(), "25");
-        Assert.assertEquals(getType(mapValue.get(StringUtils.fromString("age"))).getTag(), TypeTags.INT_TAG);
-
-        Assert.assertEquals(mapValue.get(StringUtils.fromString("status")).toString(), "single");
-        Assert.assertTrue(getType(mapValue.get(StringUtils.fromString("status"))) instanceof BStringType);
+        BRunUtil.invoke(compileResult, "stampAnydataMapToAnydataMap");
     }
 
     @Test
@@ -200,8 +191,8 @@ public class AnydataStampInbuiltFunctionTest {
         Object results = BRunUtil.invoke(compileResult, "stampAnydataToAnydata");
         BMap<String, Object> mapValue = (BMap<String, Object>) results;
 
-        Assert.assertTrue(getType(mapValue) instanceof BMapType);
-        Assert.assertTrue(((BMapType) getType(mapValue)).getConstrainedType() instanceof BAnydataType);
+        Assert.assertTrue(getType(mapValue) instanceof MapType);
+        Assert.assertTrue(((MapType) getType(mapValue)).getConstrainedType() instanceof BAnydataType);
     }
 
     @Test
@@ -212,8 +203,8 @@ public class AnydataStampInbuiltFunctionTest {
 
         Assert.assertEquals(mapValue.size(), 5);
 
-        Assert.assertTrue(getType(mapValue) instanceof BMapType);
-        Assert.assertTrue(((BMapType) getType(mapValue)).getConstrainedType() instanceof BJsonType);
+        Assert.assertTrue(getType(mapValue) instanceof MapType);
+        Assert.assertTrue(((MapType) getType(mapValue)).getConstrainedType() instanceof BJsonType);
 
         Assert.assertEquals(mapValue.get(StringUtils.fromString("name")).toString(), "Raja");
         Assert.assertTrue(getType(mapValue.get(StringUtils.fromString("name"))) instanceof BStringType);

@@ -15,8 +15,11 @@
  */
 package org.ballerinalang.langserver.completions.providers.context;
 
+import io.ballerina.compiler.api.symbols.MapTypeSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.SymbolKind;
+import io.ballerina.compiler.api.symbols.TypeDescKind;
+import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.VariableSymbol;
 import io.ballerina.compiler.syntax.tree.ComputedNameFieldNode;
 import io.ballerina.compiler.syntax.tree.IdentifierToken;
@@ -27,15 +30,17 @@ import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SpecificFieldNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
+import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
-import org.ballerinalang.langserver.commons.completion.LSCompletionException;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
+import org.ballerinalang.langserver.completions.SpreadCompletionItem;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
+import org.ballerinalang.langserver.completions.util.SortingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link MappingConstructorExpressionNode} context.
@@ -52,27 +57,31 @@ public class MappingConstructorExpressionNodeContext extends
 
     @Override
     public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context,
-                                                 MappingConstructorExpressionNode node) throws LSCompletionException {
+                                                 MappingConstructorExpressionNode node) {
         List<LSCompletionItem> completionItems = new ArrayList<>();
         NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
-        Optional<Node> evalNode = getEvalNode(context);
+        Optional<Node> evalNode = CommonUtil.getMappingContextEvalNode(nodeAtCursor);
         if (evalNode.isEmpty()) {
             return completionItems;
         }
 
+        Scope scope = Scope.OTHER;
         if (this.withinValueExpression(context, evalNode.get())) {
+            scope = Scope.VALUE_EXPR;
             completionItems.addAll(getCompletionsInValueExpressionContext(context));
         } else if (this.withinComputedNameContext(context, evalNode.get())) {
-            if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+            scope = Scope.COMPUTED_FIELD_NAME;
+            if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
                 QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
                 completionItems.addAll(this.getExpressionsCompletionsForQNameRef(context, qNameRef));
             } else {
                 completionItems.addAll(this.getComputedNameCompletions(context));
             }
         } else {
+            scope = Scope.FIELD_NAME;
             completionItems.addAll(this.getFieldCompletionItems(context, node, evalNode.get()));
         }
-        this.sort(context, node, completionItems);
+        this.sort(context, node, completionItems, scope);
         return completionItems;
     }
 
@@ -82,6 +91,47 @@ public class MappingConstructorExpressionNodeContext extends
         return !node.openBrace().isMissing() && !node.closeBrace().isMissing()
                 && cursor > node.openBrace().textRange().startOffset()
                 && cursor < node.closeBrace().textRange().endOffset();
+    }
+
+    @Override
+    public void sort(BallerinaCompletionContext context, MappingConstructorExpressionNode node,
+                     List<LSCompletionItem> completionItems, Object... metaData) {
+        final Scope scope;
+        if (metaData.length > 0 && metaData[0] instanceof Scope) {
+            scope = (Scope) metaData[0];
+        } else {
+            scope = Scope.OTHER;
+        }
+        Optional<TypeSymbol> contextType = context.getContextType();
+        if (contextType.isEmpty()) {
+            super.sort(context, node, completionItems);
+            return;
+        }
+        completionItems.forEach(lsCItem -> {
+            // In the field name context, we have to give a special consideration to the map type variables
+            // suggested with the spread operator (...map1).
+            if (scope == Scope.FIELD_NAME && lsCItem.getType() == LSCompletionItem.CompletionItemType.SPREAD) {
+                Optional<Symbol> expression = ((SpreadCompletionItem) lsCItem).getExpression();
+
+                Optional<TypeSymbol> mapTypeParam = expression
+                        .flatMap(SymbolUtil::getTypeDescriptor)
+                        .filter(typeDesc -> typeDesc.typeKind() == TypeDescKind.MAP)
+                        .map(typeDesc -> (MapTypeSymbol) typeDesc)
+                        .map(MapTypeSymbol::typeParam);
+
+                // If the completion item is a map type variable and is the spread operator, we give it priority
+                if ((mapTypeParam.isPresent() && mapTypeParam.get().subtypeOf(contextType.get()))
+                        || expression.isPresent()) {
+                    int lastRank = expression.map(expr -> expr.kind() == SymbolKind.FUNCTION ? 4 : 3)
+                            .orElse(3);
+                    String sortText = SortingUtil.genSortText(1) + SortingUtil.genSortText(lastRank);
+                    lsCItem.getCompletionItem().setSortText(sortText);
+                    return;
+                }
+            }
+            String sortText = SortingUtil.genSortTextByAssignability(context, lsCItem, contextType.get());
+            lsCItem.getCompletionItem().setSortText(sortText);
+        });
     }
 
     private boolean withinComputedNameContext(BallerinaCompletionContext context, Node evalNodeAtCursor) {
@@ -101,7 +151,7 @@ public class MappingConstructorExpressionNodeContext extends
 
         List<Symbol> filteredList = visibleSymbols.stream()
                 .filter(symbol -> symbol instanceof VariableSymbol || symbol.kind() == SymbolKind.FUNCTION)
-                .collect(Collectors.toList());
+                .toList();
         List<LSCompletionItem> completionItems = this.getCompletionItemList(filteredList, context);
         completionItems.addAll(this.getModuleCompletionItems(context));
 
@@ -114,6 +164,13 @@ public class MappingConstructorExpressionNodeContext extends
                 .filter(field -> !field.isMissing() && field.kind() == SyntaxKind.SPECIFIC_FIELD
                         && ((SpecificFieldNode) field).fieldName().kind() == SyntaxKind.IDENTIFIER_TOKEN)
                 .map(field -> ((IdentifierToken) ((SpecificFieldNode) field).fieldName()).text())
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    private enum Scope {
+        VALUE_EXPR,
+        FIELD_NAME,
+        COMPUTED_FIELD_NAME,
+        OTHER
     }
 }

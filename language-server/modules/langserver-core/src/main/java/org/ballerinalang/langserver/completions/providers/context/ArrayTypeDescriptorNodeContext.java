@@ -25,15 +25,14 @@ import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.Token;
 import org.ballerinalang.annotation.JavaSPIService;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link ArrayTypeDescriptorNode} context.
@@ -57,15 +56,15 @@ public class ArrayTypeDescriptorNodeContext extends AbstractCompletionProvider<A
         NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
         List<LSCompletionItem> completionItems = new ArrayList<>();
 
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
             QualifiedNameReferenceNode qName = (QualifiedNameReferenceNode) nodeAtCursor;
-            List<Symbol> moduleConstants = QNameReferenceUtil.getModuleContent(context, qName, constantFilter());
+            List<Symbol> moduleConstants = QNameRefCompletionUtil.getModuleContent(context, qName, constantFilter());
 
             completionItems.addAll(this.getCompletionItemList(moduleConstants, context));
         } else {
             List<Symbol> constants = visibleSymbols.stream()
                     .filter(constantFilter())
-                    .collect(Collectors.toList());
+                    .toList();
             completionItems.addAll(this.getModuleCompletionItems(context));
             completionItems.addAll(this.getCompletionItemList(constants, context));
         }

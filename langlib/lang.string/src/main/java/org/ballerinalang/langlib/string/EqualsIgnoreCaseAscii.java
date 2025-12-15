@@ -20,21 +20,16 @@ package org.ballerinalang.langlib.string;
 
 import io.ballerina.runtime.api.values.BString;
 
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Extern function lang.string:equalsIgnoreCase(string, string).
  *
  * @since 1.2
  */
-public class EqualsIgnoreCaseAscii {
-    private static CharsetDecoder decoder;
+public final class EqualsIgnoreCaseAscii {
 
-    static {
-        decoder = Charset.forName("US-ASCII").newDecoder();
+    private EqualsIgnoreCaseAscii() {
     }
 
     public static boolean equalsIgnoreCaseAscii(BString s1, BString s2) {
@@ -59,13 +54,6 @@ public class EqualsIgnoreCaseAscii {
     }
 
     private static boolean isPureAscii(String  str) {
-        byte byteArray[] = str.getBytes();
-        try {
-            decoder.decode(ByteBuffer.wrap(byteArray)).toString();
-        } catch (CharacterCodingException e) {
-            return false;
-        }
-
-        return true;
+        return StandardCharsets.US_ASCII.newEncoder().canEncode(str);
     }
 }

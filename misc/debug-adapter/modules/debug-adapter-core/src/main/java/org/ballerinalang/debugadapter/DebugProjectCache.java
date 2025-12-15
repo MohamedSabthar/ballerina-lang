@@ -16,15 +16,18 @@
 
 package org.ballerinalang.debugadapter;
 
+import io.ballerina.projects.BuildOptions;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectKind;
+import io.ballerina.projects.directory.BuildProject;
+import io.ballerina.projects.directory.ProjectLoader;
+import io.ballerina.projects.directory.SingleFileProject;
 
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.ballerinalang.debugadapter.utils.PackageUtils.computeProjectKindAndRoot;
-import static org.ballerinalang.debugadapter.utils.PackageUtils.loadProject;
 
 /**
  * A cache of Ballerina project instances (against their source roots), which are loaded during the user
@@ -46,22 +49,44 @@ public class DebugProjectCache {
      * @param filePath source root of the Ballerina project that need to be retrieved.
      * @return project instance.
      */
-    public Project getProject(Path filePath) {
-        Map.Entry<ProjectKind, Path> projectKindAndRoot = computeProjectKindAndRoot(filePath);
-        Path projectRoot = projectKindAndRoot.getValue();
-        if (!loadedProjects.containsKey(projectRoot)) {
-            addProject(loadProject(filePath.toAbsolutePath().toString()));
-        }
-        return loadedProjects.get(projectRoot);
+    public Project getOrLoadProject(Path filePath) {
+        return getOrLoadProject(filePath, false);
     }
 
     /**
-     * Adds the given project instance into the cache.
+     * Returns the project instance which contains the given file path, from the project cache.
      *
-     * @param project project instance.
+     * @param filePath source root of the Ballerina project that need to be retrieved.
+     * @return project instance.
      */
-    public void addProject(Project project) {
-        Path projectSourceRoot = project.sourceRoot().toAbsolutePath();
-        loadedProjects.put(projectSourceRoot, project);
+    public Project getOrLoadProject(Path filePath, boolean allowWorkspaceProjects) {
+        Map.Entry<ProjectKind, Path> projectKindAndRoot = computeProjectKindAndRoot(filePath, allowWorkspaceProjects);
+        Path projectRoot = projectKindAndRoot.getValue();
+
+        return loadedProjects.computeIfAbsent(projectRoot, key -> loadProject(projectKindAndRoot));
+    }
+
+    /**
+     * Clears the project cache.
+     */
+    public void clear() {
+        loadedProjects.clear();
+    }
+
+    /**
+     * Loads the target ballerina source project instance using the Project API, from the file path of the open/active
+     * editor instance in the client(plugin) side.
+     */
+    private static Project loadProject(Map.Entry<ProjectKind, Path> projectKindAndRoot) {
+        ProjectKind projectKind = projectKindAndRoot.getKey();
+        Path projectRoot = projectKindAndRoot.getValue();
+        BuildOptions options = BuildOptions.builder().setOffline(true).build();
+        if (projectKind == ProjectKind.BUILD_PROJECT) {
+            return BuildProject.load(projectRoot, options);
+        } else if (projectKind == ProjectKind.SINGLE_FILE_PROJECT) {
+            return SingleFileProject.load(projectRoot, options);
+        } else {
+            return ProjectLoader.load(projectRoot, options).project();
+        }
     }
 }

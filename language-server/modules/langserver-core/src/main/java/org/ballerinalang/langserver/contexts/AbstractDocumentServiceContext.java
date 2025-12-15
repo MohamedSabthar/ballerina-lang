@@ -28,7 +28,7 @@ import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.projects.Document;
 import io.ballerina.projects.Module;
 import io.ballerina.tools.text.LinePosition;
-import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.ballerinalang.langserver.commons.LSOperation;
 import org.ballerinalang.langserver.commons.LanguageServerContext;
@@ -42,7 +42,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import javax.annotation.Nonnull;
 
@@ -60,10 +59,6 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
     private final String fileUri;
 
     private final WorkspaceManager workspaceManager;
-
-    private List<Symbol> visibleSymbols;
-
-    private List<ImportDeclarationNode> currentDocImports;
 
     private Map<ImportDeclarationNode, ModuleSymbol> currentDocImportsMap;
 
@@ -87,7 +82,7 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
         this.fileUri = fileUri;
         this.workspaceManager = wsManager;
         this.languageServerContext = serverContext;
-        Optional<Path> optFilePath = CommonUtil.getPathFromURI(this.fileUri);
+        Optional<Path> optFilePath = PathUtil.getPathFromURI(this.fileUri);
         if (optFilePath.isEmpty()) {
             throw new RuntimeException("Invalid file uri: " + this.fileUri);
         }
@@ -111,6 +106,7 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
      *
      * @return {@link String} file uri
      */
+    @Override
     public String fileUri() {
         return this.fileUri;
     }
@@ -120,6 +116,7 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
      *
      * @return {@link Path} file path
      */
+    @Override
     @Nonnull
     public Path filePath() {
         return this.filePath;
@@ -132,26 +129,23 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
 
     @Override
     public List<Symbol> visibleSymbols(Position position) {
-        if (this.visibleSymbols == null) {
-            Optional<SemanticModel> semanticModel;
-            if (this.cancelChecker == null) {
-                semanticModel = this.workspaceManager.semanticModel(this.filePath);
-            } else {
-                semanticModel = this.workspaceManager.semanticModel(this.filePath, this.cancelChecker);
-            }
-            Optional<Document> srcFile = this.workspaceManager.document(filePath);
+        Optional<SemanticModel> semanticModel;
+        if (this.cancelChecker == null) {
+            semanticModel = this.workspaceManager.semanticModel(this.filePath);
+        } else {
+            semanticModel = this.workspaceManager.semanticModel(this.filePath, this.cancelChecker);
+        }
+        Optional<Document> srcFile = this.workspaceManager.document(filePath);
 
-            if (semanticModel.isEmpty() || srcFile.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            this.checkCancelled();
-            visibleSymbols = semanticModel.get().visibleSymbols(srcFile.get(),
-                    LinePosition.from(position.getLine(),
-                            position.getCharacter()), DiagnosticState.VALID, DiagnosticState.REDECLARED);
+        if (semanticModel.isEmpty() || srcFile.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        return visibleSymbols;
+        this.checkCancelled();
+
+        return semanticModel.get().visibleSymbols(srcFile.get(),
+                LinePosition.from(position.getLine(),
+                        position.getCharacter()), DiagnosticState.VALID, DiagnosticState.REDECLARED);
     }
 
     @Override
@@ -161,16 +155,12 @@ public class AbstractDocumentServiceContext implements DocumentServiceContext {
 
     @Override
     public List<ImportDeclarationNode> currentDocImports() {
-        if (this.currentDocImports == null) {
-            Optional<Document> document = this.workspace().document(this.filePath);
-            if (document.isEmpty()) {
-                throw new RuntimeException("Cannot find a valid document");
-            }
-            this.currentDocImports = ((ModulePartNode) document.get().syntaxTree().rootNode()).imports().stream()
-                    .collect(Collectors.toList());
+        Optional<Document> document = this.workspace().document(this.filePath);
+        if (document.isEmpty()) {
+            throw new RuntimeException("Cannot find a valid document");
         }
-
-        return this.currentDocImports;
+        return ((ModulePartNode) document.get().syntaxTree().rootNode()).imports().stream()
+                .toList();
     }
 
     @Override

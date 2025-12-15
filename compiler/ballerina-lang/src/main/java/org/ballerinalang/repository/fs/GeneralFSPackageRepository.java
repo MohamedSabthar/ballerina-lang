@@ -39,7 +39,8 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * This represents a general file system based {@link PackageRepository}.
@@ -136,7 +137,11 @@ public class GeneralFSPackageRepository implements PackageRepository {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     List<Name> nameComps = new ArrayList<>();
-                    if (Files.list(dir).filter(f -> isBALFile(f)).count() > 0) {
+                    boolean balFilesExist;
+                    try (Stream<Path> paths = Files.list(dir)) {
+                        balFilesExist = paths.filter(f -> isBALFile(f)).count() > 0;
+                    }
+                    if (balFilesExist) {
                         int dirNameCount = dir.getNameCount();
                         if (dirNameCount > baseNameCount) {
                             dir.subpath(baseNameCount, dirNameCount).forEach(
@@ -233,10 +238,10 @@ public class GeneralFSPackageRepository implements PackageRepository {
         @Override
         public List<String> getEntryNames() {
             if (this.cachedEntryNames == null) {
-                try {
-                    List<Path> files = Files.walk(this.pkgPath, 1).filter(
+                try (Stream<Path> paths = Files.walk(this.pkgPath, 1)) {
+                    List<Path> files = paths.filter(
                             Files::isRegularFile).filter(e -> e.getFileName().toString().endsWith(BAL_SOURCE_EXT)).
-                            collect(Collectors.toList());
+                            toList();
                     this.cachedEntryNames = new ArrayList<>(files.size());
                     files.stream().forEach(e -> this.cachedEntryNames.add(e.getFileName().toString()));
                 } catch (IOException e) {
@@ -253,8 +258,8 @@ public class GeneralFSPackageRepository implements PackageRepository {
         }
 
         @Override
-        public List<CompilerInput> getPackageSourceEntries() {
-            return this.getEntryNames().stream().map(e -> new FSCompilerInput(e)).collect(Collectors.toList());
+        public List<FSCompilerInput> getPackageSourceEntries() {
+            return this.getEntryNames().stream().map(e -> new FSCompilerInput(e)).toList();
         }
 
         /**
@@ -264,22 +269,32 @@ public class GeneralFSPackageRepository implements PackageRepository {
          */
         public class FSCompilerInput implements CompilerInput {
 
-            private String name;
+            private final String name;
 
-            private byte[] code;
+            private final byte[] code;
 
-            private SyntaxTree tree;
+            private final SyntaxTree tree;
 
             public FSCompilerInput(String name) {
                 this.name = name;
                 Path filePath = basePath.resolve(name);
                 try {
                     this.code = Files.readAllBytes(basePath.resolve(pkgPath).resolve(name));
-                    this.tree = SyntaxTree.from(TextDocuments.from(new String(this.code)), name);
+                    this.tree = SyntaxTree.from(TextDocuments.from(getCodeSupplier(name, basePath, pkgPath)), name);
                 } catch (IOException e) {
                     throw new RuntimeException("Error in loading module source entry '" + filePath +
                             "': " + e.getMessage(), e);
                 }
+            }
+
+            private static Supplier<String> getCodeSupplier(String name, Path basePath, Path pkgPath) {
+                return () -> {
+                    try {
+                        return new String(Files.readAllBytes(basePath.resolve(pkgPath).resolve(name)));
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error reading source file " + name, e);
+                    }
+                };
             }
 
             @Override
@@ -315,7 +330,7 @@ public class GeneralFSPackageRepository implements PackageRepository {
      *
      * @since 0.94
      */
-    public class FSPackageEntityNotAvailableException extends Exception {
+    public static class FSPackageEntityNotAvailableException extends Exception {
 
         private static final long serialVersionUID = 1528033476455781589L;
 

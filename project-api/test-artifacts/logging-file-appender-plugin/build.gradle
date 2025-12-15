@@ -14,8 +14,10 @@
  * limitations under the License.
  *
  */
- 
-apply from: "$rootDir/gradle/javaProject.gradle"
+
+plugins {
+    id 'javaProject'
+}
 
 description = 'Compiler Plugin Tests - Diagnostics File Appender'
 version = '1.0.0'
@@ -23,17 +25,7 @@ version = '1.0.0'
 dependencies {
     implementation project(':ballerina-lang')
     implementation project(':ballerina-tools-api')
+    implementation project(':project-api-test-artifact:string-utils-lib')
 }
 
 ext.moduleName = 'compiler.plugin.test.logger.appender.file'
-
-compileJava {
-    doFirst {
-        options.compilerArgs = [
-                '--module-path', classpath.asPath,
-        ]
-        classpath = files()
-    }
-}
-
-

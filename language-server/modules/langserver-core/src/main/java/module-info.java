@@ -7,16 +7,24 @@ module io.ballerina.language.server.core {
     uses org.ballerinalang.langserver.commons.registration.BallerinaServerCapability;
     uses org.ballerinalang.langserver.commons.registration.BallerinaServerCapabilitySetter;
     uses org.ballerinalang.langserver.commons.registration.BallerinaClientCapabilitySetter;
+    uses org.ballerinalang.langserver.commons.eventsync.spi.EventSubscriber;
+    uses org.ballerinalang.langserver.eventsync.EventPublisher;
+    uses org.ballerinalang.langserver.commons.codeaction.spi.DiagnosticBasedCodeActionProvider;
+    uses org.ballerinalang.langserver.commons.codeaction.spi.RangeBasedCodeActionProvider;
+    uses org.ballerinalang.langserver.commons.completion.spi.BallerinaCompletionProvider;
     exports org.ballerinalang.langserver;
-    exports org.ballerinalang.langserver.util.references;
+    exports org.ballerinalang.langserver.references;
     exports org.ballerinalang.langserver.common.utils;
     exports org.ballerinalang.langserver.common.constants;
     exports org.ballerinalang.langserver.codeaction.providers;
     exports org.ballerinalang.langserver.exception;
     exports org.ballerinalang.langserver.extensions;
+    exports org.ballerinalang.langserver.extensions.ballerina.packages;
     exports org.ballerinalang.langserver.config;
     exports org.ballerinalang.langserver.telemetry;
-    exports org.ballerinalang.langserver.util to io.ballerina.language.server.simulator;
+    exports org.ballerinalang.langserver.util;
+    exports org.ballerinalang.langserver.codeaction to io.ballerina.datamapper;
+    exports org.ballerinalang.langserver.apispec;
     requires io.ballerina.diagram.util;
     requires io.ballerina.formatter.core;
     requires org.eclipse.lsp4j;
@@ -35,4 +43,5 @@ module io.ballerina.language.server.core {
     requires com.google.gson;
     requires io.ballerina.syntaxapicallsgen;
     requires io.ballerina.central.client;
+    requires java.management;
 }

@@ -35,8 +35,9 @@ public class DependencyEvaluationTest extends BaseTestCase {
 
     protected DebugTestRunner debugTestRunner;
 
+    @Override
     @BeforeClass(alwaysRun = true)
-    public void setup() throws BallerinaTestException {
+    public void setup() {
         String testProjectName = "evaluation-tests-2";
         String testModuleFileName = "main.bal";
         debugTestRunner = new DebugTestRunner(testProjectName, testModuleFileName, true);
@@ -54,18 +55,19 @@ public class DependencyEvaluationTest extends BaseTestCase {
         debugHitInfo = debugTestRunner.waitForDebugHit(10000);
         Assert.assertEquals(debugHitInfo.getLeft().getSourceURI().getScheme(), BALA_URI_SCHEME);
         Assert.assertTrue(debugHitInfo.getLeft().getSource().getPath().replaceAll("\\\\", "/")
-                .endsWith("ballerina/lang.int/0.0.0/any/modules/lang.int/int.bal"));
+                .endsWith("ballerina/lang.float/0.0.0/any/modules/lang.float/float.bal"));
 
         // Evaluates various types of expressions on the Ballerina library source debug hit.
-        debugTestRunner.assertExpression(debugHitInfo.getRight(), "n", "12", "int");
-        debugTestRunner.assertExpression(debugHitInfo.getRight(), "n + n", "24", "int");
-        debugTestRunner.assertExpression(debugHitInfo.getRight(), "n.toBalString()", "\"12\"", "string");
-        debugTestRunner.assertExpression(debugHitInfo.getRight(), "fromString(\"10\")", "10", "int");
-        debugTestRunner.assertExpression(debugHitInfo.getRight(), "let int x = 4 in 2 * x * n", "96", "int");
+        debugTestRunner.assertExpression(debugHitInfo.getRight(), "x", "12.0", "float");
+        debugTestRunner.assertExpression(debugHitInfo.getRight(), "x + x", "24.0", "float");
+        debugTestRunner.assertExpression(debugHitInfo.getRight(), "x.toBalString()", "\"12.0\"", "string");
+        debugTestRunner.assertExpression(debugHitInfo.getRight(), "fromString(\"10\")", "10.0", "float");
+        debugTestRunner.assertExpression(debugHitInfo.getRight(), "let int n = 4 in 2 * x * n", "96.0", "float");
         debugTestRunner.assertExpression(debugHitInfo.getRight(), "from var i in from var j in [1, 2, 3] " +
                 "select j select i", "int[3]", "array");
     }
 
+    @Override
     @AfterClass(alwaysRun = true)
     public void cleanUp() {
         debugTestRunner.terminateDebugSession();

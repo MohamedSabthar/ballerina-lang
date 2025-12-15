@@ -27,6 +27,7 @@ import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /**
@@ -239,6 +240,11 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
         BRunUtil.invoke(result, "testQueryStreamWithError");
     }
 
+    @Test(description = "Query a stream with different completion types")
+    public void testQueryStreamWithDifferentCompletionTypes() {
+        BRunUtil.invoke(result, "testQueryStreamWithDifferentCompletionTypes");
+    }
+
     @Test(description = "Test anonymous record type, record type referencing, optional field, " +
             "changed order of the fields")
     public void testOthersAssociatedWithRecordTypes() {
@@ -246,8 +252,8 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
         Assert.assertNotNull(returnValues);
         Assert.assertEquals(returnValues.size(), 2, "Expected events are not received");
 
-        BMap teacher1 = (BMap) returnValues.get(0);
-        BMap teacher2 = (BMap) returnValues.get(1);
+        BMap<?, ?> teacher1 = (BMap<?, ?>) returnValues.get(0);
+        BMap<?, ?> teacher2 = (BMap<?, ?>) returnValues.get(1);
 
         Assert.assertTrue(teacher1.get(StringUtils.fromString("classStudents")) instanceof BArray);
         Assert.assertTrue(teacher1.get(StringUtils.fromString("experience")) instanceof BMap);
@@ -292,8 +298,8 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
         Assert.assertNotNull(returnValues);
         Assert.assertEquals(returnValues.size(), 2, "Expected events are not received");
 
-        BMap person1 = (BMap) returnValues.get(0);
-        BMap person2 = (BMap) returnValues.get(1);
+        BMap<?, ?> person1 = (BMap<?, ?>) returnValues.get(0);
+        BMap<?, ?> person2 = (BMap<?, ?>) returnValues.get(1);
 
         Assert.assertEquals(person1.toString(), "{\"firstName\":\"Alex\",\"lastName\":\"George\"," +
                 "\"deptAccess\":\"XYZ\",\"address\":{\"city\":\"New York\",\"country\":\"America\"}}");
@@ -306,7 +312,7 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
         BArray returnValues = (BArray) BRunUtil.invoke(result, "testQueryExprWithStreamMapAndFilter");
         Assert.assertNotNull(returnValues);
 
-        BMap subscription = (BMap) returnValues.get(0);
+        BMap<?, ?> subscription = (BMap<?, ?>) returnValues.get(0);
 
         Assert.assertEquals(subscription.toString(),
                 "{\"firstName\":\"Ranjan\",\"lastName\":\"Fonseka\",\"score\":90.6,\"" +
@@ -326,8 +332,8 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
         BArray returnValues = (BArray) BRunUtil.invoke(result, "testQueryWithRecordVarInLetClause");
         Assert.assertNotNull(returnValues);
         Assert.assertEquals(returnValues.size(), 2, "Expected events are not received");
-        BMap person1 = (BMap) returnValues.get(0);
-        BMap person2 = (BMap) returnValues.get(1);
+        BMap<?, ?> person1 = (BMap<?, ?>) returnValues.get(0);
+        BMap<?, ?> person2 = (BMap<?, ?>) returnValues.get(1);
 
         Assert.assertEquals(person1.toString(), "{\"firstName\":\"Ranjan\",\"lastName\":\"Fonseka\"," +
                 "\"deptAccess\":\"XYZ\",\"address\":{\"city\":\"Colombo\",\"country\":\"SL\"}}");
@@ -360,6 +366,26 @@ public class SimpleQueryExpressionWithDefinedTypeTest {
     @Test
     public void testUsingAnIntersectionTypeInQueryExpr() {
         BRunUtil.invoke(result, "testUsingAnIntersectionTypeInQueryExpr");
+    }
+
+    @Test(dataProvider = "dataToTestQueryExprWithRegExp")
+    public void testQueryExprWithRegExp(String functionName) {
+        BRunUtil.invoke(result, functionName);
+    }
+
+    @DataProvider
+    public Object[] dataToTestQueryExprWithRegExp() {
+        return new Object[]{
+                "testQueryExprWithRegExp",
+                "testQueryExprWithRegExpWithInterpolations",
+                "testNestedQueryExprWithRegExp",
+                "testJoinedQueryExprWithRegExp"
+        };
+    }
+
+    @Test
+    public void testQueryExprWithLangLibCallsWithArrowFunctions() {
+        BRunUtil.invoke(result, "testQueryExprWithLangLibCallsWithArrowFunctions");
     }
 
     @AfterClass

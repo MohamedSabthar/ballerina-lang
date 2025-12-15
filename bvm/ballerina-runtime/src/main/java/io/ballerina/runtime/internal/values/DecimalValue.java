@@ -18,22 +18,29 @@
 
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.Module;
 import io.ballerina.runtime.api.constants.RuntimeConstants;
+import io.ballerina.runtime.api.constants.TypeConstants;
 import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.SemType;
 import io.ballerina.runtime.api.values.BDecimal;
 import io.ballerina.runtime.api.values.BLink;
-import io.ballerina.runtime.internal.DecimalValueKind;
-import io.ballerina.runtime.internal.ErrorUtils;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
+import io.ballerina.runtime.internal.errors.ErrorReasons;
+import io.ballerina.runtime.internal.types.BDecimalType;
+import io.ballerina.runtime.internal.utils.ErrorUtils;
 
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * <p>
@@ -46,18 +53,30 @@ import java.util.Map;
  */
 public class DecimalValue implements SimpleValue, BDecimal {
 
+    private static final BasicTypeBitSet BASIC_TYPE = Builder.getDecimalType();
+    private static final BDecimalType DECIMAL_TYPE =
+            new BDecimalType(TypeConstants.DECIMAL_TNAME, new Module(null, null, null));
     private static final String INF_STRING = "Infinity";
     private static final String NEG_INF_STRING = "-" + INF_STRING;
     private static final String NAN = "NaN";
+    private static final BigDecimal DECIMAL_MAX =
+            new BigDecimal("9.999999999999999999999999999999999e6144", MathContext.DECIMAL128);
+    private static final BigDecimal DECIMAL_MIN =
+            new BigDecimal("-9.999999999999999999999999999999999e6144", MathContext.DECIMAL128);
+    private static final BigDecimal MIN_DECIMAL_MAGNITUDE =
+            new BigDecimal("1.000000000000000000000000000000000e-6143", MathContext.DECIMAL128);
 
     // Variable used to track the kind of a decimal value.
     @Deprecated
     public DecimalValueKind valueKind = DecimalValueKind.OTHER;
 
     private final BigDecimal value;
+    private BDecimalType type;
+    private final boolean shapeCalculated = false;
 
     public DecimalValue(BigDecimal value) {
-        this.value = value;
+        this.type = DECIMAL_TYPE;
+        this.value = getValidDecimalValue(value);
         if (!this.booleanValue()) {
             this.valueKind = DecimalValueKind.ZERO;
         }
@@ -65,21 +84,20 @@ public class DecimalValue implements SimpleValue, BDecimal {
 
     public DecimalValue(String value) {
         // Check whether the number provided is a hexadecimal value.
-        if (isHexValueString(value)) {
-            this.value = hexToDecimalFloatingPointNumber(value);
-        } else {
-            try {
-                this.value = new BigDecimal(value, MathContext.DECIMAL128);
-            } catch (NumberFormatException exception) {
-                String message = exception.getMessage();
-                if ((message != null) && (message.equals("Too many nonzero exponent digits.") ||
-                        message.equals("Exponent overflow."))) {
-                    throw ErrorCreator.createError(BallerinaErrorReasons.LARGE_EXPONENT_ERROR,
-                            BLangExceptionHelper.getErrorDetails(RuntimeErrors.LARGE_EXPONENTS_IN_DECIMAL, value));
-                }
-                throw exception;
+        BigDecimal bd;
+        try {
+            bd = new BigDecimal(value, MathContext.DECIMAL128);
+        } catch (NumberFormatException exception) {
+            String message = exception.getMessage();
+            if ((message != null) && (message.equals("Too many nonzero exponent digits.") ||
+                    message.equals("Exponent overflow."))) {
+                throw ErrorCreator.createError(ErrorReasons.LARGE_EXPONENT_ERROR,
+                        ErrorHelper.getErrorDetails(ErrorCodes.LARGE_EXPONENTS_IN_DECIMAL, value));
             }
+            throw exception;
         }
+        this.value = getValidDecimalValue(bd);
+        this.type = DECIMAL_TYPE;
         if (!this.booleanValue()) {
             this.valueKind = DecimalValueKind.ZERO;
         }
@@ -90,67 +108,22 @@ public class DecimalValue implements SimpleValue, BDecimal {
         this.valueKind = valueKind;
     }
 
-    private static boolean isHexValueString(String value) {
-        String upperCaseValue = value.toUpperCase();
-        return upperCaseValue.startsWith("0X") || upperCaseValue.startsWith("-0X");
-    }
-
-    /**
-     * Method used to convert the hexadecimal number to decimal floating point number.
-     * BigDecimal does not support hexadecimal numbers. Hence, we need to convert the hexadecimal number to a
-     * decimal floating point number before passing the string value to the BigDecimal constructor.
-     *
-     * @param value Hexadecimal string value that needs to be converted.
-     * @return BigDecimal corresponds to the hexadecimal number provided.
-     */
-    private static BigDecimal hexToDecimalFloatingPointNumber(String value) {
-        String upperCaseValue = value.toUpperCase();
-        // Remove the hexadecimal indicator prefix.
-        String hexValue = upperCaseValue.replace("0X", "");
-        if (!hexValue.contains("P")) {
-            hexValue = hexValue.concat("P0");
+    private static BigDecimal getValidDecimalValue(BigDecimal bd) {
+        if (bd.compareTo(DECIMAL_MAX) > 0 || bd.compareTo(DECIMAL_MIN) < 0) {
+            throw ErrorCreator.createError(ErrorReasons.NUMBER_OVERFLOW,
+                    ErrorHelper.getErrorDetails(ErrorCodes.DECIMAL_VALUE_OUT_OF_RANGE));
+        } else if (bd.abs(MathContext.DECIMAL128).compareTo(MIN_DECIMAL_MAGNITUDE) < 0 &&
+                bd.abs(MathContext.DECIMAL128).compareTo(BigDecimal.ZERO) > 0) {
+            return BigDecimal.ZERO;
         }
-        // Isolate the binary exponent and the number.
-        String[] splitAtExponent = hexValue.split("P");
-        int binaryExponent = Integer.parseInt(splitAtExponent[1]);
-        String numberWithoutExp = splitAtExponent[0];
-        String intComponent;
-
-        // Check whether the hex number has a decimal part.
-        // If there is a decimal part, turn the hex floating point number to a whole number by multiplying it by a
-        // power of 16.
-        // i.e: 23FA2.123 = 23FA2123 * 16^(-3)
-        if (numberWithoutExp.contains(".")) {
-            String[] numberComponents = numberWithoutExp.split("\\.");
-            intComponent = numberComponents[0];
-            String decimalComponent = numberComponents[1];
-            // Change the base of the hex power to 2 and calculate the binary exponent.
-            // i.e: 23FA2123 * 16^(-3) = 23FA2123 * (2^4)^(-3) = 23FA2123 * 2^(-12)
-            binaryExponent += 4 * (-1) * decimalComponent.length();
-            intComponent = intComponent.concat(decimalComponent);
-        } else {
-            intComponent = numberWithoutExp;
-        }
-
-        BigDecimal exponentValue;
-        // Find the value corresponding to the binary exponent.
-        if (binaryExponent >= 0) {
-            exponentValue = new BigDecimal(2).pow(binaryExponent);
-        } else {
-            //If negative exponent e, then the corresponding value equals to (1 / 2^(-e)).
-            exponentValue = BigDecimal.ONE.divide(new BigDecimal(2).pow(-binaryExponent), MathContext.DECIMAL128);
-        }
-        // Convert the hexadecimal whole number(without exponent) to decimal big integer.
-        BigInteger hexEquivalentNumber = new BigInteger(intComponent, 16);
-
-        // Calculate and return the final decimal floating point number equivalent to the hex number provided.
-        return new BigDecimal(hexEquivalentNumber).multiply(exponentValue, MathContext.DECIMAL128);
+        return bd;
     }
 
     /**
      * Get value of the decimal.
      * @return the value
      */
+    @Override
     public BigDecimal decimalValue() {
         return this.value;
     }
@@ -160,13 +133,14 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * May result in a {@code ErrorValue}
      * @return the integer value
      */
+    @Override
     public long intValue() {
 
         if (!isDecimalWithinIntRange(this)) {
             throw ErrorUtils.createNumericConversionError(this.stringValue(null), PredefinedTypes.TYPE_DECIMAL,
                                                           PredefinedTypes.TYPE_INT);
         }
-        return (long) Math.rint(value.doubleValue());
+        return value.setScale(0, RoundingMode.HALF_EVEN).longValue();
     }
 
     /**
@@ -185,6 +159,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * May result in a {@code ErrorValue}
      * @return the byte value
      */
+    @Override
     public int byteValue() {
 
         int intVal = (int) Math.rint(this.value.doubleValue());
@@ -203,6 +178,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Get the float value.
      * @return the double value
      */
+    @Override
     public double floatValue() {
         return value.doubleValue();
     }
@@ -211,6 +187,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Check the given value represents true or false.
      * @return true if the value is non zero
      */
+    @Override
     public boolean booleanValue() {
         return value.compareTo(BigDecimal.ZERO) != 0;
     }
@@ -230,6 +207,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * @return string value
      * @param parent The link to the parent node
      */
+    @Override
     public String stringValue(BLink parent) {
         if (this.valueKind != DecimalValueKind.OTHER) {
             return this.valueKind.getValue();
@@ -242,6 +220,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * @return string value in expression style
      * @param parent The link to the parent node
      */
+    @Override
     public String expressionStringValue(BLink parent) {
         if (this.valueKind != DecimalValueKind.OTHER) {
             return this.valueKind.getValue() + "d";
@@ -253,6 +232,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Get the  {@code BigDecimal} value.
      * @return the decimal value
      */
+    @Override
     public BigDecimal value() {
         return this.value;
     }
@@ -261,8 +241,9 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Get the {@code BType} of the value.
      * @return the type
      */
+    @Override
     public Type getType() {
-        return PredefinedTypes.TYPE_DECIMAL;
+        return type;
     }
 
     //========================= Mathematical operations supported ===============================
@@ -303,8 +284,8 @@ public class DecimalValue implements SimpleValue, BDecimal {
     }
 
     /**
-     * Returns a decimal whose value is <tt>(this &times;
-     * multiplicand)</tt>.
+     * Returns a decimal whose value is {@code (this &times;
+     * multiplicand)}.
      * @param multiplicand value to be multiplied
      * @return value after multiplication
      */
@@ -362,6 +343,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Returns a decimal whose value is {@code (-this)}.
      * @return {@code -this}
      */
+    @Override
     public DecimalValue negate() {
         if (this.valueKind == DecimalValueKind.OTHER) {
             return new DecimalValue(this.decimalValue().negate());
@@ -398,6 +380,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * Returns value kind of {@code (-this)}.
      * @return value kind
      */
+    @Override
     public DecimalValueKind getValueKind() {
         return valueKind;
     }
@@ -438,7 +421,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * @return decimal value
      */
     public static DecimalValue valueOf(int value) {
-        return new DecimalValue(new BigDecimal(value, MathContext.DECIMAL128).setScale(1, BigDecimal.ROUND_HALF_EVEN));
+        return new DecimalValue(new BigDecimal(value, MathContext.DECIMAL128).setScale(1, RoundingMode.HALF_EVEN));
     }
 
     /**
@@ -447,7 +430,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
      * @return decimal value
      */
     public static DecimalValue valueOf(long value) {
-        return new DecimalValue(new BigDecimal(value, MathContext.DECIMAL128).setScale(1, BigDecimal.ROUND_HALF_EVEN));
+        return new DecimalValue(new BigDecimal(value, MathContext.DECIMAL128).setScale(1, RoundingMode.HALF_EVEN));
     }
 
     /**
@@ -465,7 +448,7 @@ public class DecimalValue implements SimpleValue, BDecimal {
         if (value == Double.NEGATIVE_INFINITY) {
             throw ErrorUtils.createInvalidDecimalError(NEG_INF_STRING);
         }
-        return new DecimalValue(new BigDecimal(value, MathContext.DECIMAL128));
+        return new DecimalValue(BigDecimal.valueOf(value));
     }
 
     /**
@@ -510,5 +493,18 @@ public class DecimalValue implements SimpleValue, BDecimal {
         // TODO check whether we need to create a new BigDecimal again(or use the same value)
         return new DecimalValue(new BigDecimal(value.toString(), MathContext.DECIMAL128)
                 .setScale(1, BigDecimal.ROUND_HALF_EVEN));
+    }
+
+    @Override
+    public Optional<SemType> inherentTypeOf(Context cx) {
+        if (!shapeCalculated) {
+            this.type = BDecimalType.singletonType(value);
+        }
+        return Optional.of(this.type.shape());
+    }
+
+    @Override
+    public BasicTypeBitSet getBasicType() {
+        return BASIC_TYPE;
     }
 }

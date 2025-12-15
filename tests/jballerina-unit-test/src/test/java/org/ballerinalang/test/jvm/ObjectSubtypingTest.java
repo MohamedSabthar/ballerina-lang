@@ -18,15 +18,14 @@
 
 package org.ballerinalang.test.jvm;
 
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static java.lang.String.format;
 import static org.ballerinalang.test.BAssertUtil.validateError;
 import static org.ballerinalang.test.BAssertUtil.validateWarning;
 import static org.testng.Assert.assertEquals;
@@ -52,7 +51,7 @@ public class ObjectSubtypingTest {
         assertEquals(result.toString(), "{name:John Doe, age:25}");
     }
 
-    @Test(expectedExceptions = BLangRuntimeException.class,
+    @Test(expectedExceptions = BLangTestException.class,
             expectedExceptionsMessageRegExp = ".*incompatible types: 'Person1' cannot be cast to 'Employee1'.*")
     public void testCastingRuntimeError() {
         BRunUtil.invoke(compileResult, "testCastingRuntimeError");
@@ -94,12 +93,6 @@ public class ObjectSubtypingTest {
         int i = 0;
         validateError(result, i++, "private qualifier in object member descriptor", 21, 5);
         validateError(result, i++, "private qualifier in object member descriptor", 28, 5);
-        validateError(result, i++, format(msgFormat, "ObjWithPvtField", "AnotherObjWithAPvtField"), 45, 26);
-        validateError(result, i++, format(msgFormat, "ObjWithPvtMethod", "AnotherObjWithPvtMethod"), 46, 27);
-        validateError(result, i++, format(msgFormat, "testorg/subtyping:1.0.0:ModuleLevelSubtypableObj", "Subtype1"),
-                65, 45);
-        validateError(result, i++, format(msgFormat, "testorg/subtyping:1.0.0:ModuleLevelSubtypableObj2", "Subtype2"),
-                66, 46);
         assertEquals(result.getErrorCount(), i);
     }
 

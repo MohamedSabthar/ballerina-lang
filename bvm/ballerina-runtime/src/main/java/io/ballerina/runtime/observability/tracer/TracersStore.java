@@ -17,6 +17,8 @@
  */
 package io.ballerina.runtime.observability.tracer;
 
+import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.utils.StringUtils;
 import io.ballerina.runtime.observability.tracer.spi.TracerProvider;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.ContextPropagators;
@@ -33,6 +35,7 @@ public class TracersStore {
     private TracerProvider tracerProvider;
     private Map<String, Tracer> store;
     private static final PrintStream consoleError = System.err;
+    private static final PrintStream console = System.out;
     private static final TracersStore instance = new TracersStore();
     private ContextPropagators propagators;
 
@@ -58,6 +61,10 @@ public class TracersStore {
      * @return trace implementations i.e: zipkin, jaeger
      */
     public Tracer getTracer(String serviceName) {
+        if (!isInitialized()) {
+            throw ErrorCreator.createError(StringUtils.fromString("error: the tracer store is not initialized " +
+                    "because observability has not been enabled."));
+        }
         Tracer tracer;
         if (store.containsKey(serviceName)) {
             tracer = store.get(serviceName);
@@ -67,13 +74,12 @@ public class TracersStore {
                     tracer = tracerProvider.getTracer(serviceName);
                 } catch (Throwable e) {
                     tracer = io.opentelemetry.api.trace.TracerProvider.noop().get("");
-                    consoleError.println("error: tracing disabled as getting tracer for " + serviceName + " service. "
-                            + e.getMessage());
+                    console.println("warning: tracing disabled while getting tracer for " + serviceName + " service.");
                 }
                 store.put(serviceName, tracer);
             } else {
                 tracer = io.opentelemetry.api.trace.TracerProvider.noop().get("");
-                consoleError.println("error: tracing disabled as tracer provider had not been initialized");
+                consoleError.println("error: tracing disabled as the tracer provider had not been initialized.");
             }
         }
         return tracer;

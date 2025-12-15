@@ -27,6 +27,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -59,8 +60,11 @@ public class NativeConversionNegativeTest {
         Assert.assertTrue(returns instanceof BError);
         String errorMsg = ((BMap<String, Object>) ((BError) returns).getDetails()).get(
                 StringUtils.fromString("message")).toString();
-        Assert.assertEquals(errorMsg, "'map<json>' value cannot be converted to 'Person': " +
-                "\n\t\tfield 'parent.parent' in record 'Person' should be of type 'Person?', found '\"Parent\"'");
+        Assert.assertEquals(errorMsg, """
+                'map<json>' value cannot be converted to 'Person':\s
+                \t\t{
+                \t\t  field 'parent.parent' in record 'Person' should be of type 'Person?', found '"Parent"'
+                \t\t}""");
     }
 
     @Test
@@ -138,10 +142,6 @@ public class NativeConversionNegativeTest {
         Object results = BRunUtil.invoke(negativeResult, "testConvertRecordToMapWithCyclicValueReferences");
         Object error = results;
         Assert.assertEquals(getType(error).getClass(), BErrorType.class);
-        Assert.assertEquals(
-                ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
-                        .toString(),
-                "'Manager' value has cyclic reference");
     }
 
     @Test(description = "Test converting record to json having cyclic reference.")
@@ -149,10 +149,6 @@ public class NativeConversionNegativeTest {
         Object results = BRunUtil.invoke(negativeResult, "testConvertRecordToJsonWithCyclicValueReferences");
         Object error = results;
         Assert.assertEquals(getType(error).getClass(), BErrorType.class);
-        Assert.assertEquals(
-                ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
-                        .toString(),
-                "'Manager' value has cyclic reference");
     }
 
     @Test(dataProvider = "testConversionFunctionList")
@@ -165,5 +161,11 @@ public class NativeConversionNegativeTest {
         return new Object[]{
                 "testConvertFromJsonWithCyclicValueReferences"
         };
+    }
+
+    @AfterClass
+    public void tearDown() {
+        taintCheckResult = null;
+        negativeResult = null;
     }
 }

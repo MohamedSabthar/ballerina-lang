@@ -230,11 +230,8 @@ public class ClosedRecordTest {
         BAssertUtil.validateError(result, i++, "invalid token '||'", 23, 25);
         BAssertUtil.validateError(result, i++, "missing close brace token", 25, 25);
         BAssertUtil.validateError(result, i++, "missing type descriptor", 25, 27);
-        ;
         BAssertUtil.validateError(result, i++, "missing object keyword", 25, 29);
-        ;
         BAssertUtil.validateError(result, i, "missing open brace token", 25, 29);
-        ;
     }
 
     @Test(description = "Test ambiguous type resolution negative cases")
@@ -247,12 +244,10 @@ public class ClosedRecordTest {
     @Test(description = "Test invocation of nil-able function pointer fields in a closed record")
     public void testNilableFunctionPtrInvocation() {
         CompileResult result = BCompileUtil.compile("test-src/record/negative/closed_record_nil-able_fn_ptr.bal");
-        String errMsg =
-                "invalid method call expression: expected a function type, but found 'function" +
-                        " (string,string) returns (string)?'";
+        String errMsg = "function call syntax is not defined for 'function (string,string) returns (string)?'";
         int indx = 0;
-        BAssertUtil.validateError(result, indx++, errMsg, 28, 17);
-        BAssertUtil.validateError(result, indx++, errMsg, 33, 17);
+        BAssertUtil.validateError(result, indx++, errMsg, 29, 17);
+        BAssertUtil.validateError(result, indx++, errMsg, 35, 17);
         Assert.assertEquals(result.getErrorCount(), indx);
     }
 
@@ -326,6 +321,12 @@ public class ClosedRecordTest {
     public void testCyclicRecordViaFields() {
         CompileResult cyclicBal = BCompileUtil.compile("test-src/record/cyclic_record_via_fields.bal");
         BRunUtil.invoke(cyclicBal, "testCyclicRecordResolution");
+        BRunUtil.invoke(cyclicBal, "testFunctionPointerNotCyclicViaRecordField");
+    }
+
+    @Test
+    public void testOverridingIncludedFieldInRecordWithReadOnlyIntersection() {
+        BRunUtil.invoke(compileResult, "testOverridingIncludedFieldInRecordWithReadOnlyIntersection");
     }
 
     @AfterClass

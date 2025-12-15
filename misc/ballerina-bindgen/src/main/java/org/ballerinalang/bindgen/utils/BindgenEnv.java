@@ -39,23 +39,35 @@ import static org.ballerinalang.bindgen.utils.BindgenUtils.isPublicClass;
  */
 public class BindgenEnv {
 
-    private boolean modulesFlag = false; // Stores if the bindings are mapped as Java package per Ballerina module
-    private boolean publicFlag = false; // Stores if the public flag is enabled for the binding generation
-    private String outputPath; // Output path of the bindings generated
-    private String packageName; // Ballerina project's current package name
-    private Path projectRoot; // Ballerina project root
-    private TomlDocument tomlDocument; // TomlDocument object representing the Ballerina.toml file
+    // Stores if the bindings are mapped as Java package per Ballerina module
+    private boolean modulesFlag = false;
+    // Stores if the public flag is enabled for the binding generation
+    private boolean publicFlag = false;
+    // Stores if the optional types flag is enabled for the binding generation
+    private boolean optionalTypesFlag = false;
+    // Stores if the optional types flag is enabled for the parameter binding generation
+    private boolean optionalParamTypesFlag = false;
+    // Stores if the optional types flag is enabled for the return binding generation
+    private boolean optionalReturnTypesFlag = false;
+    // Output path of the bindings generated
+    private String outputPath;
+    // Ballerina project's current package name
+    private String packageName;
+    // Ballerina project root
+    private Path projectRoot;
+    // TomlDocument object representing the Ballerina.toml file
+    private TomlDocument tomlDocument;
 
     // Flag depicting whether the current class being generated is a direct class or a dependent class
     private boolean directJavaClass = true;
-    private Set<String> classPaths = new HashSet<>();
-    private Map<String, String> aliases = new HashMap<>();
-    private Set<String> classListForLooping = new HashSet<>();
-    private Set<String> allJavaClasses = new HashSet<>();
-    private Set<JError> exceptionList = new HashSet<>();
-    private Map<String, String> failedClassGens = new HashMap<>();
-    private List<String> failedMethodGens = new ArrayList<>();
-    private Set<String> superClasses = new HashSet<>();
+    private final Set<String> classPaths = new HashSet<>();
+    private final Map<String, String> aliases = new HashMap<>();
+    private final Set<String> classListForLooping = new HashSet<>();
+    private final Set<String> allJavaClasses = new HashSet<>();
+    private final Set<JError> exceptionList = new HashSet<>();
+    private final Map<String, String> failedClassGens = new HashMap<>();
+    private final List<String> failedMethodGens = new ArrayList<>();
+    private final Set<String> superClasses = new HashSet<>();
 
     public void setModulesFlag(boolean modulesFlag) {
         this.modulesFlag = modulesFlag;
@@ -92,8 +104,8 @@ public class BindgenEnv {
         return projectRoot;
     }
 
-    public void setSuperClasses(Class superClass) {
-        Class parent = superClass;
+    public void setSuperClasses(Class<?> superClass) {
+        Class<?> parent = superClass;
         while (parent != null && isPublicClass(parent)) {
             this.superClasses.add(parent.getName());
             parent = parent.getSuperclass();
@@ -139,7 +151,7 @@ public class BindgenEnv {
     /**
      * Set an alias name for a fully qualified class name.
      *
-     * @param alias the alias name
+     * @param alias     the alias name
      * @param className the fully qualified class name
      */
     public void setAlias(String alias, String className) {
@@ -221,5 +233,29 @@ public class BindgenEnv {
      */
     void setFailedMethodGens(String errorMsg) {
         this.failedMethodGens.add(errorMsg);
+    }
+
+    public boolean isOptionalTypes() {
+        return optionalTypesFlag;
+    }
+
+    public void setOptionalTypesFlag(boolean value) {
+        this.optionalTypesFlag = value;
+    }
+
+    public boolean isOptionalParamTypes() {
+        return optionalParamTypesFlag;
+    }
+
+    public void setOptionalParamTypesFlag(boolean value) {
+        this.optionalParamTypesFlag = value;
+    }
+
+    public boolean isOptionalReturnTypes() {
+        return optionalReturnTypesFlag;
+    }
+
+    public void setOptionalReturnTypesFlag(boolean value) {
+        this.optionalReturnTypesFlag = value;
     }
 }

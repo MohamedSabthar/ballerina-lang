@@ -22,13 +22,19 @@ import io.ballerina.projects.Document;
 import io.ballerina.projects.DocumentId;
 import io.ballerina.projects.Project;
 import io.ballerina.projects.ProjectKind;
+import io.ballerina.projects.directory.BuildProject;
+import io.ballerina.projects.directory.WorkspaceProject;
+import io.ballerina.projects.util.ProjectPaths;
+import org.ballerinalang.debugadapter.DebugProjectCache;
 
+import java.io.File;
 import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.util.List;
 import java.util.Optional;
 
 import static io.ballerina.identifier.Utils.decodeIdentifier;
-import static org.ballerinalang.debugadapter.utils.PackageUtils.MODULE_DIR_NAME;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.GEN_MODULE_DIR;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.USER_MODULE_DIR;
 import static org.ballerinalang.debugadapter.utils.PackageUtils.getDefaultModuleName;
 import static org.ballerinalang.debugadapter.utils.PackageUtils.getOrgName;
 
@@ -39,8 +45,8 @@ import static org.ballerinalang.debugadapter.utils.PackageUtils.getOrgName;
  */
 public class ProjectSourceResolver extends SourceResolver {
 
-    ProjectSourceResolver(Project sourceProject) {
-        super(sourceProject);
+    ProjectSourceResolver(Project sourceProject, DebugProjectCache projectCache) {
+        super(sourceProject, projectCache);
     }
 
     @Override
@@ -51,9 +57,15 @@ public class ProjectSourceResolver extends SourceResolver {
                 Document document = sourceProject.currentPackage().getDefaultModule().document(docId);
                 return document.name().equals(location.sourcePath()) && document.name().equals(location.sourceName());
             } else if (sourceProject.kind() == ProjectKind.BUILD_PROJECT) {
+                // 1. check within the current package
                 String projectOrg = getOrgName(sourceProject);
-                DebugSourceLocation debugSourceLocation = new DebugSourceLocation(location);
-                return debugSourceLocation.isValid() && debugSourceLocation.orgName().equals(projectOrg);
+                DebugSourceLocation sourceLocation = new DebugSourceLocation(location);
+                boolean locationMatched = sourceLocation.isValid() && sourceLocation.orgName().equals(projectOrg);
+                if (locationMatched) {
+                    return true;
+                }
+                // 2. if not matched, check in the workspace packages
+                return isLocationInWorkspace(sourceLocation);
             } else {
                 return false;
             }
@@ -73,7 +85,7 @@ public class ProjectSourceResolver extends SourceResolver {
                 if (!document.name().equals(location.sourcePath()) || !document.name().equals(location.sourceName())) {
                     return Optional.empty();
                 }
-                return Optional.of(Paths.get(projectRoot));
+                return Optional.of(Path.of(projectRoot));
             } else if (sourceProject.kind() == ProjectKind.BUILD_PROJECT) {
                 String projectOrg = getOrgName(sourceProject);
                 String defaultModuleName = getDefaultModuleName(sourceProject);
@@ -92,15 +104,124 @@ public class ProjectSourceResolver extends SourceResolver {
 
                 if (modulePart.isBlank()) {
                     // default module
-                    return Optional.of(Paths.get(projectRoot, locationName));
+                    // 1. check and return if there's a user module source matching to the location information.
+                    File moduleFile = Path.of(projectRoot, locationName).toFile();
+                    if (moduleFile.isFile()) {
+                        return Optional.of(moduleFile.toPath().toAbsolutePath());
+                    }
+
+                    // 2. if not, check and return if there's a generated module source matching to the location
+                    // information.
+                    File generatedFile = Path.of(projectRoot, GEN_MODULE_DIR, locationName).toFile();
+                    if (generatedFile.isFile()) {
+                        return Optional.of(generatedFile.toPath().toAbsolutePath());
+                    }
                 } else {
                     // other modules
-                    return Optional.of(Paths.get(projectRoot, MODULE_DIR_NAME, modulePart, locationName));
+                    // 1. check and return if there's a user module source matching to the location information.
+                    File moduleFile = Path.of(projectRoot, USER_MODULE_DIR, modulePart, locationName).toFile();
+                    if (moduleFile.isFile()) {
+                        return Optional.of(moduleFile.toPath().toAbsolutePath());
+                    }
+
+                    // 2. if not, check and return if there's a generated module source matching to the location
+                    // information.
+                    File generatedFile = Path.of(projectRoot, GEN_MODULE_DIR, modulePart, locationName).toFile();
+                    if (generatedFile.isFile()) {
+                        return Optional.of(generatedFile.toPath().toAbsolutePath());
+                    }
+
+                    return findLocationInWorkspacePackages(sourceProject, location);
                 }
             }
             return Optional.empty();
         } catch (AbsentInformationException e) {
             return Optional.empty();
         }
+    }
+
+    private boolean isLocationInWorkspace(DebugSourceLocation debugSourceLocation) {
+        Optional<Path> workspaceRoot = ProjectPaths.workspaceRoot(sourceProject.sourceRoot().toAbsolutePath());
+        if (workspaceRoot.isPresent()) {
+            boolean isSupported = false;
+            List<BuildProject> projects = ((WorkspaceProject) sourceProject).projects();
+            for (BuildProject project : projects) {
+                String projectOrg = getOrgName(project);
+                if (debugSourceLocation.orgName().equals(projectOrg)) {
+                    isSupported = true;
+                    break;
+                }
+            }
+            return isSupported;
+        }
+
+        return false;
+    }
+
+    private Optional<Path> findLocationInWorkspacePackages(Project sourceProject, Location location) {
+        try {
+            Optional<Path> workspaceRoot = ProjectPaths.workspaceRoot(sourceProject.sourceRoot().toAbsolutePath());
+            if (workspaceRoot.isEmpty()) {
+                return Optional.empty();
+            }
+
+            Project workpaceProject = projectCache.getOrLoadProject(workspaceRoot.get(), true);
+            if (workpaceProject.kind() != ProjectKind.WORKSPACE_PROJECT) {
+                return Optional.empty();
+            }
+
+            List<BuildProject> projects = ((WorkspaceProject) workpaceProject).projects();
+
+            for (BuildProject project : projects) {
+                String projectOrg = getOrgName(project);
+                String defaultModuleName = getDefaultModuleName(project);
+                String locationName = location.sourceName();
+                DebugSourceLocation debugSourceLocation = new DebugSourceLocation(location);
+
+                if (!debugSourceLocation.isValid() || !debugSourceLocation.orgName().equals(projectOrg)) {
+                    continue;
+                }
+
+                String projectRoot = project.sourceRoot().toAbsolutePath().toString();
+                String modulePart = decodeIdentifier(debugSourceLocation.moduleName());
+                modulePart = modulePart.replaceFirst(defaultModuleName, "");
+                if (modulePart.startsWith(".")) {
+                    modulePart = modulePart.replaceFirst("\\.", "");
+                }
+
+                if (modulePart.isBlank()) {
+                    // default module
+                    // 1. check and return if there's a user module source matching to the location information.
+                    File moduleFile = Path.of(projectRoot, locationName).toFile();
+                    if (moduleFile.isFile()) {
+                        return Optional.of(moduleFile.toPath().toAbsolutePath());
+                    }
+
+                    // 2. if not, check and return if there's a generated module source matching to the location
+                    // information.
+                    File generatedFile = Path.of(projectRoot, GEN_MODULE_DIR, locationName).toFile();
+                    if (generatedFile.isFile()) {
+                        return Optional.of(generatedFile.toPath().toAbsolutePath());
+                    }
+                } else {
+                    // other modules
+                    // 1. check and return if there's a user module source matching to the location information.
+                    File moduleFile = Path.of(projectRoot, USER_MODULE_DIR, modulePart, locationName).toFile();
+                    if (moduleFile.isFile()) {
+                        return Optional.of(moduleFile.toPath().toAbsolutePath());
+                    }
+
+                    // 2. if not, check and return if there's a generated module source matching to the location
+                    // information.
+                    File generatedFile = Path.of(projectRoot, GEN_MODULE_DIR, modulePart, locationName).toFile();
+                    if (generatedFile.isFile()) {
+                        return Optional.of(generatedFile.toPath().toAbsolutePath());
+                    }
+                }
+            }
+        } catch (AbsentInformationException e) {
+            return Optional.empty();
+        }
+        return Optional.empty();
     }
 }

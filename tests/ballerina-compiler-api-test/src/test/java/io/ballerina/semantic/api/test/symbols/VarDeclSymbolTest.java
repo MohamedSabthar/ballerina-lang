@@ -84,7 +84,7 @@ public class VarDeclSymbolTest {
 
         // check qualifiers
         List<Qualifier> qualifiers = symbol.qualifiers();
-        if (expQuals.size() > 0) {
+        if (!expQuals.isEmpty()) {
             expQuals.forEach(expQual -> assertTrue(qualifiers.contains(expQual)));
         } else {
             assertTrue(qualifiers.isEmpty());
@@ -115,7 +115,7 @@ public class VarDeclSymbolTest {
                 {46, 17, "myObj", TypeDescKind.OBJECT, "Object", "varDecl",
                         List.of(Qualifier.PUBLIC)},
                 {50, 35, "func1", TypeDescKind.FUNCTION, "Function 1", "varDecl",
-                        List.of(Qualifier.ISOLATED)},
+                        List.of()},
                 {54, 21, "func2", TypeDescKind.FUNCTION, "Function 2", "varDecl",
                         List.of(Qualifier.ISOLATED)},
 

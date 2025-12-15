@@ -22,15 +22,19 @@ import io.ballerina.compiler.api.symbols.ObjectTypeSymbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
 import io.ballerina.compiler.api.symbols.XMLTypeSymbol;
+import io.ballerina.types.Core;
+import io.ballerina.types.Value;
 import org.ballerinalang.model.symbols.SymbolKind;
-import org.ballerinalang.model.types.IntersectableReferenceType;
 import org.ballerinalang.model.types.TypeKind;
 import org.wso2.ballerinalang.compiler.parser.BLangAnonymousModelHelper;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.SemTypeHelper;
+import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BClassSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BInvokableTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeDefinitionSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.SymTag;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BAnyType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BAnydataType;
@@ -44,11 +48,11 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BIntersectionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BJSONType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BMapType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BNeverType;
-import org.wso2.ballerinalang.compiler.semantics.model.types.BNilType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BNoType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BObjectType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BReadonlyType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BRecordType;
+import org.wso2.ballerinalang.compiler.semantics.model.types.BRegexpType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BStreamType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BStringSubType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BTableType;
@@ -58,14 +62,12 @@ import org.wso2.ballerinalang.compiler.semantics.model.types.BTypedescType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BUnionType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLSubType;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BXMLType;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangExpression;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangLiteral;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
 import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.util.Flags;
 
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.ballerinalang.model.types.TypeKind.PARAMETERIZED;
 import static org.wso2.ballerinalang.compiler.util.TypeTags.ANY;
@@ -112,6 +114,7 @@ public class TypesFactory {
     private final CompilerContext context;
     private final SymbolFactory symbolFactory;
     private final BLangAnonymousModelHelper anonymousModelHelper;
+    private SymbolTable symTable;
 
     private TypesFactory(CompilerContext context) {
         context.put(TYPES_FACTORY_KEY, this);
@@ -119,6 +122,7 @@ public class TypesFactory {
         this.context = context;
         this.symbolFactory = SymbolFactory.getInstance(context);
         this.anonymousModelHelper = BLangAnonymousModelHelper.getInstance(context);
+        this.symTable = SymbolTable.getInstance(context);
     }
 
     public static TypesFactory getInstance(CompilerContext context) {
@@ -158,14 +162,6 @@ public class TypesFactory {
             return null;
         }
 
-        if (getOriginalType && bType instanceof IntersectableReferenceType) {
-            Optional<BIntersectionType> intersectionType = ((IntersectableReferenceType) bType).getIntersectionType();
-            if (intersectionType.isPresent()) {
-                bType = intersectionType.get();
-                tSymbol = bType.tsymbol;
-            }
-        }
-
         if (isTypeReference(bType, tSymbol, rawTypeOnly)) {
             return new BallerinaTypeReferenceTypeSymbol(this.context, bType, tSymbol, typeRefFromIntersectType);
         }
@@ -181,8 +177,8 @@ public class TypesFactory {
             case BYTE:
                 return new BallerinaByteTypeSymbol(this.context, bType);
             case INT:
-                if (bType instanceof BIntSubType) {
-                    return createIntSubType((BIntSubType) bType);
+                if (bType instanceof BIntSubType intSubType) {
+                    return createIntSubType(intSubType);
                 }
                 return new BallerinaIntTypeSymbol(this.context, bType);
             case FLOAT:
@@ -190,13 +186,16 @@ public class TypesFactory {
             case DECIMAL:
                 return new BallerinaDecimalTypeSymbol(this.context, bType);
             case STRING:
-                if (bType instanceof BStringSubType) {
-                    return new BallerinaStringCharTypeSymbol(this.context, (BStringSubType) bType);
+                if (bType instanceof BStringSubType stringSubType) {
+                    return new BallerinaStringCharTypeSymbol(this.context, stringSubType);
                 }
                 return new BallerinaStringTypeSymbol(this.context, bType);
             case ANY:
                 return new BallerinaAnyTypeSymbol(this.context, (BAnyType) bType);
             case ANYDATA:
+                if (bType instanceof BRegexpType regexpType) {
+                    return new BallerinaRegexpTypeSymbol(this.context, regexpType);
+                }
                 return new BallerinaAnydataTypeSymbol(this.context, (BAnydataType) bType);
             case HANDLE:
                 return new BallerinaHandleTypeSymbol(this.context, (BHandleType) bType);
@@ -207,8 +206,8 @@ public class TypesFactory {
             case TABLE:
                 return new BallerinaTableTypeSymbol(this.context, (BTableType) bType);
             case XML:
-                if (bType instanceof BXMLSubType) {
-                    return createXMLSubType((BXMLSubType) bType);
+                if (bType instanceof BXMLSubType subType) {
+                    return createXMLSubType(subType);
                 }
                 return new BallerinaXMLTypeSymbol(this.context, (BXMLType) bType);
             case OBJECT:
@@ -236,16 +235,16 @@ public class TypesFactory {
             case TYPEDESC:
                 return new BallerinaTypeDescTypeSymbol(this.context, (BTypedescType) bType);
             case NIL:
-                return new BallerinaNilTypeSymbol(this.context, (BNilType) bType);
+                return new BallerinaNilTypeSymbol(this.context, bType);
             case FINITE:
                 BFiniteType finiteType = (BFiniteType) bType;
-                Set<BLangExpression> valueSpace = finiteType.getValueSpace();
-
-                if (valueSpace.size() == 1) {
-                    BLangExpression shape = valueSpace.iterator().next();
-                    return new BallerinaSingletonTypeSymbol(this.context, (BLangLiteral) shape, bType);
+                Optional<Value> value = Core.singleShape(finiteType.semType());
+                if (value.isPresent()) {
+                    BType broadType = SemTypeHelper.broadTypes(finiteType, symTable).iterator()
+                            .next();
+                    String valueString = Objects.toString(value.get().value, "()");
+                    return new BallerinaSingletonTypeSymbol(this.context, broadType, valueString, bType);
                 }
-
                 return new BallerinaUnionTypeSymbol(this.context, finiteType);
             case FUNCTION:
                 return new BallerinaFunctionTypeSymbol(this.context, (BInvokableTypeSymbol) tSymbol, bType);
@@ -255,8 +254,11 @@ public class TypesFactory {
                 return new BallerinaNoneTypeSymbol(this.context, (BNoType) bType);
             case INTERSECTION:
                 return new BallerinaIntersectionTypeSymbol(this.context, (BIntersectionType) bType);
+            case PARAMETERIZED:
             case TYPEREFDESC:
                 return new BallerinaTypeReferenceTypeSymbol(this.context, bType, tSymbol, false);
+            case REGEXP:
+                return new BallerinaRegexpTypeSymbol(this.context, (BRegexpType) bType);
             default:
                 if (bType.tag == SEMANTIC_ERROR) {
                     return new BallerinaCompilationErrorTypeSymbol(this.context, bType);
@@ -267,37 +269,25 @@ public class TypesFactory {
     }
 
     private IntTypeSymbol createIntSubType(BIntSubType internalType) {
-        switch (internalType.tag) {
-            case UNSIGNED8_INT:
-                return new BallerinaIntUnsigned8TypeSymbol(this.context, internalType);
-            case SIGNED8_INT:
-                return new BallerinaIntSigned8TypeSymbol(this.context, internalType);
-            case UNSIGNED16_INT:
-                return new BallerinaIntUnsigned16TypeSymbol(this.context, internalType);
-            case SIGNED16_INT:
-                return new BallerinaIntSigned16TypeSymbol(this.context, internalType);
-            case UNSIGNED32_INT:
-                return new BallerinaIntUnsigned32TypeSymbol(this.context, internalType);
-            case SIGNED32_INT:
-                return new BallerinaIntSigned32TypeSymbol(this.context, internalType);
-        }
-
-        throw new IllegalStateException("Invalid integer subtype type tag: " + internalType.tag);
+        return switch (internalType.tag) {
+            case UNSIGNED8_INT -> new BallerinaIntUnsigned8TypeSymbol(this.context, internalType);
+            case SIGNED8_INT -> new BallerinaIntSigned8TypeSymbol(this.context, internalType);
+            case UNSIGNED16_INT -> new BallerinaIntUnsigned16TypeSymbol(this.context, internalType);
+            case SIGNED16_INT -> new BallerinaIntSigned16TypeSymbol(this.context, internalType);
+            case UNSIGNED32_INT -> new BallerinaIntUnsigned32TypeSymbol(this.context, internalType);
+            case SIGNED32_INT -> new BallerinaIntSigned32TypeSymbol(this.context, internalType);
+            default -> throw new IllegalStateException("Invalid integer subtype type tag: " + internalType.tag);
+        };
     }
 
     private XMLTypeSymbol createXMLSubType(BXMLSubType internalType) {
-        switch (internalType.tag) {
-            case XML_ELEMENT:
-                return new BallerinaXMLElementTypeSymbol(this.context, internalType);
-            case XML_PI:
-                return new BallerinaXMLProcessingInstructionTypeSymbol(this.context, internalType);
-            case XML_COMMENT:
-                return new BallerinaXMLCommentTypeSymbol(this.context, internalType);
-            case XML_TEXT:
-                return new BallerinaXMLTextTypeSymbol(this.context, internalType);
-        }
-
-        throw new IllegalStateException("Invalid XML subtype type tag: " + internalType.tag);
+        return switch (internalType.tag) {
+            case XML_ELEMENT -> new BallerinaXMLElementTypeSymbol(this.context, internalType);
+            case XML_PI -> new BallerinaXMLProcessingInstructionTypeSymbol(this.context, internalType);
+            case XML_COMMENT -> new BallerinaXMLCommentTypeSymbol(this.context, internalType);
+            case XML_TEXT -> new BallerinaXMLTextTypeSymbol(this.context, internalType);
+            default -> throw new IllegalStateException("Invalid XML subtype type tag: " + internalType.tag);
+        };
     }
 
     public boolean isTypeReference(BType bType, BSymbol tSymbol, boolean rawTypeOnly) {
@@ -312,6 +302,10 @@ public class TypesFactory {
             return false;
         }
 
+        if ((tSymbol.tag & SymTag.FUNCTION_TYPE) == SymTag.FUNCTION_TYPE) {
+            return false;
+        }
+
         if (!isBuiltinNamedType(bType.tag) && !(tSymbol.name.value.isEmpty()
                 || anonymousModelHelper.isAnonymousType(tSymbol))) {
             return true;
@@ -323,74 +317,34 @@ public class TypesFactory {
     }
 
     public static TypeDescKind getTypeDescKind(TypeKind bTypeKind) {
-        switch (bTypeKind) {
-            case ANY:
-                return TypeDescKind.ANY;
-            case ANYDATA:
-                return TypeDescKind.ANYDATA;
-            case ARRAY:
-                return TypeDescKind.ARRAY;
-            case BOOLEAN:
-                return TypeDescKind.BOOLEAN;
-            case BYTE:
-                return TypeDescKind.BYTE;
-            case DECIMAL:
-                return TypeDescKind.DECIMAL;
-            case FLOAT:
-                return TypeDescKind.FLOAT;
-            case HANDLE:
-                return TypeDescKind.HANDLE;
-            case INT:
-                return TypeDescKind.INT;
-            case NEVER:
-                return TypeDescKind.NEVER;
-            case NIL:
-                return TypeDescKind.NIL;
-            case STRING:
-                return TypeDescKind.STRING;
-            case JSON:
-                return TypeDescKind.JSON;
-            case XML:
-                return TypeDescKind.XML;
-            case FUNCTION:
-                return TypeDescKind.FUNCTION;
-            case FUTURE:
-                return TypeDescKind.FUTURE;
-            case MAP:
-                return TypeDescKind.MAP;
-            case OBJECT:
-                return TypeDescKind.OBJECT;
-            case STREAM:
-                return TypeDescKind.STREAM;
-            case TUPLE:
-                return TypeDescKind.TUPLE;
-            case TYPEDESC:
-                return TypeDescKind.TYPEDESC;
-            case UNION:
-                return TypeDescKind.UNION;
-            case INTERSECTION:
-                return TypeDescKind.INTERSECTION;
-            case ERROR:
-                return TypeDescKind.ERROR;
-            case NONE:
-            case OTHER:
-                return TypeDescKind.NONE;
-            case PARAMETERIZED:
-            case ANNOTATION:
-            case BLOB:
-            case CHANNEL:
-            case CONNECTOR:
-            case ENDPOINT:
-            case FINITE:
-            case PACKAGE:
-            case READONLY:
-            case SERVICE:
-            case TABLE:
-            case TYPEPARAM:
-            case VOID:
-            default:
-                return null;
-        }
+        return switch (bTypeKind) {
+            case ANY -> TypeDescKind.ANY;
+            case ANYDATA -> TypeDescKind.ANYDATA;
+            case ARRAY -> TypeDescKind.ARRAY;
+            case BOOLEAN -> TypeDescKind.BOOLEAN;
+            case BYTE -> TypeDescKind.BYTE;
+            case DECIMAL -> TypeDescKind.DECIMAL;
+            case FLOAT -> TypeDescKind.FLOAT;
+            case HANDLE -> TypeDescKind.HANDLE;
+            case INT -> TypeDescKind.INT;
+            case NEVER -> TypeDescKind.NEVER;
+            case NIL -> TypeDescKind.NIL;
+            case STRING -> TypeDescKind.STRING;
+            case JSON -> TypeDescKind.JSON;
+            case XML -> TypeDescKind.XML;
+            case FUNCTION -> TypeDescKind.FUNCTION;
+            case FUTURE -> TypeDescKind.FUTURE;
+            case MAP -> TypeDescKind.MAP;
+            case OBJECT -> TypeDescKind.OBJECT;
+            case STREAM -> TypeDescKind.STREAM;
+            case TUPLE -> TypeDescKind.TUPLE;
+            case TYPEDESC -> TypeDescKind.TYPEDESC;
+            case UNION -> TypeDescKind.UNION;
+            case INTERSECTION -> TypeDescKind.INTERSECTION;
+            case ERROR -> TypeDescKind.ERROR;
+            case NONE, OTHER -> TypeDescKind.NONE;
+            default -> null;
+        };
     }
 
     private static boolean isCustomError(BSymbol tSymbol) {
@@ -398,31 +352,29 @@ public class TypesFactory {
     }
 
     private static boolean isBuiltinNamedType(int tag) {
-        switch (tag) {
-            case INT:
-            case BYTE:
-            case FLOAT:
-            case DECIMAL:
-            case STRING:
-            case BOOLEAN:
-            case JSON:
-            case XML:
-            case NIL:
-            case ANY:
-            case ANYDATA:
-            case HANDLE:
-            case READONLY:
-            case NEVER:
-            case MAP:
-            case STREAM:
-            case TYPEDESC:
-            case TABLE:
-            case ERROR:
-            case FUTURE:
-            case SEMANTIC_ERROR:
-                return true;
-        }
-
-        return false;
+        return switch (tag) {
+            case INT,
+                 BYTE,
+                 FLOAT,
+                 DECIMAL,
+                 STRING,
+                 BOOLEAN,
+                 JSON,
+                 XML,
+                 NIL,
+                 ANY,
+                 ANYDATA,
+                 HANDLE,
+                 READONLY,
+                 NEVER,
+                 MAP,
+                 STREAM,
+                 TYPEDESC,
+                 TABLE,
+                 ERROR,
+                 FUTURE,
+                 SEMANTIC_ERROR -> true;
+            default -> false;
+        };
     }
 }

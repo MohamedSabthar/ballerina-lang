@@ -22,6 +22,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -46,7 +47,6 @@ public class FieldAccessTest {
 
     @Test
     public void testNegativeCases() {
-        Assert.assertEquals(negativeResult.getErrorCount(), 36);
         int i = 0;
         validateError(negativeResult, i++, "field access cannot be used to access an optional field of a type " +
                 "that includes nil, use optional field access or member access", 32, 9);
@@ -57,23 +57,23 @@ public class FieldAccessTest {
         validateError(negativeResult, i++, "incompatible types: expected 'string', found '(int|string)'", 56, 17);
         validateError(negativeResult, i++, "incompatible types: expected 'int', found '(int|string)'", 57, 15);
         validateError(negativeResult, i++, "invalid operation: type 'map<string>' does not support field access",
-                      62, 16);
+                62, 16);
         validateError(negativeResult, i++, "invalid operation: type '(map<string>|EmployeeTwo)' does not support " +
-                              "field access", 68, 16);
+                "field access", 68, 16);
         validateError(negativeResult, i++, "invalid operation: type 'EmployeeTwo?' does not support field access",
-                      74, 17);
+                74, 17);
         validateError(negativeResult, i++, "invalid operation: type '(map<string>|map<int>)' does not support " +
-                              "field access", 80, 20);
+                "field access", 80, 20);
         validateError(negativeResult, i++, "incompatible types: expected 'json', found '(json|error)'", 85, 14);
         validateError(negativeResult, i++, "incompatible types: expected 'json', found '(json|error)'", 90, 14);
         validateError(negativeResult, i++, "invalid operation: type '(json|error)' does not support field access", 96,
-                      22);
+                22);
         validateError(negativeResult, i++, "incompatible types: expected '(map<json>|error)', " +
-                              "found '(map<json>|json|error)'", 102, 26);
+                "found '(map<json>|json|error)'", 102, 26);
         validateError(negativeResult, i++, "incompatible types: expected 'map<json>', found '(json|map<json>|error)'",
-                      106, 20);
+                106, 20);
         validateError(negativeResult, i++, "invalid operation: type 'Foo?' does not support field access", 131, 14);
-        validateError(negativeResult, i++, "invalid operation: type 'Baz?' does not support field access", 134, 16);
+        validateError(negativeResult, i++, "function invocation on type 'Foo' is not supported", 134, 19);
         validateError(negativeResult, i++, "invalid operation: type 'Foo[]' does not support field access", 138, 9);
 
         validateError(negativeResult, i++, "undeclared field 'a' in record 'R1'", 155, 13);
@@ -127,6 +127,34 @@ public class FieldAccessTest {
         validateError(negativeResult, i++, "field access can only be used to access required fields or optional " +
                 "fields of non-nilable types, field 'z' is undeclared in record(s) 'CD' and type includes nil in " +
                 "record(s) 'BC'", 331, 17);
+        validateError(negativeResult, i++, "undefined field 'id' in union '(AB|BC)'", 337, 5);
+
+        validateError(negativeResult, i++, "'remote' methods of an object cannot be accessed using the field access " +
+                "expression", 369, 20);
+        validateError(negativeResult, i++, "'remote' methods of an object cannot be accessed using the field access " +
+                "expression", 371, 11);
+        validateError(negativeResult, i++, "'remote' methods of an object cannot be accessed using the field access " +
+                "expression", 373, 26);
+        validateError(negativeResult, i++, "'remote' methods of an object cannot be accessed using the field access " +
+                "expression", 375, 15);
+        validateError(negativeResult, i++, "'remote' methods of an object cannot be accessed using the field access " +
+                "expression", 377, 15);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support field access"
+                , 382, 19);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support field access"
+                , 387, 19);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support field access"
+                , 393, 19);
+        validateError(negativeResult, i++, "invalid operation: type 'map<(xml|json)>' does not support field access"
+                , 399, 24);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support " +
+                        "optional field access", 404, 13);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support " +
+                "optional field access", 409, 14);
+        validateError(negativeResult, i++, "invalid operation: type 'map<xml>' does not support " +
+                "optional field access", 414, 13);
+
+        Assert.assertEquals(negativeResult.getErrorCount(), i);
     }
 
     @Test(dataProvider = "recordFieldAccessFunctions")
@@ -270,5 +298,48 @@ public class FieldAccessTest {
     @Test
     public void testAccessOptionalFieldWithFieldAccess2() {
         Object returns = BRunUtil.invoke(result, "testAccessOptionalFieldWithFieldAccess2");
+    }
+
+    @Test
+    public void testAccessingMethodOnUnionObjectType() {
+        BRunUtil.invoke(result, "testAccessingMethodOnUnionObjectType");
+    }
+
+    @Test
+    public void testValidXMLmapFieldAccess() {
+        BRunUtil.invoke(result, "testValidXMLmapFieldAccess");
+    }
+
+    @Test
+    public void testLargeChainingFieldAccess() {
+        BRunUtil.invoke(result, "testLargeChainingFieldAccess");
+    }
+
+    @Test(dataProvider = "fieldAccessOnJsonTypedRecordFields")
+    public void testFieldAccessOnJsonTypedRecordFields(String function) {
+        BRunUtil.invoke(result, function);
+    }
+
+    @Test
+    public void testFieldAccessOnIntSubtypeRecordFields() {
+        Object returns = BRunUtil.invoke(result, "testFieldAccessOnIntSubtype");
+        Assert.assertEquals(returns, 1L);
+    }
+
+    @DataProvider(name = "fieldAccessOnJsonTypedRecordFields")
+    public Object[][] fieldAccessOnJsonTypedRecordFields() {
+        return new Object[][] {
+                { "testFieldAccessOnJsonTypedRecordFields" },
+                { "testFieldAccessOnJsonTypedRecordFieldsResultingInError" },
+                { "testFieldAccessOnJsonTypedRecordFieldsResultingInErrorWithCheckExpr" },
+                { "testOptionalFieldAccessOnOptionalJsonTypedRecordFields" },
+                { "testOptionalFieldAccessOnOptionalJsonTypedRecordFieldsResultingInError" }
+        };
+    }
+
+    @AfterClass
+    public void tearDown() {
+        result = null;
+        negativeResult = null;
     }
 }

@@ -23,6 +23,7 @@ import org.ballerinalang.testerina.test.utils.AssertionUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.HashMap;
 
 /**
@@ -34,16 +35,24 @@ public class DisableTestsTestCase extends BaseTestCase {
     private String projectPath;
 
     @BeforeClass
-    public void setup() throws BallerinaTestException {
+    public void setup() {
         balClient = new BMainInstance(balServer);
         projectPath = singleFileTestsPath.resolve("disabled-tests").toString();
     }
 
     @Test
-    public void testDisablingTests() throws BallerinaTestException {
+    public void testDisablingTests() throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{"disable-test.bal"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, true);
-        AssertionUtils.assertForTestFailures(output, "disable test failure");
+        AssertionUtils.assertOutput("DisableTestsTestCase-testDisablingTests.txt", output);
+    }
+
+    @Test
+    public void testDisablingTestsWithDependsOn() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"disable-with-depends-on.bal"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        AssertionUtils.assertOutput("DisableTestsTestCase-testDisablingTestsWithDependsOn.txt", output);
     }
 }

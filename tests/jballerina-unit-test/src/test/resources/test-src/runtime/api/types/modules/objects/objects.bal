@@ -16,12 +16,14 @@
 
 import ballerina/jballerina.java;
 
+public type PositiveInt int;
+
 public client class PublicClientObject {
     remote function getRemoteCounter(int num, decimal value, string msg = "test message") {
     }
 
     public function testFunction(int num, decimal value, string msg = "test message") {
-    // do nothing
+        // do nothing
     }
 }
 
@@ -51,7 +53,7 @@ public distinct service class Iterable {
     }
 }
 
-public distinct service class Collection  {
+public distinct service class Collection {
     *Iterable;
     *Common;
 
@@ -76,7 +78,7 @@ public distinct class Fruit {
     }
 }
 
-public distinct class Apple  {
+public distinct class Apple {
     *Fruit;
     *Common;
 
@@ -86,6 +88,18 @@ public distinct class Apple  {
 
     function getColor() returns string {
         return self.color;
+    }
+}
+
+public class Person {
+    int id;
+    string name;
+    int age;
+
+    public function init(int id, string name, int age) {
+        self.id = id;
+        self.name = name;
+        self.age = age;
     }
 }
 
@@ -109,3 +123,7 @@ public function getTypeIds(Common common) returns string[] = @java:Method {
     'class: "org.ballerinalang.nativeimpl.jvm.runtime.api.tests.Values"
 } external;
 
+public function getParamNamesFromObjectInit(Person person) returns string[] = @java:Method {
+    'class: "org.ballerinalang.nativeimpl.jvm.runtime.api.tests.Values",
+    name: "getParamNamesFromObjectInit"
+} external;

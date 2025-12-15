@@ -18,32 +18,36 @@
 
 package org.ballerinalang.langlib.array.utils;
 
-import io.ballerina.runtime.api.TypeTags;
 import io.ballerina.runtime.api.creators.ErrorCreator;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.ArrayType;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.TupleType;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
 import io.ballerina.runtime.api.types.UnionType;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static io.ballerina.runtime.api.constants.RuntimeConstants.ARRAY_LANG_LIB;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.OPERATION_NOT_SUPPORTED_IDENTIFIER;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.getModulePrefixedReason;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.OPERATION_NOT_SUPPORTED_IDENTIFIER;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.getModulePrefixedReason;
 
 /**
  * Utility functions for dealing with ArrayValue.
  *
  * @since 1.0
  */
-public class ArrayUtils {
+public final class ArrayUtils {
 
     @Deprecated
     public static void add(BArray arr, int elemTypeTag, long index, Object value) {
@@ -69,18 +73,21 @@ public class ArrayUtils {
     }
 
     public static GetFunction getElementAccessFunction(Type arrType, String funcName) {
-        switch (arrType.getTag()) {
-            case TypeTags.ARRAY_TAG:
-                return BArray::get;
-            case TypeTags.TUPLE_TAG:
-                return BArray::getRefValue;
-            default:
-                throw createOpNotSupportedError(arrType, funcName);
-        }
+        return switch (TypeUtils.getImpliedType(arrType).getTag()) {
+            case TypeTags.ARRAY_TAG -> BArray::get;
+            case TypeTags.TUPLE_TAG -> BArray::getRefValue;
+            default -> throw createOpNotSupportedError(arrType, funcName);
+        };
     }
 
     public static void checkIsArrayOnlyOperation(Type arrType, String op) {
-        if (arrType.getTag() != TypeTags.ARRAY_TAG) {
+        if (TypeUtils.getImpliedType(arrType).getTag() != TypeTags.ARRAY_TAG) {
+            throw createOpNotSupportedError(arrType, op);
+        }
+    }
+
+    public static void checkIsClosedArray(ArrayType arrType, String op) {
+        if (arrType.getState() == ArrayType.ArrayState.CLOSED) {
             throw createOpNotSupportedError(arrType, op);
         }
     }
@@ -88,36 +95,29 @@ public class ArrayUtils {
     public static BError createOpNotSupportedError(Type type, String op) {
         return ErrorCreator.createError(getModulePrefixedReason(ARRAY_LANG_LIB,
                                                                 OPERATION_NOT_SUPPORTED_IDENTIFIER),
-                BLangExceptionHelper.getErrorDetails(RuntimeErrors.OPERATION_NOT_SUPPORTED_ERROR, op, type));
+                ErrorHelper.getErrorDetails(ErrorCodes.OPERATION_NOT_SUPPORTED_ERROR, op, type));
     }
 
     public static BArray createEmptyArrayFromTuple(BArray arr) {
-        Type arrType = arr.getType();
+        Type arrType = TypeUtils.getImpliedType(arr.getType());
         TupleType tupleType = (TupleType) arrType;
-        List<Type> memTypes = new ArrayList<>();
         List<Type> tupleTypes = tupleType.getTupleTypes();
-        boolean isSameType = true;
-        Type sameType = null;
-        if (!tupleTypes.isEmpty()) {
-            sameType = tupleTypes.get(0);
-            memTypes.add(sameType);
-        }
-        for (int i = 1; i < tupleTypes.size(); i++) {
-            isSameType &= sameType == tupleTypes.get(i);
-            memTypes.add(tupleTypes.get(i));
-        }
         Type restType = tupleType.getRestType();
-        // If there's a tuple-rest-descriptor the array will not be of the same type even if other types are the same
+        Set<Type> uniqueTypes = new HashSet<>(tupleTypes);
         if (restType != null) {
-            isSameType = false;
-            memTypes.add(restType);
+            uniqueTypes.add(restType);
         }
-        // Create an array of one type if the member-type-descriptors are the same
-        if (isSameType) {
-            ArrayType type = TypeCreator.createArrayType(sameType);
-            return ValueCreator.createArrayValue(type);
+        if (uniqueTypes.isEmpty()) {
+            // Return an array with never type
+            return ValueCreator.createArrayValue(TypeCreator.createArrayType(PredefinedTypes.TYPE_NEVER));
+        } else if (uniqueTypes.size() == 1) {
+            // Return an array with the member type
+            Type type = uniqueTypes.iterator().next();
+            ArrayType arrayType = TypeCreator.createArrayType(type);
+            return ValueCreator.createArrayValue(arrayType);
         }
-        UnionType unionType = TypeCreator.createUnionType(memTypes);
+        // Return an array with the union of member types
+        UnionType unionType = TypeCreator.createUnionType(new ArrayList<>(uniqueTypes));
         ArrayType slicedArrType = TypeCreator.createArrayType(unionType);
         return ValueCreator.createArrayValue(slicedArrType);
     }

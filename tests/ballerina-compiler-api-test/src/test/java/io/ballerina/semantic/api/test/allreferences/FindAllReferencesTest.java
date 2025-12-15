@@ -26,6 +26,7 @@ import io.ballerina.tools.diagnostics.Location;
 import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
 import org.ballerinalang.test.BCompileUtil;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -74,6 +75,11 @@ public abstract class FindAllReferencesTest {
             return;
         }
 
+        // References for nodes with empty symbols shall not be retrieved through .references(symbol) API.
+        if (expLocations.size() == 1 && expLocations.get(0).equals(def) && symbol.isEmpty()) {
+            return;
+        }
+
         List<Location> locations = model.references(symbol.get());
         assertLocations(locations, expLocations);
     }
@@ -93,6 +99,11 @@ public abstract class FindAllReferencesTest {
 
         if (expLocations.isEmpty()) {
             assertTrue(symbol.isEmpty());
+            return;
+        }
+
+        // References for nodes with empty symbols shall not be retrieved through .references(symbol) API.
+        if (expLocations.size() == 1 && expLocations.get(0).equals(def) && symbol.isEmpty()) {
             return;
         }
 
@@ -132,5 +143,10 @@ public abstract class FindAllReferencesTest {
         for (Location expLocation : expLocations) {
             assertTrue(lineRanges.contains(expLocation.lineRange()));
         }
+    }
+
+    @AfterClass
+    public void tearDown() {
+        model = null;
     }
 }

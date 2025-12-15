@@ -17,14 +17,15 @@
 */
 package io.ballerina.runtime.api.values;
 
-import io.ballerina.runtime.internal.values.IteratorValue;
+import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.internal.values.JIteratorValue;
 
 /**
  * Interface representing ballerina strings.
  *
  * @since 1.1.0
  */
-public interface BString {
+public interface BString extends JIteratorValue {
 
     String getValue();
 
@@ -40,6 +41,7 @@ public interface BString {
 
     BString substring(int beginIndex, int endIndex);
 
-    IteratorValue getIterator();
+    BIterator<String> getIterator();
 
+    Type getType();
 }

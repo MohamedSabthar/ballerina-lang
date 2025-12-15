@@ -19,14 +19,18 @@ package org.ballerinalang.langlib.error;
 
 import io.ballerina.identifier.Utils;
 import io.ballerina.runtime.api.Module;
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.ErrorCreator;
 import io.ballerina.runtime.api.creators.TypeCreator;
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.MethodType;
 import io.ballerina.runtime.api.types.ObjectType;
+import io.ballerina.runtime.api.types.PredefinedTypes;
+import io.ballerina.runtime.api.types.RecordType;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
 import io.ballerina.runtime.api.utils.StringUtils;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BArray;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BFuture;
@@ -46,6 +50,8 @@ import static io.ballerina.runtime.api.constants.RuntimeConstants.BLANG_SRC_FILE
 import static io.ballerina.runtime.api.constants.RuntimeConstants.DOT;
 import static io.ballerina.runtime.api.constants.RuntimeConstants.EMPTY;
 import static io.ballerina.runtime.api.constants.RuntimeConstants.FILE_NAME_PERIOD_SEPARATOR;
+import static io.ballerina.runtime.api.flags.SymbolFlags.OPTIONAL;
+import static io.ballerina.runtime.api.flags.SymbolFlags.PUBLIC;
 import static io.ballerina.runtime.api.values.BError.CALL_STACK_ELEMENT;
 
 /**
@@ -53,23 +59,33 @@ import static io.ballerina.runtime.api.values.BError.CALL_STACK_ELEMENT;
  *
  * @since 0.990.4
  */
-public class StackTrace {
+public final class StackTrace {
+
+    private StackTrace() {
+    }
+    private static final Module MODULE = new Module("ballerina", "lang.error", "1");
+
+    private static final ObjectType CALLSTACK_TYPE = createCallStackType();
 
     public static BObject stackTrace(BError value) {
-
-        ObjectType callStackObjType = TypeCreator
-                .createObjectType("CallStack", new Module("ballerina", "lang.error", null), 0);
-        callStackObjType.setMethods(new MethodType[]{});
-        callStackObjType
-                .setFields(Collections.singletonMap("callStack",
-                                                    TypeCreator.createField(TypeCreator.createArrayType(
-                                                            PredefinedTypes.TYPE_ANY),
-                                                                            null, 0)));
-
-        CallStack callStack = new CallStack(callStackObjType);
+        CallStack callStack = new CallStack(CALLSTACK_TYPE);
         callStack.callStack = getCallStackArray(value.getStackTrace());
         callStack.callStack.freezeDirect();
         return callStack;
+    }
+
+    private static ObjectType createCallStackType() {
+        RecordType callStackElementType = TypeCreator.createRecordType("CallStackElement", MODULE, 0,
+                Map.of("callableName", TypeCreator.createField(PredefinedTypes.TYPE_STRING, "callableName", 0),
+                        "moduleName", TypeCreator.createField(PredefinedTypes.TYPE_STRING, "moduleName", OPTIONAL),
+                        "fileName", TypeCreator.createField(PredefinedTypes.TYPE_STRING, "fileName", 0),
+                        "lineNumber", TypeCreator.createField(PredefinedTypes.TYPE_INT, "lineNumber", 0)),
+                PredefinedTypes.TYPE_NEVER, false, 0);
+        ObjectType callStackObjType = TypeCreator.createObjectType("CallStack", MODULE, 0);
+        callStackObjType.setMethods(new MethodType[]{});
+        callStackObjType.setFields(Collections.singletonMap("callStack",
+                TypeCreator.createField(TypeCreator.createArrayType(callStackElementType), "callStack", PUBLIC)));
+        return callStackObjType;
     }
 
     private static BArray getCallStackArray(StackTraceElement[] stackTrace) {
@@ -109,10 +125,12 @@ public class StackTrace {
      */
     public static class CallStack implements BObject {
 
+        private static final BasicTypeBitSet BASIC_TYPE = Builder.getObjectType();
+
         BArray callStack;
 
-        private ObjectType type;
-        private BTypedesc typedesc;
+        private final ObjectType type;
+        private final BTypedesc typedesc;
 
         public CallStack(ObjectType type) {
             this.type = type;
@@ -120,11 +138,13 @@ public class StackTrace {
         }
 
         @Override
+        @Deprecated
         public Object call(Strand strand, String funcName, Object... args) {
             throw ErrorCreator.createError(StringUtils.fromString("No such field or method: " + funcName));
         }
 
         @Override
+        @Deprecated
         public BFuture start(Strand strand, String funcName, Object... args) {
             throw ErrorCreator.createError(StringUtils.fromString("No such field or method: " + funcName));
         }
@@ -141,6 +161,16 @@ public class StackTrace {
 
         @Override
         public ObjectType getType() {
+            return (ObjectType) TypeUtils.getImpliedType(type);
+        }
+
+        @Override
+        public BasicTypeBitSet getBasicType() {
+            return BASIC_TYPE;
+        }
+
+        @Override
+        public Type getOriginalType() {
             return type;
         }
 
@@ -173,7 +203,7 @@ public class StackTrace {
         }
 
         @Override
-        public BMap getMapValue(BString fieldName) {
+        public BMap<BString, Object> getMapValue(BString fieldName) {
             return null;
         }
 

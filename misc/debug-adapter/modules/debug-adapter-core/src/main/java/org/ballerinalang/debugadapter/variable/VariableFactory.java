@@ -23,6 +23,7 @@ import org.ballerinalang.debugadapter.SuspendedContext;
 import org.ballerinalang.debugadapter.variable.types.BArray;
 import org.ballerinalang.debugadapter.variable.types.BBoolean;
 import org.ballerinalang.debugadapter.variable.types.BByte;
+import org.ballerinalang.debugadapter.variable.types.BClientObject;
 import org.ballerinalang.debugadapter.variable.types.BDecimal;
 import org.ballerinalang.debugadapter.variable.types.BError;
 import org.ballerinalang.debugadapter.variable.types.BFloat;
@@ -35,6 +36,7 @@ import org.ballerinalang.debugadapter.variable.types.BMap;
 import org.ballerinalang.debugadapter.variable.types.BNil;
 import org.ballerinalang.debugadapter.variable.types.BObject;
 import org.ballerinalang.debugadapter.variable.types.BRecord;
+import org.ballerinalang.debugadapter.variable.types.BRegexp;
 import org.ballerinalang.debugadapter.variable.types.BService;
 import org.ballerinalang.debugadapter.variable.types.BStream;
 import org.ballerinalang.debugadapter.variable.types.BString;
@@ -50,6 +52,7 @@ import org.ballerinalang.debugadapter.variable.types.BXmlSequence;
 import org.ballerinalang.debugadapter.variable.types.BXmlText;
 
 import static org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils.STRAND_VAR_NAME;
+import static org.ballerinalang.debugadapter.variable.VariableUtils.isClientObject;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.isJson;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.isObject;
 import static org.ballerinalang.debugadapter.variable.VariableUtils.isRecord;
@@ -100,9 +103,12 @@ import static org.ballerinalang.debugadapter.variable.VariableUtils.isService;
  * <li> never - no value
  * </ul>
  */
-public class VariableFactory {
+public final class VariableFactory {
 
-    private static final String TYPEDESC_IDENTIFIER = "$typedesc$";
+    private static final String TYPEDESC_IDENTIFIER = "typedescs.$";
+
+    private VariableFactory() {
+    }
 
     public static BVariable getVariable(SuspendedContext context, Value value) {
         return getVariable(context, "unknown", value);
@@ -164,6 +170,8 @@ public class VariableFactory {
             return new BHandle(context, varName, value);
         } else if (valueTypeName.equals(JVMValueType.STREAM_VALUE.getString())) {
             return new BStream(context, varName, value);
+        } else if (valueTypeName.equals(JVMValueType.REGEXP_VALUE.getString())) {
+            return new BRegexp(context, varName, value);
         } else if (valueTypeName.equals(JVMValueType.XML_TEXT.getString())) {
             return new BXmlText(context, varName, value);
         } else if (valueTypeName.equals(JVMValueType.XML_COMMENT.getString())) {
@@ -185,6 +193,8 @@ public class VariableFactory {
         } else if (value instanceof ObjectReference) {
             if (isObject(value)) {
                 return new BObject(context, varName, value);
+            } else if (isClientObject(value)) {
+                return new BClientObject(context, varName, value);
             } else if (isRecord(value)) {
                 return new BRecord(context, varName, value);
             } else if (isService(value)) {

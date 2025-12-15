@@ -20,6 +20,7 @@ package org.ballerinalang.langlib.internal;
 
 import io.ballerina.runtime.api.creators.ValueCreator;
 import io.ballerina.runtime.api.types.FunctionType;
+import io.ballerina.runtime.api.utils.TypeUtils;
 import io.ballerina.runtime.api.values.BFunctionPointer;
 import io.ballerina.runtime.api.values.BTypedesc;
 
@@ -28,11 +29,14 @@ import io.ballerina.runtime.api.values.BTypedesc;
  *
  * @since 1.2.0
  */
-public class GetReturnType {
+public final class GetReturnType {
+
+    private GetReturnType() {
+    }
 
     public static BTypedesc getReturnType(Object obj) {
         BFunctionPointer bFunctionPointer = (BFunctionPointer) obj;
-        FunctionType functionType = (FunctionType) bFunctionPointer.getType();
+        FunctionType functionType = (FunctionType) TypeUtils.getImpliedType(bFunctionPointer.getType());
         return ValueCreator.createTypedescValue(functionType.getReturnType());
     }
 }

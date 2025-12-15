@@ -15,12 +15,12 @@
  *
  */
 
-//apply from: "$rootDir/gradle/javaProject.gradle"
-apply plugin: 'java'
-apply plugin: 'checkstyle'
-apply plugin: "com.github.spotbugs"
-
-apply from: "$rootDir/gradle/repositories.gradle"
+plugins {
+    id 'java-library'
+    id 'checkstyle'
+    id 'com.github.spotbugs'
+    id 'repositories'
+}
 
 configurations {
     dist {
@@ -38,9 +38,11 @@ dependencies {
     dist project(path: ':ballerina-lang:decimal', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:error', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:floatingpoint', configuration: 'distributionBirJar')
+    dist project(path: ':ballerina-lang:function', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:future', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:integer', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:map', configuration: 'distributionBirJar')
+    dist project(path: ':ballerina-lang:natural', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:object', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:stream', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:table', configuration: 'distributionBirJar')
@@ -52,7 +54,7 @@ dependencies {
     dist project(path: ':ballerina-lang:runtime', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:query', configuration: 'distributionBirJar')
     dist project(path: ':ballerina-lang:transaction', configuration: 'distributionBirJar')
-//    dist project(path: ':metrics-extensions:ballerina-prometheus-extension', configuration: 'distributionBirJar')
+    dist project(path: ':ballerina-lang:regexp', configuration: 'distributionBirJar')
 
     // Lang libs
     dist project(':ballerina-lang:internal')
@@ -61,9 +63,11 @@ dependencies {
     dist project(':ballerina-lang:decimal')
     dist project(':ballerina-lang:error')
     dist project(':ballerina-lang:floatingpoint')
+    dist project(':ballerina-lang:function')
     dist project(':ballerina-lang:future')
     dist project(':ballerina-lang:integer')
     dist project(':ballerina-lang:map')
+    dist project(':ballerina-lang:natural')
     dist project(':ballerina-lang:object')
     dist project(':ballerina-lang:stream')
     dist project(':ballerina-lang:table')
@@ -73,47 +77,48 @@ dependencies {
     dist project(':ballerina-lang:xml')
     dist project(':ballerina-lang:bool')
     dist project(':ballerina-lang:runtime')
-    dist project(':ballerina-core')
     dist project(':ballerina-lang:query')
     dist project(':ballerina-lang:transaction')
+    dist project(':ballerina-lang:regexp')
     dist project(':ballerina-lang:jballerina.java')
     dist project(':ballerina-shell:shell-rt')
+    dist project(':semtypes')
 
     // Third party jars
     // config
-    dist "org.slf4j:slf4j-jdk14:${project.slf4jJdk14Version}"
-    dist "org.slf4j:slf4j-api:${project.slf4jApiVersion}"
-    dist "org.apache.commons:commons-lang3:${project.apacheCommonsLang3Version}"
-    dist "org.apache.commons:commons-text:${project.apacheCommonsTextVersion}"
-    dist "com.moandjiezana.toml:toml4j:${project.moandjiezanaToml4jVersion}"
-    dist "org.codehaus.woodstox:woodstox-core-asl:${project.codehausWoodstoxCoreAslVersion}"
-    dist "org.codehaus.woodstox:stax2-api:${project.codehausWoodstoxStax2ApiVersion}"
+    dist libs.slf4j.jdk14
+    dist libs.slf4j.api
+    dist libs.apache.commons.lang3
+    dist libs.apache.commons.text
+    dist libs.toml4j
+    dist libs.fasterxml.woodstox.core
+    dist libs.codehaus.woodstox.stax2.api
+    dist libs.caffeine
 
     // runtime
-    dist "org.apache.ws.commons.axiom:axiom-c14n:${project.apacheCommonsAxiomC14nVersion}"
-    dist "org.apache.ws.commons.axiom:axiom-impl:${project.apacheCommonsAxiomImplVersion}"
-    dist "org.apache.ws.commons.axiom:axiom-api:${project.apacheCommonsAxiomApiVersion}"
-    dist "org.apache.ws.commons.axiom:axiom-dom:${project.apacheCommonsAxiomDomVersion}"
-    dist "commons-logging:commons-logging:${project.commonsLoggingVersion}"
-    dist "io.opentelemetry:opentelemetry-api:${project.openTelemetryApiVersion}"
-    dist "io.opentelemetry:opentelemetry-context:${project.openTelemetryContextVersion}"
-    dist "org.awaitility:awaitility:${project.awaitilityVersion}"
-    dist "org.hdrhistogram:HdrHistogram:${project.hdrHistogramVersion}"
+    dist libs.apache.commons.axiom.c14n
+    dist libs.apache.commons.axiom.impl
+    dist libs.apache.commons.axiom.api
+    dist libs.apache.commons.axiom.dom
+    dist libs.commons.logging
+    dist libs.open.telemetry.api
+    dist libs.open.telemetry.context
+    dist libs.awaitility
+    dist libs.hdr.histogram
 
     // observability extensions
     //// metrics
     dist project(':metrics-extensions:ballerina-metrics-extension')
 
-    // Temporary adding . Need to Remove once fix #17878
-    dist "com.google.code.gson:gson:${project.gsonVersion}"
+    dist libs.gson
 
     // Transaction related third party jars
-    dist "com.atomikos:transactions-jta:${project.atomikosTransactionsJtaVersion}"
-    dist "com.atomikos:atomikos-util:${project.atomikosUtilVersion}"
-    dist "com.atomikos:transactions-api:${project.atomikosTransactionsApiVersion}"
-    dist "com.atomikos:transactions-jdbc:${project.atomikosTransactionsJdbcVersion}"
-    dist "com.atomikos:transactions:${project.atomikosTransactionsVersion}"
-    dist "javax.transaction:javax.transaction-api:${project.javaxTransactionApiVersion}"
+    dist libs.atomikos.transactions.jta
+    dist libs.atomikos.util
+    dist libs.atomikos.transactions.api
+    dist libs.atomikos.transactions.jdbc
+    dist libs.atomikos.transactions
+    dist libs.javax.transaction.api
 
     // debugger runtime helpers
     dist project(':debug-adapter:debug-adapter-runtime')
@@ -125,6 +130,10 @@ dependencies {
     dist project(':ballerina-tools-api')
     dist project(':identifier-util')
 
+}
+
+configurations.configureEach {
+    transitive = false
 }
 
 jar {

@@ -19,12 +19,14 @@
 package io.ballerina.runtime.internal.values;
 
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BObject;
 import io.ballerina.runtime.api.values.BStream;
 import io.ballerina.runtime.api.values.BTypedesc;
-import io.ballerina.runtime.internal.IteratorUtils;
 import io.ballerina.runtime.internal.types.BStreamType;
+import io.ballerina.runtime.internal.utils.IteratorUtils;
 
 import java.util.Map;
 import java.util.UUID;
@@ -41,12 +43,14 @@ import java.util.UUID;
  */
 public class StreamValue implements RefValue, BStream {
 
-    private final BTypedesc typedesc;
-    private Type type;
-    private Type constraintType;
-    private Type completionType;
+    private static final BasicTypeBitSet BASIC_TYPE = Builder.getStreamType();
+
+    private BTypedesc typedesc;
+    private final Type type;
+    private final Type constraintType;
+    private final Type completionType;
     private Type iteratorNextReturnType;
-    private BObject iteratorObj;
+    private final BObject iteratorObj;
 
 
     /**
@@ -61,7 +65,6 @@ public class StreamValue implements RefValue, BStream {
         this.type = new BStreamType(constraintType, completionType);
         this.streamId = UUID.randomUUID().toString();
         this.iteratorObj = null;
-        this.typedesc = new TypedescValueImpl(type);
     }
 
     public StreamValue(Type type, BObject iteratorObj) {
@@ -70,13 +73,13 @@ public class StreamValue implements RefValue, BStream {
         this.type = new BStreamType(constraintType, completionType);
         this.streamId = UUID.randomUUID().toString();
         this.iteratorObj = iteratorObj;
-        this.typedesc = new TypedescValueImpl(type);
     }
 
     public String getStreamId() {
         return streamId;
     }
 
+    @Override
     public BObject getIteratorObj() {
         return iteratorObj;
     }
@@ -93,14 +96,16 @@ public class StreamValue implements RefValue, BStream {
      * {@inheritDoc}
      * @param parent The link to the parent node
      */
+    @Override
     public String stringValue(BLink parent) {
-        return "stream <" + getType().toString() + ">";
+        return getType().toString();
     }
 
     /**
      * {@inheritDoc}
      * @param parent The link to the parent node
      */
+    @Override
     public String expressionStringValue(BLink parent) {
         return stringValue(parent);
     }
@@ -111,6 +116,11 @@ public class StreamValue implements RefValue, BStream {
     }
 
     @Override
+    public BasicTypeBitSet getBasicType() {
+        return BASIC_TYPE;
+    }
+
+    @Override
     public Object copy(Map<Object, Object> refs) {
         throw new UnsupportedOperationException();
     }
@@ -118,19 +128,25 @@ public class StreamValue implements RefValue, BStream {
     /**
      * {@inheritDoc}
      */
+    @Override
     public Object frozenCopy(Map<Object, Object> refs) {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public BTypedesc getTypedesc() {
-        return typedesc;
+        if (this.typedesc == null) {
+            this.typedesc = new TypedescValueImpl(type);
+        }
+        return this.typedesc;
     }
 
+    @Override
     public Type getConstraintType() {
         return constraintType;
     }
 
+    @Override
     public Type getCompletionType() {
         return completionType;
     }

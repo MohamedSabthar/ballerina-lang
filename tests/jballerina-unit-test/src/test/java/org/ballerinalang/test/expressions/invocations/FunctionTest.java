@@ -17,10 +17,10 @@
  */
 package org.ballerinalang.test.expressions.invocations;
 
-import io.ballerina.runtime.internal.util.exceptions.BLangRuntimeException;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.ballerinalang.test.exceptions.BLangTestException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -60,8 +60,8 @@ public class FunctionTest {
         BRunUtil.invoke(result, "test3", args);
     }
 
-    @Test(description = "Test frame yield depth overflow", expectedExceptions = BLangRuntimeException.class,
-            expectedExceptionsMessageRegExp = "error: \\{ballerina}StackOverflow \\{\"message\":\"stack overflow\"}")
+    @Test(description = "Test frame yield depth overflow", expectedExceptions = BLangTestException.class,
+            expectedExceptionsMessageRegExp = "error: \\{ballerina}StackOverflow.*")
     public void testRecursiveFunctionWhereStackOverflows() {
         BRunUtil.invoke(result, "testRecursiveFunctionWhereStackOverflows");
     }

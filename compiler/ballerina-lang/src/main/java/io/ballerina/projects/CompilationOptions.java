@@ -17,6 +17,8 @@
  */
 package io.ballerina.projects;
 
+import io.ballerina.projects.environment.PackageLockingMode;
+
 /**
  * The class {@code CompilationOptions} holds various Ballerina compilation options.
  *
@@ -24,6 +26,7 @@ package io.ballerina.projects;
  */
 public class CompilationOptions {
     Boolean offlineBuild;
+    Boolean experimental;
     Boolean observabilityIncluded;
     Boolean dumpBir;
     Boolean dumpBirFile;
@@ -36,12 +39,22 @@ public class CompilationOptions {
     Boolean withCodeModifiers;
     Boolean configSchemaGen;
     Boolean exportOpenAPI;
+    Boolean exportComponentModel;
+    Boolean disableSyntaxTree;
+    Boolean remoteManagement;
+    Boolean optimizeDependencyCompilation;
+    PackageLockingMode lockingMode;
 
-    CompilationOptions(Boolean offlineBuild, Boolean observabilityIncluded, Boolean dumpBir,
-                       Boolean dumpBirFile, String cloud, Boolean listConflictedClasses, Boolean sticky,
+    CompilationOptions(Boolean offlineBuild, Boolean experimental,
+                       Boolean observabilityIncluded, Boolean dumpBir, Boolean dumpBirFile,
+                       String cloud, Boolean listConflictedClasses, Boolean sticky,
                        Boolean dumpGraph, Boolean dumpRawGraphs, Boolean withCodeGenerators,
-                       Boolean withCodeModifiers, Boolean configSchemaGen, Boolean exportOpenAPI) {
+                       Boolean withCodeModifiers, Boolean configSchemaGen, Boolean exportOpenAPI,
+                       Boolean exportComponentModel, Boolean disableSyntaxTree,
+                       Boolean remoteManagement, Boolean optimizeDependencyCompilation,
+                       PackageLockingMode lockingMode) {
         this.offlineBuild = offlineBuild;
+        this.experimental = experimental;
         this.observabilityIncluded = observabilityIncluded;
         this.dumpBir = dumpBir;
         this.dumpBirFile = dumpBirFile;
@@ -54,14 +67,24 @@ public class CompilationOptions {
         this.withCodeModifiers = withCodeModifiers;
         this.configSchemaGen = configSchemaGen;
         this.exportOpenAPI = exportOpenAPI;
+        this.exportComponentModel = exportComponentModel;
+        this.disableSyntaxTree = disableSyntaxTree;
+        this.remoteManagement = remoteManagement;
+        this.optimizeDependencyCompilation = optimizeDependencyCompilation;
+        this.lockingMode = lockingMode;
     }
 
     public boolean offlineBuild() {
         return toBooleanDefaultIfNull(this.offlineBuild);
     }
 
+    // TODO: remove this after removing the sticky option
     boolean sticky() {
-        return toBooleanTrueIfNull(this.sticky);
+        return toBooleanDefaultIfNull(this.sticky);
+    }
+
+    boolean experimental() {
+        return toBooleanDefaultIfNull(this.experimental);
     }
 
     boolean observabilityIncluded() {
@@ -108,6 +131,22 @@ public class CompilationOptions {
         return toBooleanDefaultIfNull(this.exportOpenAPI);
     }
 
+    public boolean exportComponentModel() {
+        return toBooleanDefaultIfNull(this.exportComponentModel);
+    }
+
+    boolean remoteManagement() {
+        return toBooleanDefaultIfNull(this.remoteManagement);
+    }
+
+    boolean optimizeDependencyCompilation() {
+        return toBooleanDefaultIfNull(this.optimizeDependencyCompilation);
+    }
+
+    PackageLockingMode lockingMode() {
+        return this.lockingMode;
+    }
+
     /**
      * Merge the given compilation options by favoring theirs if there are conflicts.
      *
@@ -120,6 +159,11 @@ public class CompilationOptions {
             compilationOptionsBuilder.setOffline(theirOptions.offlineBuild);
         } else {
             compilationOptionsBuilder.setOffline(this.offlineBuild);
+        }
+        if (theirOptions.experimental != null) {
+            compilationOptionsBuilder.setExperimental(theirOptions.experimental);
+        } else {
+            compilationOptionsBuilder.setExperimental(this.experimental);
         }
         if (theirOptions.observabilityIncluded != null) {
             compilationOptionsBuilder.setObservabilityIncluded(theirOptions.observabilityIncluded);
@@ -181,6 +225,29 @@ public class CompilationOptions {
         } else {
             compilationOptionsBuilder.setExportOpenAPI(this.exportOpenAPI);
         }
+        if (theirOptions.exportComponentModel != null) {
+            compilationOptionsBuilder.setExportComponentModel(theirOptions.exportComponentModel);
+        } else {
+            compilationOptionsBuilder.setExportComponentModel(this.exportComponentModel);
+        }
+        if (theirOptions.remoteManagement != null) {
+            compilationOptionsBuilder.setRemoteManagement(theirOptions.remoteManagement);
+        } else {
+            compilationOptionsBuilder.setRemoteManagement(this.remoteManagement);
+        }
+        if (theirOptions.optimizeDependencyCompilation != null) {
+            compilationOptionsBuilder.setOptimizeDependencyCompilation(theirOptions.optimizeDependencyCompilation);
+        } else {
+            compilationOptionsBuilder.setOptimizeDependencyCompilation(this.optimizeDependencyCompilation);
+        }
+        if (theirOptions.lockingMode != null) {
+            compilationOptionsBuilder.setLockingMode(theirOptions.lockingMode);
+        } else if (compilationOptionsBuilder.sticky != null && compilationOptionsBuilder.sticky) {
+            // If sticky is true, set locking mode to HARD unless theirOptions has a locking mode
+            compilationOptionsBuilder.setLockingMode(PackageLockingMode.HARD);
+        } else {
+            compilationOptionsBuilder.setLockingMode(this.lockingMode);
+        }
         return compilationOptionsBuilder.build();
     }
 
@@ -195,18 +262,15 @@ public class CompilationOptions {
         return bool;
     }
 
-    private boolean toBooleanTrueIfNull(Boolean bool) {
-        if (bool == null) {
-            return true;
-        }
-        return bool;
-    }
-
     private String toStringDefaultIfNull(String value) {
         if (value == null) {
             return "";
         }
         return value;
+    }
+
+    public boolean disableSyntaxTree() {
+        return toBooleanDefaultIfNull(this.disableSyntaxTree);
     }
 
     /**
@@ -216,6 +280,7 @@ public class CompilationOptions {
      */
     public static class CompilationOptionsBuilder {
         private Boolean offline;
+        private Boolean experimental;
         private Boolean observabilityIncluded;
         private Boolean dumpBir;
         private Boolean dumpBirFile;
@@ -228,6 +293,12 @@ public class CompilationOptions {
         private Boolean withCodeModifiers;
         private Boolean configSchemaGen;
         private Boolean exportOpenAPI;
+        private Boolean exportComponentModel;
+        private Boolean disableSyntaxTree;
+        private Boolean remoteManagement;
+        private Boolean optimizeDependencyCompilation;
+        // TODO: remove this after fixing https://github.com/ballerina-platform/ballerina-library/issues/7755
+        private PackageLockingMode lockingMode;
 
         public CompilationOptionsBuilder setOffline(Boolean value) {
             offline = value;
@@ -239,8 +310,18 @@ public class CompilationOptions {
             return this;
         }
 
+        CompilationOptionsBuilder setExperimental(Boolean value) {
+            experimental = value;
+            return this;
+        }
+
         CompilationOptionsBuilder setObservabilityIncluded(Boolean value) {
             observabilityIncluded = value;
+            return this;
+        }
+
+        CompilationOptionsBuilder disableSyntaxTree(Boolean value) {
+            disableSyntaxTree = value;
             return this;
         }
 
@@ -294,10 +375,32 @@ public class CompilationOptions {
             return this;
         }
 
+        CompilationOptionsBuilder setExportComponentModel(Boolean value) {
+            exportComponentModel = value;
+            return this;
+        }
+
+        public CompilationOptionsBuilder setRemoteManagement(Boolean value) {
+            remoteManagement = value;
+            return this;
+        }
+
+        public CompilationOptionsBuilder setOptimizeDependencyCompilation(Boolean value) {
+            optimizeDependencyCompilation = value;
+            return this;
+        }
+
+        public CompilationOptionsBuilder setLockingMode(PackageLockingMode value) {
+            lockingMode = value;
+            return this;
+        }
+
         public CompilationOptions build() {
-            return new CompilationOptions(offline, observabilityIncluded, dumpBir,
+            return new CompilationOptions(offline, experimental, observabilityIncluded, dumpBir,
                     dumpBirFile, cloud, listConflictedClasses, sticky, dumpGraph, dumpRawGraph,
-                    withCodeGenerators, withCodeModifiers, configSchemaGen, exportOpenAPI);
+                    withCodeGenerators, withCodeModifiers, configSchemaGen, exportOpenAPI,
+                    exportComponentModel, disableSyntaxTree, remoteManagement,
+                    optimizeDependencyCompilation, lockingMode);
         }
     }
 }

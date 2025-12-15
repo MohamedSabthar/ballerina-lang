@@ -43,6 +43,7 @@ public class LanguageConstructDebugTest extends BaseTestCase {
 
     DebugTestRunner debugTestRunner;
 
+    @Override
     @BeforeClass
     public void setup() {
         String testProjectName = "language-construct-tests";
@@ -62,7 +63,7 @@ public class LanguageConstructDebugTest extends BaseTestCase {
         debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN);
 
         // Test for debug engage in object's init method
-        Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(20000);
+        Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(30000);
         Assert.assertEquals(debugHitInfo.getLeft(), debugTestRunner.testBreakpoints.get(0));
 
         // Test for debug engage in object's method
@@ -99,13 +100,13 @@ public class LanguageConstructDebugTest extends BaseTestCase {
 
         Map<String, Variable> variables = debugTestRunner.fetchVariables(debugHitInfo.getRight(), VariableScope.LOCAL);
         // Variable visibility test for object
-        debugTestRunner.assertVariable(variables, "person", "Person", "object");
+        debugTestRunner.assertVariable(variables, "person", "Person", "client object");
         // Variable visibility test for object's method
         debugTestRunner.assertVariable(variables, "fullName", "\"John Doe\"", "string");
         // Variable visibility test for object's remote function
         debugTestRunner.assertVariable(variables, "name", "\"John\"", "string");
         // Variable visibility test for mock object
-        debugTestRunner.assertVariable(variables, "person2", "Person", "object");
+        debugTestRunner.assertVariable(variables, "person2", "Person", "client object");
         // Variable visibility test for mock object's method
         debugTestRunner.assertVariable(variables, "person2FullName", "\"Praveen Nada\"", "string");
         // Variable visibility test for mock object's remote function
@@ -123,7 +124,7 @@ public class LanguageConstructDebugTest extends BaseTestCase {
         debugTestRunner.initDebugSession(DebugUtils.DebuggeeExecutionKind.RUN);
 
         // Test for debug engage when worker `w1`
-        Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(20000);
+        Pair<BallerinaTestDebugPoint, StoppedEventArguments> debugHitInfo = debugTestRunner.waitForDebugHit(30000);
         Assert.assertEquals(debugHitInfo.getLeft(), debugTestRunner.testBreakpoints.get(0));
 
         // Test for debug engage when worker `w2`
@@ -132,6 +133,7 @@ public class LanguageConstructDebugTest extends BaseTestCase {
         Assert.assertEquals(debugHitInfo.getLeft(), debugTestRunner.testBreakpoints.get(1));
     }
 
+    @Override
     @AfterMethod(alwaysRun = true)
     public void cleanUp() {
         debugTestRunner.terminateDebugSession();

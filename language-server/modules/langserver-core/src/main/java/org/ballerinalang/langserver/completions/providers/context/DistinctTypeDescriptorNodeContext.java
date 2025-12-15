@@ -25,18 +25,17 @@ import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.SnippetCompletionItem;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.Snippet;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link DistinctTypeDescriptorNode} context.
@@ -68,9 +67,9 @@ public class DistinctTypeDescriptorNodeContext extends AbstractCompletionProvide
                 });
 
         NonTerminalNode nodeAtCursor = context.getNodeAtCursor();
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(context, nodeAtCursor)) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            List<Symbol> moduleContent = QNameReferenceUtil.getModuleContent(context, qNameRef, predicate);
+            List<Symbol> moduleContent = QNameRefCompletionUtil.getModuleContent(context, qNameRef, predicate);
             completionItems.addAll(this.getCompletionItemList(moduleContent, context));
         } else {
             // Error type will be added via the module completion items
@@ -78,7 +77,7 @@ public class DistinctTypeDescriptorNodeContext extends AbstractCompletionProvide
             completionItems.add(new SnippetCompletionItem(context, Snippet.DEF_OBJECT_TYPE_DESC_SNIPPET.get()));
             List<Symbol> filteredSymbols = context.visibleSymbols(context.getCursorPosition()).stream()
                     .filter(predicate)
-                    .collect(Collectors.toList());
+                    .toList();
             completionItems.addAll(this.getCompletionItemList(filteredSymbols, context));
         }
         this.sort(context, node, completionItems);

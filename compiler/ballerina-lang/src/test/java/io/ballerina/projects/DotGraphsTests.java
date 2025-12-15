@@ -27,8 +27,8 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.StringJoiner;
 
 /**
@@ -37,8 +37,7 @@ import java.util.StringJoiner;
  * @since 2.0.0
  */
 public class DotGraphsTests {
-    private static final Path RESOURCE_DIRECTORY = Paths.get("src", "test", "resources",
-            "dot-graphs");
+    private static final Path RESOURCE_DIRECTORY = Path.of("src/test/resources/dot-graphs");
 
     @Test(enabled = false)
     public void test() {
@@ -47,7 +46,7 @@ public class DotGraphsTests {
         DependencyGraph<DependencyNode> expectedGraph =
                 DotGraphUtils.createDependencyNodeGraph(expectedMutableGraph);
 
-        String serializedGraph = DotGraphs.serializeDependencyNodeGraph(expectedGraph);
+        String serializedGraph = DotGraphs.serializeDependencyNodeGraph(expectedGraph, Collections.emptyList());
         MutableGraph actualMutableGraph = DotGraphUtils.createGraph(serializedGraph);
         DependencyGraph<DependencyNode> actualGraph =
                 DotGraphUtils.createDependencyNodeGraph(actualMutableGraph);

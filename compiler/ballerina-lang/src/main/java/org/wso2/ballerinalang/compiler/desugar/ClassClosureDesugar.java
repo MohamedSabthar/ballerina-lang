@@ -61,6 +61,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangElvisExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorConstructorExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorVarRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangExpression;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangExtendedXMLNavigationAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangFieldBasedAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangGroupExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangIgnoreExpr;
@@ -74,7 +75,6 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownDocumentationLine;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownParameterDocumentation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownReturnParameterDocumentation;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangMatchExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangNamedArgsExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangNumericLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangObjectConstructorExpression;
@@ -86,7 +86,6 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangSimpleVarRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangStatementExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangStringTemplateLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTableConstructorExpr;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangTableMultiKeyExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTernaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTransactionalExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTrapExpr;
@@ -98,6 +97,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangTypedescExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangUnaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWaitExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWaitForAllExpr;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerAsyncSendExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerFlushExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerReceive;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerSyncSendExpr;
@@ -105,6 +105,9 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLAttribute;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLCommentLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLElementAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLElementLiteral;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLFilterStepExtend;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLIndexedStepExtend;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLMethodCallStepExtend;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLNavigationAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLProcInsLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLQName;
@@ -126,7 +129,6 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangIf;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangLock;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangLock.BLangLockStmt;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangLock.BLangUnLockStmt;
-import org.wso2.ballerinalang.compiler.tree.statements.BLangMatch;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangPanic;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangRecordDestructure;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangRecordVariableDef;
@@ -140,7 +142,6 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangTransaction;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangTupleDestructure;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangTupleVariableDef;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangWhile;
-import org.wso2.ballerinalang.compiler.tree.statements.BLangWorkerSend;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangXMLNSStatement;
 import org.wso2.ballerinalang.compiler.tree.types.BLangObjectTypeNode;
 import org.wso2.ballerinalang.compiler.tree.types.BLangRecordTypeNode;
@@ -174,7 +175,7 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     private static final String OBJECT_CTOR_FUNCTION_MAP_SYM_NAME = "$map$objectCtor" + UNDERSCORE + "function";
     private static final BVarSymbol CLOSURE_MAP_NOT_FOUND;
 
-    private int blockClosureMapCount = 1;
+    private final int blockClosureMapCount = 1;
     private BLangClassDefinition classDef;
     private BLangNode result;
     private SymbolEnv env;
@@ -202,7 +203,7 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
         this.desugar = Desugar.getInstance(context);
         this.names = Names.getInstance(context);
         this.dlog = BLangDiagnosticLog.getInstance(context);
-        this.CLOSURE_MAP_NOT_FOUND.pos = this.symTable.builtinPos;
+        CLOSURE_MAP_NOT_FOUND.pos = this.symTable.builtinPos;
     }
 
     private void reset() {
@@ -374,19 +375,14 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
 
     private BVarSymbol createMapSymbolIfAbsent(BLangNode node, int closureMapCount) {
         NodeKind kind = node.getKind();
-        switch (kind) {
-            case BLOCK_FUNCTION_BODY:
-                return createMapSymbolIfAbsent((BLangBlockFunctionBody) node, closureMapCount);
-            case BLOCK:
-                return createMapSymbolIfAbsent((BLangBlockStmt) node, closureMapCount);
-            case FUNCTION:
-                return createMapSymbolIfAbsent((BLangFunction) node, closureMapCount);
-            case RESOURCE_FUNC:
-                return createMapSymbolIfAbsent((BLangResourceFunction) node, closureMapCount);
-            case CLASS_DEFN:
-                return createMapSymbolIfAbsent((BLangClassDefinition) node, closureMapCount);
-        }
-        return null;
+        return switch (kind) {
+            case BLOCK_FUNCTION_BODY -> createMapSymbolIfAbsent((BLangBlockFunctionBody) node, closureMapCount);
+            case BLOCK -> createMapSymbolIfAbsent((BLangBlockStmt) node, closureMapCount);
+            case FUNCTION -> createMapSymbolIfAbsent((BLangFunction) node, closureMapCount);
+            case RESOURCE_FUNC -> createMapSymbolIfAbsent((BLangResourceFunction) node, closureMapCount);
+            case CLASS_DEFN -> createMapSymbolIfAbsent((BLangClassDefinition) node, closureMapCount);
+            default -> null;
+        };
     }
 
     private BVarSymbol createMapSymbolIfAbsent(BLangBlockFunctionBody body, int closureMapCount) {
@@ -569,6 +565,7 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
         result = panicNode;
     }
 
+    @Override
     public void visit(BLangDo doNode) {
         doNode.body = rewrite(doNode.body, env);
         result = doNode;
@@ -606,11 +603,6 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
         ifNode.body = rewrite(ifNode.body, env);
         ifNode.elseStmt = rewrite(ifNode.elseStmt, env);
         result = ifNode;
-    }
-
-    @Override
-    public void visit(BLangMatch matchStmt) {
-        result = matchStmt;
     }
 
     @Override
@@ -775,14 +767,6 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangTableMultiKeyExpr tableMultiKeyExpr) {
-
-        List<BLangExpression> exprList = new ArrayList<>();
-        tableMultiKeyExpr.multiKeyIndexExprs.forEach(expression -> exprList.add(rewriteExpr(expression)));
-        tableMultiKeyExpr.multiKeyIndexExprs = exprList;
-        result = tableMultiKeyExpr;
-    }
-
     public void visit(BLangTypeInit typeInitExpr) {
         typeInitExpr.initInvocation = rewriteExpr(typeInitExpr.initInvocation);
         BLangNode parent = typeInitExpr.initInvocation.parent;
@@ -936,9 +920,9 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangWorkerSend workerSendNode) {
-        workerSendNode.expr = rewriteExpr(workerSendNode.expr);
-        result = workerSendNode;
+    public void visit(BLangWorkerAsyncSendExpr asyncSendExpr) {
+        asyncSendExpr.expr = rewriteExpr(asyncSendExpr.expr);
+        result = asyncSendExpr;
     }
 
     @Override
@@ -965,9 +949,8 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
             return;
         }
 
-        BVarSymbol mapSym = null;
         //createMapSymbolIfAbsent(symbolEnv.node, symbolEnv.envCount);
-        updateClosureVars(localVarRef, mapSym);
+        updateClosureVars(localVarRef, null);
     }
 
     @Override
@@ -992,7 +975,7 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
      * @return map symbol created
      */
     private BVarSymbol createMapSymbol(String mapName, SymbolEnv symbolEnv) {
-        return new BVarSymbol(0, names.fromString(mapName), symbolEnv.scope.owner.pkgID,
+        return new BVarSymbol(0, Names.fromString(mapName), symbolEnv.scope.owner.pkgID,
                               symTable.mapAllType, symbolEnv.scope.owner, symTable.builtinPos, VIRTUAL);
     }
 
@@ -1107,11 +1090,33 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     @Override
     public void visit(BLangXMLNavigationAccess xmlNavigation) {
         xmlNavigation.expr = rewriteExpr(xmlNavigation.expr);
-        xmlNavigation.childIndex = rewriteExpr(xmlNavigation.childIndex);
         result = xmlNavigation;
     }
 
+    @Override
+    public void visit(BLangExtendedXMLNavigationAccess extendedXMLNavigationAccess) {
+        extendedXMLNavigationAccess.stepExpr = rewriteExpr(extendedXMLNavigationAccess.stepExpr);
+        rewriteExprs(extendedXMLNavigationAccess.extensions);
+        result = extendedXMLNavigationAccess;
+    }
 
+    @Override
+    public void visit(BLangXMLIndexedStepExtend xmlIndexedStepExtend) {
+        xmlIndexedStepExtend.indexExpr = rewriteExpr(xmlIndexedStepExtend.indexExpr);
+        result = xmlIndexedStepExtend;
+    }
+
+    @Override
+    public void visit(BLangXMLMethodCallStepExtend xmlMethodCallStepExtend) {
+        xmlMethodCallStepExtend.invocation = rewriteExpr(xmlMethodCallStepExtend.invocation);
+        result = xmlMethodCallStepExtend;
+    }
+
+    @Override
+    public void visit(BLangXMLFilterStepExtend xmlFilterStepExtend) {
+        result = xmlFilterStepExtend;
+    }
+    
     @Override
     public void visit(BLangIndexBasedAccess.BLangJSONAccessExpr jsonAccessExpr) {
         jsonAccessExpr.indexExpr = rewriteExpr(jsonAccessExpr.indexExpr);
@@ -1192,11 +1197,6 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangMatchExpression bLangMatchExpression) {
-        result = bLangMatchExpression;
-    }
-
-    @Override
     public void visit(BLangCheckedExpr checkedExpr) {
         result = checkedExpr;
     }
@@ -1268,11 +1268,6 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangMatch.BLangMatchTypedBindingPatternClause patternClauseNode) {
-        /* Ignore */
-    }
-
-    @Override
     public void visit(BLangNumericLiteral literalExpr) {
         result = literalExpr;
     }
@@ -1293,23 +1288,8 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     }
 
     @Override
-    public void visit(BLangMatchExpression.BLangMatchExprPatternClause bLangMatchExprPatternClause) {
-        /* Ignore */
-    }
-
-    @Override
     public void visit(BLangSimpleVarRef.BLangTypeLoad typeLoad) {
         result = typeLoad;
-    }
-
-    @Override
-    public void visit(BLangRecordLiteral.BLangChannelLiteral channelLiteral) {
-        channelLiteral.fields.forEach(field -> {
-            BLangRecordLiteral.BLangRecordKeyValueField keyValue = (BLangRecordLiteral.BLangRecordKeyValueField) field;
-            keyValue.key.expr = rewriteExpr(keyValue.key.expr);
-            keyValue.valueExpr = rewriteExpr(keyValue.valueExpr);
-        });
-        result = channelLiteral;
     }
 
     @Override
@@ -1347,16 +1327,6 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
 
     @Override
     public void visit(BLangMarkdownDocumentation bLangMarkdownDocumentation) {
-        /* Ignore */
-    }
-
-    @Override
-    public void visit(BLangMatch.BLangMatchStaticBindingPatternClause langMatchStaticBindingPatternClause) {
-        /* Ignore */
-    }
-
-    @Override
-    public void visit(BLangMatch.BLangMatchStructuredBindingPatternClause matchStructuredBindingPatternClause) {
         /* Ignore */
     }
 
@@ -1446,7 +1416,7 @@ public class ClassClosureDesugar extends BLangNodeVisitor {
     private BLangNode getNextPossibleNode(SymbolEnv envArg) {
         SymbolEnv localEnv = envArg;
         BLangNode node = localEnv.node;
-        while (localEnv != null) {
+        while (true) {
             NodeKind kind = node.getKind();
             if (kind == NodeKind.PACKAGE) {
                 break;

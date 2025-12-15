@@ -43,6 +43,8 @@ public class ForwardReferencingGlobalDefinitionTest {
         Assert.assertTrue(diagnostics.length > 0);
         BAssertUtil.validateError(resultNegativeCycleFound, 0, "illegal cyclic reference '[person, employee]'", 17, 1);
         BAssertUtil.validateError(resultNegativeCycleFound, 1, "illegal cyclic reference '[dep2, dep1]'", 24, 1);
+        BAssertUtil.validateError(resultNegativeCycleFound, 2,
+                "illegal cyclic reference '[myBool, $lambda$_0]'", 30, 1);
     }
 
     @Test(description = "Test re-ordering global variable initializations to satisfy dependency order")
@@ -54,7 +56,7 @@ public class ForwardReferencingGlobalDefinitionTest {
         Assert.assertEquals(diagnostics.length, 0);
 
         Object employee = BRunUtil.invoke(resultReOrdered, "getEmployee");
-        String employeeName = ((BMap) employee).get(StringUtils.fromString("name")).toString();
+        String employeeName = ((BMap<?, ?>) employee).get(StringUtils.fromString("name")).toString();
         Assert.assertEquals(employeeName, "Sumedha");
     }
 
@@ -75,11 +77,11 @@ public class ForwardReferencingGlobalDefinitionTest {
                 compile("test-src/statements/variabledef/inFunctionGlobalRefProject");
 
         Object employee = BRunUtil.invoke(resultReOrdered, "getEmployee");
-        String employeeName = ((BMap) employee).get(StringUtils.fromString("name")).toString();
+        String employeeName = ((BMap<?, ?>) employee).get(StringUtils.fromString("name")).toString();
         Assert.assertEquals(employeeName, "Sumedha");
 
         Object employee2 = BRunUtil.invoke(resultReOrdered, "getfromFuncA");
-        String employee2Name = ((BMap) employee2).get(StringUtils.fromString("name")).toString();
+        String employee2Name = ((BMap<?, ?>) employee2).get(StringUtils.fromString("name")).toString();
         Assert.assertEquals(employee2Name, "Sumedha");
     }
 
@@ -108,14 +110,15 @@ public class ForwardReferencingGlobalDefinitionTest {
         CompileResult cycle = BCompileUtil.compile("test-src/statements/variabledef/globalcycle/viaRecordFieldDefault");
         int i = 0;
         BAssertUtil.validateError(cycle, i++,
-                "illegal cyclic reference '[gVarNested, nestedRec, $anonType$_2, $anonType$_1]'", 26, 1);
+                "illegal cyclic reference '[gVarNested, nestedRec, $anonType$$nestedRec$$_1, " +
+                        "$anonType$$nestedRec$$_0]'", 26, 1);
         BAssertUtil.validateError(cycle, i++, "illegal cyclic reference '[name, person, Person]'", 17, 1);
-        BAssertUtil.validateError(cycle, i++, "illegal cyclic reference '[gVar, p, $anonType$_0]'", 19, 1);
+        BAssertUtil.validateError(cycle, i++, "illegal cyclic reference '[gVar, p, $anonType$$p$$_0]'", 19, 1);
         BAssertUtil.validateError(cycle, i++,
-                "illegal cyclic reference '[nillableNestedRecordGVar, nillableNestedRec, $anonType$_4, $anonType$_3]'",
-                21, 1);
+                "illegal cyclic reference '[nillableNestedRecordGVar, nillableNestedRec, " +
+                        "$anonType$$nillableNestedRec$$_1, $anonType$$nillableNestedRec$$_0]'", 21, 1);
         BAssertUtil.validateError(cycle, i++,
-                "illegal cyclic reference '[nestedRecordFieldDefaultValue, A, $anonType$_5]'", 23, 1);
+                "illegal cyclic reference '[nestedRecordFieldDefaultValue, A, $anonType$_0]'", 23, 1);
         Assert.assertEquals(cycle.getDiagnostics().length, i);
     }
 
@@ -130,6 +133,8 @@ public class ForwardReferencingGlobalDefinitionTest {
         BAssertUtil.validateError(cycle, i++,
                 "illegal cyclic reference '[modVarQueryLet1, queryRef, modVarQuery]'", 19, 1);
         BAssertUtil.validateError(cycle, i++, "illegal cyclic reference '[modVarQueryLet2, queryRef2]'", 20, 1);
+        BAssertUtil.validateError(cycle, i++,
+                "illegal cyclic reference '[recD, RecordTypeWithDefaultLetExpr, moduleCode]'", 26, 1);
 
         Assert.assertEquals(cycle.getDiagnostics().length, i);
     }
@@ -140,7 +145,7 @@ public class ForwardReferencingGlobalDefinitionTest {
                 compile("test-src/statements/variabledef/globalcycle/viaServiceProject");
         Assert.assertEquals(resultNegativeCycleFound.getDiagnostics().length, 2);
         BAssertUtil.validateError(resultNegativeCycleFound, 0, "illegal cyclic reference '[port, o, Obj]'", 20, 1);
-        BAssertUtil.validateWarning(resultNegativeCycleFound, 1, "concurrent calls will not be made to this method " +
+        BAssertUtil.validateHint(resultNegativeCycleFound, 1, "concurrent calls will not be made to this method " +
                 "since the method is not an 'isolated' method", 32, 5);
     }
 }

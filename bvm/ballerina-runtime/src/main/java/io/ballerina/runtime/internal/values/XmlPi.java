@@ -17,15 +17,15 @@
  */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.XmlNodeType;
 import io.ballerina.runtime.api.values.BLink;
 import org.apache.axiom.om.OMNode;
-import org.apache.axiom.om.impl.llom.OMProcessingInstructionImpl;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * XML nodes containing processing instructions.
@@ -34,14 +34,13 @@ import java.util.Objects;
  */
 public class XmlPi extends XmlNonElementItem {
 
-    private String data;
-    private String target;
+    private final String data;
+    private final String target;
 
     public XmlPi(String data, String target) {
         this.data = data;
         this.target = target;
         this.type = PredefinedTypes.TYPE_PROCESSING_INSTRUCTION;
-        setTypedescValue(type);
     }
 
     public XmlPi(String data, String target, boolean readonly) {
@@ -49,13 +48,12 @@ public class XmlPi extends XmlNonElementItem {
         this.target = target;
         this.type = readonly ? PredefinedTypes.TYPE_READONLY_PROCESSING_INSTRUCTION :
                 PredefinedTypes.TYPE_PROCESSING_INSTRUCTION;
-        setTypedescValue(type);
     }
 
     @Override
-    public IteratorValue getIterator() {
+    public IteratorValue<XmlPi> getIterator() {
         XmlPi that = this;
-        return new IteratorValue() {
+        return new IteratorValue<>() {
             boolean read = false;
             @Override
             public boolean hasNext() {
@@ -63,7 +61,7 @@ public class XmlPi extends XmlNonElementItem {
             }
 
             @Override
-            public Object next() {
+            public XmlPi next() {
                 if (!read) {
                     this.read = true;
                     return that;
@@ -113,15 +111,27 @@ public class XmlPi extends XmlNonElementItem {
 
     @Override
     public OMNode value() {
-        OMProcessingInstructionImpl pi = new OMProcessingInstructionImpl();
-        pi.setTarget(this.target);
-        pi.setValue(this.data);
-        return pi;
+        return this.factory.createOMProcessingInstruction(null, this.target, this.data);
     }
 
     @Override
     public boolean equals(Object obj) {
         return this == obj;
+    }
+
+    /**
+     * Deep equality check for XML Processing Instruction.
+     *
+     * @param o The XML on the right hand side
+     * @param visitedValues Visited values in order to break cyclic references.
+     * @return True if the XML values are equal, else false.
+     */
+    @Override
+    public boolean equals(Object o, Set<ValuePair> visitedValues) {
+        if (!(o instanceof XmlPi rhsXMLPi)) {
+            return false;
+        }
+        return this.getData().equals(rhsXMLPi.getData()) && this.getTarget().equals(rhsXMLPi.getTarget());
     }
 
     @Override

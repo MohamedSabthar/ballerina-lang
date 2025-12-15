@@ -1,3 +1,6 @@
+import test.java.io as javaio;
+import test.java.lang as javalang;
+
 import ballerina/jballerina.java;
 import ballerina/jballerina.java.arrays as jarrays;
 
@@ -21,15 +24,16 @@ public distinct class InterfaceTestResource {
     #
     # + return - The `string` form of the Java object instance.
     public function toString() returns string {
-        return java:toString(self.jObj) ?: "null";
+        return java:toString(self.jObj) ?: "";
     }
+
     # The function that maps to the `returnStringArray` method of `org.ballerinalang.bindgen.InterfaceTestResource`.
     #
     # + return - The `string[]` value returning from the Java mapping.
-    public function returnStringArray() returns string[]?|error {
+    public function returnStringArray() returns string[]|error {
         handle externalObj = org_ballerinalang_bindgen_InterfaceTestResource_returnStringArray(self.jObj);
         if java:isNull(externalObj) {
-            return null;
+            return [];
         }
         return <string[]>check jarrays:fromHandle(externalObj, "string");
     }
@@ -40,6 +44,20 @@ public distinct class InterfaceTestResource {
     # + return - The `int` value returning from the Java mapping.
     public function testMethod(int arg0) returns int {
         return org_ballerinalang_bindgen_InterfaceTestResource_testMethod(self.jObj, arg0);
+    }
+
+    # The function that maps to the `testMethodWithException` method of `org.ballerinalang.bindgen.InterfaceTestResource`.
+    #
+    # + arg0 - The `javalang:Object` value required to map with the Java method parameter.
+    # + return - The `string` or the `javaio:IOException` value returning from the Java mapping.
+    public function testMethodWithException(javalang:Object arg0) returns string|javaio:IOException {
+        handle|error externalObj = org_ballerinalang_bindgen_InterfaceTestResource_testMethodWithException(self.jObj, arg0.jObj);
+        if (externalObj is error) {
+            javaio:IOException e = error javaio:IOException(javaio:IOEXCEPTION, externalObj, message = externalObj.message());
+            return e;
+        } else {
+            return java:toString(externalObj) ?: "";
+        }
     }
 
 }
@@ -61,6 +79,12 @@ function org_ballerinalang_bindgen_InterfaceTestResource_testMethod(handle recei
     name: "testMethod",
     'class: "org.ballerinalang.bindgen.InterfaceTestResource",
     paramTypes: ["int"]
+} external;
+
+function org_ballerinalang_bindgen_InterfaceTestResource_testMethodWithException(handle receiver, handle arg0) returns handle|error = @java:Method {
+    name: "testMethodWithException",
+    'class: "org.ballerinalang.bindgen.InterfaceTestResource",
+    paramTypes: ["java.lang.Object"]
 } external;
 
 function org_ballerinalang_bindgen_InterfaceTestResource_getTEST_FIELD() returns int = @java:FieldGet {

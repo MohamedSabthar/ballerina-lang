@@ -49,10 +49,13 @@ public class BLangConstantValue {
             return false;
         }
 
-        if (o instanceof BLangConstantValue) {
-            BLangConstantValue that = (BLangConstantValue) o;
+        if (o instanceof BLangConstantValue that) {
 
             if (this.type.tag != that.type.tag) {
+                return false;
+            }
+
+            if (this.value == null) {
                 return false;
             }
 

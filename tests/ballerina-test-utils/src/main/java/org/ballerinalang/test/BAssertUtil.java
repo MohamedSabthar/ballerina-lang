@@ -26,10 +26,13 @@ import org.testng.Assert;
  *
  * @since 2.0.0
  */
-public class BAssertUtil {
+public final class BAssertUtil {
 
     private static final String CARRIAGE_RETURN_CHAR = "\\r";
     private static final String EMPTY_STRING = "";
+
+    private BAssertUtil() {
+    }
 
     /**
      * Assert an error.
@@ -63,7 +66,7 @@ public class BAssertUtil {
                 "incorrect line number:");
         Assert.assertEquals(diag.location().lineRange().startLine().offset() + 1, expectedErrCol,
                 "incorrect column position:");
-        Assert.assertEquals(diag.location().lineRange().filePath(),
+        Assert.assertEquals(diag.location().lineRange().fileName(),
                 fileName, "incorrect file name:");
     }
 

@@ -26,7 +26,6 @@ import io.ballerinalang.compiler.parser.test.ParserTestUtils;
 import org.testng.Assert;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 /**
  * An abstract class that contains utilities for {@code SyntaxNodeVisitor} tests.
@@ -52,15 +51,15 @@ abstract class AbstractSyntaxTreeAPITest {
     }
 
     protected Path getPath(String fileName) {
-        return Paths.get("tree", fileName);
+        return Path.of("tree", fileName);
     }
 
     protected Path getPath(Path filePath) {
-        return Paths.get("tree").resolve(filePath);
+        return Path.of("tree").resolve(filePath);
     }
 
     protected void assertLineRange(LineRange actualLineRange, LineRange expectedLineRange) {
-        Assert.assertEquals(actualLineRange.filePath(), expectedLineRange.filePath());
+        Assert.assertEquals(actualLineRange.fileName(), expectedLineRange.fileName());
         Assert.assertEquals(actualLineRange.startLine(), expectedLineRange.startLine());
         Assert.assertEquals(actualLineRange.endLine(), expectedLineRange.endLine());
     }
@@ -71,6 +70,6 @@ abstract class AbstractSyntaxTreeAPITest {
     }
 
     protected void testTree(Node node, Path jsonFilePath) {
-        ParserTestUtils.testTree(node, Paths.get("tree").resolve(jsonFilePath));
+        ParserTestUtils.testTree(node, Path.of("tree").resolve(jsonFilePath));
     }
 }

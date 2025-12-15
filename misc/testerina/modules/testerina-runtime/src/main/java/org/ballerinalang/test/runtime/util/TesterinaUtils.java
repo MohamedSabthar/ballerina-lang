@@ -17,9 +17,8 @@
  */
 package org.ballerinalang.test.runtime.util;
 
-import io.ballerina.identifier.Utils;
-import io.ballerina.runtime.internal.util.RuntimeUtils;
-import org.ballerinalang.test.runtime.BTestRunner;
+import io.ballerina.runtime.api.values.BError;
+import io.ballerina.runtime.internal.utils.RuntimeUtils;
 import org.ballerinalang.test.runtime.entity.Test;
 import org.ballerinalang.test.runtime.entity.TestSuite;
 import org.ballerinalang.test.runtime.exceptions.BallerinaTestException;
@@ -27,6 +26,8 @@ import org.ballerinalang.test.runtime.exceptions.BallerinaTestException;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,28 +38,35 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static io.ballerina.identifier.Utils.encodeNonFunctionIdentifier;
 import static io.ballerina.runtime.api.constants.RuntimeConstants.BLANG_SRC_FILE_SUFFIX;
 import static io.ballerina.runtime.api.constants.RuntimeConstants.MODULE_INIT_CLASS_NAME;
 import static org.ballerinalang.test.runtime.util.TesterinaConstants.ANON_ORG;
 import static org.ballerinalang.test.runtime.util.TesterinaConstants.DOT;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.GET_TEST_EXEC_STATE;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.IDENTIFIER_END_INDEX;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.IDENTIFIER_START_INDEX;
+import static org.ballerinalang.test.runtime.util.TesterinaConstants.TESTERINA_MAIN_METHOD;
 
 /**
  * Utility methods.
  */
-public class TesterinaUtils {
+public final class TesterinaUtils {
 
-    private static final PrintStream outStream = System.out;
     private static final PrintStream errStream = System.err;
 
-    private static final String GENERATE_OBJECT_CLASS_PREFIX = ".$value$";
+    private static final String GENERATE_OBJECT_CLASS_PREFIX = ".values.\\$";
     private static final String GENERATE_PKG_INIT = "___init_";
     private static final String GENERATE_PKG_START = "___start_";
     private static final String GENERATE_PKG_STOP = "___stop_";
     private static final String INIT_FUNCTION_SUFFIX = "..<init>";
     private static final String START_FUNCTION_SUFFIX = ".<start>";
     private static final String STOP_FUNCTION_SUFFIX = ".<stop>";
+
+    private TesterinaUtils() {
+    }
 
     /**
      * Cleans up any remaining testerina metadata.
@@ -68,11 +76,12 @@ public class TesterinaUtils {
     public static void cleanUpDir(Path path) {
         try {
             if (Files.exists(path)) {
-                Files.walk(path).sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                try (Stream<Path> paths = Files.walk(path)) {
+                    paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+                }
             }
         } catch (IOException e) {
-            errStream.println("Error occurred while deleting the dir : " + path.toString() + " with error : "
-                                      + e.getMessage());
+            errStream.println("Error occurred while deleting the dir : " + path + " with error : " + e.getMessage());
         }
     }
 
@@ -82,21 +91,77 @@ public class TesterinaUtils {
      * @param sourceRootPath source root path
      * @param testSuite test meta data
      */
-    public static void executeTests(Path sourceRootPath, Path targetPath, TestSuite testSuite, ClassLoader classLoader)
-            throws RuntimeException {
+    public static int executeTests(Path sourceRootPath, TestSuite testSuite, ClassLoader classLoader, String[] args,
+                                   PrintStream out) throws RuntimeException {
         try {
-            BTestRunner testRunner = new BTestRunner(outStream, errStream, targetPath);
-            // Run the tests
-            testRunner.runTest(testSuite, classLoader);
+            int exitStatus = execute(testSuite, classLoader, args, out);
             cleanUpDir(sourceRootPath.resolve(TesterinaConstants.TESTERINA_TEMP_DIR));
-            if (testRunner.getTesterinaReport().isFailure()) {
-                throw new RuntimeException("there are test failures");
-            }
+            return exitStatus;
         } catch (BallerinaTestException e) {
-            errStream.println("error: " + e.getMessage());
+            if (e.getMessage() != null) {
+                errStream.println("error: " + e.getMessage());
+            }
             throw e;
         } catch (Throwable e) {
             throw new RuntimeException("test execution failed due to runtime exception");
+        }
+    }
+
+    private static int execute(TestSuite suite, ClassLoader classLoader, String[] args, PrintStream out) {
+        String initClassName = TesterinaUtils.getQualifiedClassName(suite.getOrgName(),
+                suite.getTestPackageID(),
+                suite.getVersion(),
+                MODULE_INIT_CLASS_NAME);
+        Class<?> initClazz;
+        try {
+            initClazz = classLoader.loadClass(initClassName);
+        } catch (Throwable e) {
+            throw new BallerinaTestException("failed to load init class :" + initClassName);
+        }
+        String suiteExecuteFilePath = suite.getExecuteFilePath();
+        if (suiteExecuteFilePath.isEmpty()) {
+            out.println("\tNo tests found");
+            return 0;
+        }
+
+        // This will run the main method of the test module.
+        startSuite(initClazz, args);
+        return getTestExecutionState(initClazz);
+    }
+
+    private static void startSuite(Class<?> initClazz, String[] args) {
+        // Call test module main
+        Object response = runTestModuleMain(initClazz, args, String[].class);
+        if (response instanceof Throwable throwable) {
+            throw new BallerinaTestException("dependant module execution for test suite failed due to " +
+                    RuntimeUtils.formatErrorMessage(throwable), throwable);
+        }
+    }
+
+    private static Object runTestModuleMain(Class<?> initClazz, String[] args, Class<?>... parameterTypes) {
+
+        try {
+            final Method method = initClazz.getDeclaredMethod(TESTERINA_MAIN_METHOD, parameterTypes);
+            return method.invoke(null, (Object) args);
+        } catch (InvocationTargetException e) {
+            Throwable targetException = e.getTargetException();
+            if (targetException instanceof BError) {
+                return targetException;
+            }
+            return targetException;
+        } catch (NoSuchMethodException | IllegalAccessException | IllegalArgumentException e) {
+            return new BallerinaTestException("Failed to invoke the function '" + TESTERINA_MAIN_METHOD + " due to " +
+                    RuntimeUtils.formatErrorMessage(e), e);
+        }
+    }
+
+    private static int getTestExecutionState(Class<?> initClazz) {
+        try {
+            final Method method = initClazz.getDeclaredMethod(GET_TEST_EXEC_STATE);
+            return Math.toIntExact((long) method.invoke(null));
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new BallerinaTestException("Failed to invoke the function '" + GET_TEST_EXEC_STATE + " due to " +
+                    RuntimeUtils.formatErrorMessage(e), e);
         }
     }
 
@@ -108,7 +173,7 @@ public class TesterinaUtils {
      */
     public static String formatError(String errorMsg) {
         StringBuilder newErrMsg = new StringBuilder();
-        errorMsg = errorMsg.replaceAll("\n", "\n\t");
+        errorMsg = errorMsg.replace("\n", "\n\t");
         List<String> msgParts = Arrays.asList(errorMsg.split("\n"));
         boolean stackTraceStartFlag = true;
 
@@ -140,7 +205,7 @@ public class TesterinaUtils {
     public static String getQualifiedClassName(String orgName, String packageName,
                                                String version, String className) {
         if (!DOT.equals(packageName)) {
-            className = encodeNonFunctionIdentifier(packageName) + "." + 
+            className = encodeNonFunctionIdentifier(packageName) + "." +
                     RuntimeUtils.getMajorVersion(version) + "." + className;
         }
         if (!ANON_ORG.equals(orgName)) {
@@ -265,57 +330,8 @@ public class TesterinaUtils {
         }
     }
 
-    public static List<org.ballerinalang.test.runtime.entity.Test> getSingleExecutionTestsOld(
-            List<org.ballerinalang.test.runtime.entity.Test> currentTests, List<String> functions) {
+    public static List<Test> getSingleExecutionTestsOld(List<Test> currentTests, List<String> functions) {
         return Collections.emptyList();
-    }
-
-    public static String getPrintableStackTrace(Throwable throwable) {
-        String errorMsg = throwable.toString();
-        StringBuilder sb = new StringBuilder();
-        sb.append(errorMsg);
-        // Append function/action/resource name with package path (if any)
-        StackTraceElement[] stackTrace = throwable.getStackTrace();
-        if (stackTrace.length == 0) {
-            return sb.toString();
-        }
-        sb.append("\n\tat ");
-        // print first element
-        printStackElement(sb, stackTrace[0], "");
-        for (int i = 1; i < stackTrace.length; i++) {
-            printStackElement(sb, stackTrace[i], "\n\t   ");
-        }
-        return sb.toString();
-    }
-
-    private static void printStackElement(StringBuilder sb, StackTraceElement stackTraceElement, String tab) {
-        String pkgName = Utils.decodeIdentifier(stackTraceElement.getClassName());
-        String fileName = stackTraceElement.getFileName();
-
-        if (fileName == null) {
-            fileName = "unknown-source";
-        }
-
-        // clean file name from pkgName since we print the file name after the method name.
-        fileName = fileName.replace(BLANG_SRC_FILE_SUFFIX, "");
-        fileName = fileName.replace("/", "-");
-        int index = pkgName.lastIndexOf("." + fileName);
-        if (index != -1) {
-            pkgName = pkgName.substring(0, index);
-        }
-        // todo we need to seperate orgname and module name with '/'
-
-        sb.append(tab);
-        if (!pkgName.equals(MODULE_INIT_CLASS_NAME)) {
-            sb.append(pkgName).append(":");
-        }
-
-        // Append the method name
-        sb.append(Utils.decodeIdentifier(stackTraceElement.getMethodName()));
-        // Append the filename
-        sb.append("(").append(fileName);
-        // Append the line number
-        sb.append(":").append(stackTraceElement.getLineNumber()).append(")");
     }
 
     public static StackTraceElement[] getStackTrace(Throwable throwable) {
@@ -370,5 +386,43 @@ public class TesterinaUtils {
 
     private static String cleanupClassName(String className) {
         return className.replace(GENERATE_OBJECT_CLASS_PREFIX, ".");
+    }
+
+    public static String decodeIdentifier(String encodedIdentifier) {
+        if (encodedIdentifier == null) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        while (index < encodedIdentifier.length()) {
+            if (encodedIdentifier.charAt(index) == '$' && index + 4 < encodedIdentifier.length()) {
+                if (isUnicodePoint(encodedIdentifier, index)) {
+                    sb.append((char) Integer.parseInt(encodedIdentifier.substring(index + IDENTIFIER_START_INDEX,
+                            index + IDENTIFIER_END_INDEX)));
+                    index += IDENTIFIER_END_INDEX;
+                } else {
+                    sb.append(encodedIdentifier.charAt(index));
+                    index++;
+                }
+            } else {
+                sb.append(encodedIdentifier.charAt(index));
+                index++;
+            }
+        }
+        return sb.toString();
+    }
+
+    private static boolean isUnicodePoint(String encodedName, int index) {
+        return (containsOnlyDigits(encodedName.substring(index + IDENTIFIER_START_INDEX,
+                index + IDENTIFIER_END_INDEX)));
+    }
+
+    private static boolean containsOnlyDigits(String digitString) {
+        for (int i = 0; i < digitString.length(); i++) {
+            if (!Character.isDigit(digitString.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }

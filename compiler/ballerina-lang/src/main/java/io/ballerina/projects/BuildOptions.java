@@ -17,25 +17,40 @@
  */
 package io.ballerina.projects;
 
+import io.ballerina.projects.environment.PackageLockingMode;
+
+import java.util.Objects;
+
 /**
  * Build options of a project.
  */
 public class BuildOptions {
-    private Boolean testReport;
-    private Boolean codeCoverage;
-    private Boolean dumpBuildTime;
-    private Boolean skipTests;
-    private CompilationOptions compilationOptions;
-    private String targetDir;
+
+    private final Boolean showDependencyDiagnostics;
+    private final Boolean testReport;
+    private final Boolean codeCoverage;
+    private final Boolean dumpBuildTime;
+    private final Boolean skipTests;
+    private final CompilationOptions compilationOptions;
+    private final String targetDir;
+    private final Boolean nativeImage;
+    private final Boolean exportComponentModel;
+    private final String graalVMBuildOptions;
 
     BuildOptions(Boolean testReport, Boolean codeCoverage, Boolean dumpBuildTime, Boolean skipTests,
-                 CompilationOptions compilationOptions, String targetPath) {
+                 CompilationOptions compilationOptions, String targetPath,
+                 Boolean nativeImage, Boolean exportComponentModel, String graalVMBuildOptions,
+                 Boolean showDependencyDiagnostics) {
         this.testReport = testReport;
         this.codeCoverage = codeCoverage;
         this.dumpBuildTime = dumpBuildTime;
         this.skipTests = skipTests;
         this.compilationOptions = compilationOptions;
         this.targetDir = targetPath;
+        this.nativeImage = nativeImage;
+        this.exportComponentModel = exportComponentModel;
+        this.graalVMBuildOptions = graalVMBuildOptions;
+        this.showDependencyDiagnostics = showDependencyDiagnostics;
     }
 
     public boolean testReport() {
@@ -59,19 +74,48 @@ public class BuildOptions {
         return this.compilationOptions.offlineBuild();
     }
 
+    /**
+     * @deprecated Use {@link #lockingMode()} instead.
+     */
+    @Deprecated(forRemoval = true, since = "2201.13.0")
     public boolean sticky() {
         return this.compilationOptions.sticky();
+    }
+
+    public boolean disableSyntaxTree() {
+        return this.compilationOptions.disableSyntaxTree();
+    }
+
+    public boolean optimizeDependencyCompilation() {
+        return this.compilationOptions.optimizeDependencyCompilation();
+    }
+
+    /**
+     * Returns the package locking mode. If not specified, returns {@code PackageLockingMode.MEDIUM}
+     * @return the package locking mode
+     */
+    public PackageLockingMode lockingMode() {
+        if (this.compilationOptions.lockingMode() == null) {
+            return PackageLockingMode.MEDIUM;
+        }
+        return this.compilationOptions.lockingMode();
+    }
+
+    /**
+     * Returns the raw package locking mode. If not specified, returns {@code null}
+     * @return the raw package locking mode
+     */
+    public PackageLockingMode rawLockingMode() {
+        return this.compilationOptions.lockingMode();
     }
 
     /**
      * Checks whether experimental compilation option is set.
      *
      * @return Is experimental compilation option is set
-     * @deprecated Since language no longer has experimental features
      */
-    @Deprecated(forRemoval = true)
     public boolean experimental() {
-        return false;
+        return this.compilationOptions.experimental();
     }
 
     public boolean observabilityIncluded() {
@@ -86,12 +130,32 @@ public class BuildOptions {
         return this.compilationOptions.getCloud();
     }
 
+    public boolean remoteManagement() {
+        return this.compilationOptions.remoteManagement();
+    }
+
     CompilationOptions compilationOptions() {
         return this.compilationOptions;
     }
 
     public boolean exportOpenAPI() {
         return this.compilationOptions.exportOpenAPI();
+    }
+
+    public boolean exportComponentModel() {
+        return this.compilationOptions.exportComponentModel();
+    }
+
+    public boolean nativeImage() {
+        return toBooleanDefaultIfNull(this.nativeImage);
+    }
+
+    public String graalVMBuildOptions() {
+        return Objects.requireNonNullElse(this.graalVMBuildOptions, "");
+    }
+
+    public boolean showDependencyDiagnostics() {
+        return toBooleanDefaultIfNull(this.showDependencyDiagnostics);
     }
 
     /**
@@ -127,9 +191,30 @@ public class BuildOptions {
         } else {
             buildOptionsBuilder.targetDir(this.targetDir);
         }
+        if (theirOptions.nativeImage != null) {
+            buildOptionsBuilder.setNativeImage(theirOptions.nativeImage);
+        } else {
+            buildOptionsBuilder.setNativeImage(this.nativeImage);
+        }
+        if (theirOptions.exportComponentModel != null) {
+            buildOptionsBuilder.setExportComponentModel(theirOptions.exportComponentModel);
+        } else {
+            buildOptionsBuilder.setExportComponentModel(this.exportComponentModel);
+        }
+        if (theirOptions.graalVMBuildOptions != null) {
+            buildOptionsBuilder.setGraalVMBuildOptions(theirOptions.graalVMBuildOptions);
+        } else {
+            buildOptionsBuilder.setGraalVMBuildOptions(this.graalVMBuildOptions);
+        }
+        if (theirOptions.showDependencyDiagnostics != null) {
+            buildOptionsBuilder.setShowDependencyDiagnostics(theirOptions.showDependencyDiagnostics);
+        } else {
+            buildOptionsBuilder.setShowDependencyDiagnostics(this.showDependencyDiagnostics);
+        }
 
         CompilationOptions compilationOptions = this.compilationOptions.acceptTheirs(theirOptions.compilationOptions());
         buildOptionsBuilder.setOffline(compilationOptions.offlineBuild);
+        buildOptionsBuilder.setExperimental(compilationOptions.experimental);
         buildOptionsBuilder.setObservabilityIncluded(compilationOptions.observabilityIncluded);
         buildOptionsBuilder.setDumpBir(compilationOptions.dumpBir);
         buildOptionsBuilder.setDumpBirFile(compilationOptions.dumpBirFile);
@@ -140,6 +225,10 @@ public class BuildOptions {
         buildOptionsBuilder.setSticky(compilationOptions.sticky);
         buildOptionsBuilder.setConfigSchemaGen(compilationOptions.configSchemaGen);
         buildOptionsBuilder.setExportOpenAPI(compilationOptions.exportOpenAPI);
+        buildOptionsBuilder.setExportComponentModel(compilationOptions.exportComponentModel);
+        buildOptionsBuilder.setRemoteManagement(compilationOptions.remoteManagement);
+        buildOptionsBuilder.setOptimizeDependencyCompilation(compilationOptions.optimizeDependencyCompilation);
+        buildOptionsBuilder.setLockingMode(compilationOptions.lockingMode);
 
         return buildOptionsBuilder.build();
     }
@@ -170,11 +259,24 @@ public class BuildOptions {
      * Enum to represent build options.
      */
     public enum OptionName {
+        OFFLINE("offline"),
+        STICKY("sticky"),
+        LOCKING_MODE("lockingMode"),
+        OBSERVABILITY_INCLUDED("observabilityIncluded"),
+        EXPERIMENTAL("experimental"),
         SKIP_TESTS("skipTests"),
         TEST_REPORT("testReport"),
         CODE_COVERAGE("codeCoverage"),
+        LIST_CONFLICTED_CLASSES("listConflictedClasses"),
         DUMP_BUILD_TIME("dumpBuildTime"),
-        TARGET_DIR("targetDir");
+        TARGET_DIR("targetDir"),
+        NATIVE_IMAGE("graalvm"),
+        EXPORT_COMPONENT_MODEL("exportComponentModel"),
+        GRAAL_VM_BUILD_OPTIONS("graalvmBuildOptions"),
+        SHOW_DEPENDENCY_DIAGNOSTICS("showDependencyDiagnostics"),
+        OPTIMIZE_DEPENDENCY_COMPILATION("optimizeDependencyCompilation"),
+        REMOTE_MANAGEMENT("remoteManagement"),
+        CLOUD("cloud");
 
         private final String name;
 
@@ -194,15 +296,25 @@ public class BuildOptions {
      * @since 2.0.0
      */
     public static class BuildOptionsBuilder {
+
         private Boolean testReport;
         private Boolean codeCoverage;
         private Boolean dumpBuildTime;
         private Boolean skipTests;
         private String targetPath;
         private final CompilationOptions.CompilationOptionsBuilder compilationOptionsBuilder;
+        private Boolean nativeImage;
+        private Boolean exportComponentModel;
+        private String graalVMBuildOptions;
+        private Boolean showDependencyDiagnostics;
 
         private BuildOptionsBuilder() {
             compilationOptionsBuilder = CompilationOptions.builder();
+        }
+
+        public BuildOptionsBuilder disableSyntaxTreeCaching(Boolean value) {
+            compilationOptionsBuilder.disableSyntaxTree(value);
+            return this;
         }
 
         public BuildOptionsBuilder setTestReport(Boolean value) {
@@ -225,6 +337,7 @@ public class BuildOptions {
             return this;
         }
 
+        @Deprecated(forRemoval = true, since = "2201.13.0")
         public BuildOptionsBuilder setSticky(Boolean value) {
             compilationOptionsBuilder.setSticky(value);
             return this;
@@ -240,14 +353,18 @@ public class BuildOptions {
             return this;
         }
 
+        public BuildOptionsBuilder setGraalVMBuildOptions(String value) {
+            graalVMBuildOptions = value;
+            return this;
+        }
+
         /**
          * Set experimental compilation option.
          *
          * @return Build options builder
-         * @deprecated Since language no longer has experimental features
          */
-        @Deprecated(forRemoval = true)
         public BuildOptionsBuilder setExperimental(Boolean value) {
+            compilationOptionsBuilder.setExperimental(value);
             return this;
         }
 
@@ -296,9 +413,48 @@ public class BuildOptions {
             return this;
         }
 
+        public BuildOptionsBuilder setExportComponentModel(Boolean value) {
+            compilationOptionsBuilder.setExportComponentModel(value);
+            exportComponentModel = value;
+            return this;
+        }
+
+        public BuildOptionsBuilder setNativeImage(Boolean value) {
+            nativeImage = value;
+            return this;
+        }
+
+        public BuildOptionsBuilder setRemoteManagement(Boolean value) {
+            compilationOptionsBuilder.setRemoteManagement(value);
+            return this;
+        }
+
+        public BuildOptionsBuilder setShowDependencyDiagnostics(Boolean value) {
+            showDependencyDiagnostics = value;
+            return this;
+        }
+
+        /**
+         * (Experimental) option to specify that the memory usage must be optimized.
+         *
+         * @param value true or false (default)
+         * @return BuildOptionsBuilder instance
+         */
+        public BuildOptionsBuilder setOptimizeDependencyCompilation(Boolean value) {
+            compilationOptionsBuilder.setOptimizeDependencyCompilation(value);
+            return this;
+        }
+
+        public BuildOptionsBuilder setLockingMode(PackageLockingMode value) {
+            compilationOptionsBuilder.setLockingMode(value);
+            return this;
+        }
+
         public BuildOptions build() {
             CompilationOptions compilationOptions = compilationOptionsBuilder.build();
-            return new BuildOptions(testReport, codeCoverage, dumpBuildTime, skipTests, compilationOptions, targetPath);
+            return new BuildOptions(testReport, codeCoverage, dumpBuildTime, skipTests, compilationOptions,
+                    targetPath, nativeImage, exportComponentModel, graalVMBuildOptions,
+                    showDependencyDiagnostics);
         }
     }
 }

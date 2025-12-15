@@ -30,13 +30,13 @@ public enum Snippet {
 
     DEF_FUNCTION(SnippetGenerator.getFunctionDefSnippet()),
 
+    DEF_EXPRESSION_BODIED_FUNCTION(SnippetGenerator.getExpressionBodiedFunctionDefSnippet()),
+
     DEF_RESOURCE_FUNCTION(SnippetGenerator.getResourceFunctionDefSnippet()),
 
     DEF_RESOURCE_FUNCTION_SIGNATURE(SnippetGenerator.getResourceFunctionSignatureSnippet()),
 
     DEF_FUNCTION_SIGNATURE(SnippetGenerator.getFunctionSignatureSnippet()),
-
-    DEF_MAIN_FUNCTION(SnippetGenerator.getMainFunctionSnippet()),
 
     DEF_OBJECT_TYPE_DESC_SNIPPET(SnippetGenerator.getObjectTypeDescSnippet()),
 
@@ -125,7 +125,19 @@ public enum Snippet {
     DEF_IMMEDIATE_STOP_FUNCTION(SnippetGenerator.getImmediateStopFunctionSnippet()),
 
     DEF_DETACH_FUNCTION(SnippetGenerator.getDetachFunctionSnippet()),
+
+    DEF_REG_EXP(SnippetGenerator.getRegularExpressionSnippet()),
+
+    DEF_STRING(SnippetGenerator.getStringSnippet()),
+
+    DEF_XML(SnippetGenerator.getXmlSnippet()),
     
+    DEF_PARANTHESIS(SnippetGenerator.getParanthesisSnippet()),
+    
+    DEF_SQUARE_BRACKET(SnippetGenerator.getSquareBracketSnippet()),
+
+    DEF_NATURAL_EXPR(SnippetGenerator.getNaturalSnippet()),
+
     // Expressions Snippets
     EXPR_ERROR_CONSTRUCTOR(SnippetGenerator.getErrorConstructorSnippet()),
 
@@ -169,13 +181,15 @@ public enum Snippet {
 
     KW_AS(SnippetGenerator.getAsKeywordSnippet()),
 
-    KW_VERSION(SnippetGenerator.getVersionKeywordSnippet()),
-
     KW_FROM(SnippetGenerator.getFromKeywordSnippet()),
 
     KW_WHERE(SnippetGenerator.getWhereKeywordSnippet()),
 
     KW_JOIN(SnippetGenerator.getJoinKeywordSnippet()),
+
+    KW_GROUPBY(SnippetGenerator.getGroupByKeywordSnippet()),
+
+    KW_COLLECT(SnippetGenerator.getCollectKeywordSnippet()),
 
     KW_ORDERBY(SnippetGenerator.getOrderByKeywordSnippet()),
 
@@ -287,6 +301,8 @@ public enum Snippet {
 
     KW_SOURCE_WORKER(SnippetGenerator.getKeywordSnippet("source worker")),
 
+    KW_SOURCE_CLIENT(SnippetGenerator.getKeywordSnippet("source client")),
+
     KW_TRUE(SnippetGenerator.getKeywordSnippet("true")),
 
     KW_FALSE(SnippetGenerator.getKeywordSnippet("false")),
@@ -347,13 +363,13 @@ public enum Snippet {
 
     CLAUSE_LET(SnippetGenerator.getLetClauseSnippet()),
 
+    CLAUSE_GROUPBY(SnippetGenerator.getGroupByClauseSnippet()),
+
     CLAUSE_JOIN(SnippetGenerator.getJoinClauseSnippet()),
 
     CLAUSE_ON_FAIL(SnippetGenerator.getOnFailClauseSnippet()),
 
-    CLAUSE_ON_CONFLICT(SnippetGenerator.getOnConflictClauseSnippet()),
-
-    TYPE_MAP(SnippetGenerator.getMapTypeSnippet());
+    CLAUSE_ON_CONFLICT(SnippetGenerator.getOnConflictClauseSnippet());
 
     private final SnippetBlock snippetBlock;
 

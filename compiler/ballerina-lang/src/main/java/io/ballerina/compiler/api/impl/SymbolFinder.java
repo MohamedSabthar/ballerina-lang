@@ -20,14 +20,18 @@ package io.ballerina.compiler.api.impl;
 
 import io.ballerina.tools.diagnostics.Location;
 import io.ballerina.tools.text.LinePosition;
+import org.ballerinalang.model.clauses.GroupingKeyNode;
 import org.ballerinalang.model.clauses.OrderKeyNode;
 import org.ballerinalang.model.elements.Flag;
+import org.ballerinalang.model.symbols.SymbolKind;
+import org.ballerinalang.model.symbols.SymbolOrigin;
 import org.ballerinalang.model.tree.AnnotatableNode;
 import org.ballerinalang.model.tree.AnnotationAttachmentNode;
 import org.ballerinalang.model.tree.DocumentableNode;
 import org.ballerinalang.model.tree.NodeKind;
 import org.ballerinalang.model.tree.TopLevelNode;
 import org.ballerinalang.model.tree.expressions.RecordLiteralNode;
+import org.wso2.ballerinalang.compiler.semantics.model.symbols.BResourcePathSegmentSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BSymbol;
 import org.wso2.ballerinalang.compiler.tree.BLangAnnotation;
 import org.wso2.ballerinalang.compiler.tree.BLangAnnotationAttachment;
@@ -45,6 +49,7 @@ import org.wso2.ballerinalang.compiler.tree.BLangMarkdownReferenceDocumentation;
 import org.wso2.ballerinalang.compiler.tree.BLangNode;
 import org.wso2.ballerinalang.compiler.tree.BLangRecordVariable;
 import org.wso2.ballerinalang.compiler.tree.BLangResourceFunction;
+import org.wso2.ballerinalang.compiler.tree.BLangResourcePathSegment;
 import org.wso2.ballerinalang.compiler.tree.BLangRetrySpec;
 import org.wso2.ballerinalang.compiler.tree.BLangService;
 import org.wso2.ballerinalang.compiler.tree.BLangSimpleVariable;
@@ -64,8 +69,10 @@ import org.wso2.ballerinalang.compiler.tree.bindingpatterns.BLangMappingBindingP
 import org.wso2.ballerinalang.compiler.tree.bindingpatterns.BLangNamedArgBindingPattern;
 import org.wso2.ballerinalang.compiler.tree.bindingpatterns.BLangRestBindingPattern;
 import org.wso2.ballerinalang.compiler.tree.bindingpatterns.BLangSimpleBindingPattern;
+import org.wso2.ballerinalang.compiler.tree.clauses.BLangCollectClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangDoClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangFromClause;
+import org.wso2.ballerinalang.compiler.tree.clauses.BLangGroupByClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangJoinClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangLetClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangLimitClause;
@@ -77,17 +84,21 @@ import org.wso2.ballerinalang.compiler.tree.clauses.BLangOrderByClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangOrderKey;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangSelectClause;
 import org.wso2.ballerinalang.compiler.tree.clauses.BLangWhereClause;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangAlternateWorkerReceive;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangAnnotAccessExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangArrowFunction;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangBinaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckPanickedExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCheckedExpr;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangCollectContextInvocation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangCommitExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangConstant;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangElvisExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorConstructorExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangErrorVarRef;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangExpression;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangExtendedXMLNavigationAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangFieldBasedAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangGroupExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangIgnoreExpr;
@@ -105,20 +116,34 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownDocumentati
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownParameterDocumentation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMarkdownReturnParameterDocumentation;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangMatchGuard;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangMultipleWorkerReceive;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangNamedArgsExpression;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangNaturalExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangNumericLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangQueryAction;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangQueryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRawTemplateLiteral;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReAssertion;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReAtomCharOrEscape;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReAtomQuantifier;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReCapturingGroups;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReCharSet;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReCharSetRange;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReCharacterClass;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReDisjunction;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReFlagExpression;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReFlagsOnOff;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReQuantifier;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangReSequence;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRecordVarRef;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangRegExpTemplateLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangRestArgsExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangServiceConstructorExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangSimpleVarRef;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangStatementExpression;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangStringTemplateLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTableConstructorExpr;
-import org.wso2.ballerinalang.compiler.tree.expressions.BLangTableMultiKeyExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTernaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTransactionalExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangTrapExpr;
@@ -130,6 +155,7 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangTypedescExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangUnaryExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWaitExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWaitForAllExpr;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerAsyncSendExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerFlushExpr;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerReceive;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangWorkerSyncSendExpr;
@@ -138,6 +164,9 @@ import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLCommentLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLElementAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLElementFilter;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLElementLiteral;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLFilterStepExtend;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLIndexedStepExtend;
+import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLMethodCallStepExtend;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLNavigationAccess;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLProcInsLiteral;
 import org.wso2.ballerinalang.compiler.tree.expressions.BLangXMLQName;
@@ -183,7 +212,6 @@ import org.wso2.ballerinalang.compiler.tree.statements.BLangTransaction;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangTupleDestructure;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangTupleVariableDef;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangWhile;
-import org.wso2.ballerinalang.compiler.tree.statements.BLangWorkerSend;
 import org.wso2.ballerinalang.compiler.tree.statements.BLangXMLNSStatement;
 import org.wso2.ballerinalang.compiler.tree.types.BLangArrayType;
 import org.wso2.ballerinalang.compiler.tree.types.BLangBuiltInRefTypeNode;
@@ -206,6 +234,8 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static org.ballerinalang.model.symbols.SymbolOrigin.VIRTUAL;
+import static org.ballerinalang.model.tree.NodeKind.RESOURCE_PATH_PARAM_SEGMENT;
+import static org.ballerinalang.model.tree.NodeKind.RESOURCE_PATH_REST_PARAM_SEGMENT;
 
 /**
  * Finds the enclosing AST node's symbol for the given position.
@@ -293,7 +323,17 @@ class SymbolFinder extends BaseVisitor {
 
     @Override
     public void visit(BLangResourceFunction resourceFunction) {
+        lookupNodes(resourceFunction.resourcePathSegments);
         visit((BLangFunction) resourceFunction);
+    }
+
+    @Override
+    public void visit(BLangResourcePathSegment pathSegment) {
+        NodeKind pathSegmentKind = pathSegment.getKind();
+        if (pathSegmentKind == RESOURCE_PATH_PARAM_SEGMENT || pathSegmentKind == RESOURCE_PATH_REST_PARAM_SEGMENT) {
+            lookupNode(pathSegment.typeNode);
+        }
+        setEnclosingNode(pathSegment.symbol, pathSegment.symbol.pos);
     }
 
     @Override
@@ -375,7 +415,8 @@ class SymbolFinder extends BaseVisitor {
     @Override
     public void visit(BLangAnnotationAttachment annAttachmentNode) {
         if (annAttachmentNode.annotationSymbol != null
-                && setEnclosingNode(annAttachmentNode.annotationSymbol.owner, annAttachmentNode.pkgAlias.pos)) {
+                && (setEnclosingNode(annAttachmentNode.annotationSymbol.owner, annAttachmentNode.pkgAlias.pos) ||
+                        annAttachmentNode.annotationSymbol.getOrigin().equals(SymbolOrigin.BUILTIN))) {
             return;
         }
 
@@ -690,6 +731,23 @@ class SymbolFinder extends BaseVisitor {
     }
 
     @Override
+    public void visit(BLangGroupByClause groupByClause) {
+        for (GroupingKeyNode key : groupByClause.getGroupingKeyList()) {
+            lookupNode((BLangNode) key.getGroupingKey());
+        }
+    }
+
+    @Override
+    public void visit(BLangCollectClause collectClause) {
+        lookupNode(collectClause.expression);
+    }
+
+    @Override
+    public void visit(BLangCollectContextInvocation invocation) {
+        lookupNode(invocation.invocation);
+    }
+
+    @Override
     public void visit(BLangSelectClause selectClause) {
         lookupNode(selectClause.expression);
     }
@@ -763,12 +821,31 @@ class SymbolFinder extends BaseVisitor {
     }
 
     @Override
-    public void visit(BLangWorkerSend workerSendNode) {
-        if (setEnclosingNode(workerSendNode.workerSymbol, workerSendNode.workerIdentifier.pos)) {
+    public void visit(BLangWorkerAsyncSendExpr asyncSendExpr) {
+        if (setEnclosingNode(asyncSendExpr.workerSymbol, asyncSendExpr.workerIdentifier.pos)) {
             return;
         }
 
-        lookupNode(workerSendNode.expr);
+        lookupNode(asyncSendExpr.expr);
+    }
+
+    @Override
+    public void visit(BLangAlternateWorkerReceive alternateWorkerReceive) {
+        for (BLangWorkerReceive workerReceive : alternateWorkerReceive.getWorkerReceives()) {
+            if (setEnclosingNode(workerReceive.workerSymbol, workerReceive.workerIdentifier.pos)) {
+                return;
+            }
+        }
+    }
+
+    @Override
+    public void visit(BLangMultipleWorkerReceive multipleWorkerReceive) {
+        for (BLangMultipleWorkerReceive.BLangReceiveField receiveField : multipleWorkerReceive.getReceiveFields()) {
+            BLangWorkerReceive workerReceive = receiveField.getWorkerReceive();
+            if (setEnclosingNode(workerReceive.workerSymbol, workerReceive.workerIdentifier.pos)) {
+                return;
+            }
+        }
     }
 
     @Override
@@ -848,12 +925,12 @@ class SymbolFinder extends BaseVisitor {
     }
 
     @Override
-    public void visit(BLangFieldBasedAccess.BLangNSPrefixedFieldBasedAccess nsPrefixedFieldBasedAccess) {
-        if (setEnclosingNode(nsPrefixedFieldBasedAccess.nsSymbol, nsPrefixedFieldBasedAccess.nsPrefix.pos)) {
+    public void visit(BLangFieldBasedAccess.BLangPrefixedFieldBasedAccess prefixedFieldBasedAccess) {
+        if (setEnclosingNode(prefixedFieldBasedAccess.symbol, prefixedFieldBasedAccess.prefix.pos)) {
             return;
         }
 
-        lookupNode(nsPrefixedFieldBasedAccess.expr);
+        lookupNode(prefixedFieldBasedAccess.expr);
     }
 
     @Override
@@ -1130,11 +1207,6 @@ class SymbolFinder extends BaseVisitor {
     }
 
     @Override
-    public void visit(BLangTableMultiKeyExpr tableMultiKeyExpr) {
-        super.visit(tableMultiKeyExpr);
-    }
-
-    @Override
     public void visit(BLangTransactionalExpr transactionalExpr) {
         super.visit(transactionalExpr);
     }
@@ -1239,6 +1311,10 @@ class SymbolFinder extends BaseVisitor {
         lookupNodes(classDefinition.fields);
         lookupNodes(classDefinition.referencedFields);
         lookupNode(classDefinition.initFunction);
+        for (BLangFunction method : classDefinition.functions) {
+            lookupNodes(method.annAttachments);
+        }
+
         lookupNodes(classDefinition.functions);
         lookupNodes(classDefinition.typeRefs);
     }
@@ -1276,7 +1352,10 @@ class SymbolFinder extends BaseVisitor {
 
     @Override
     public void visit(BLangTupleTypeNode tupleTypeNode) {
-        lookupNodes(tupleTypeNode.memberTypeNodes);
+        for (BLangSimpleVariable member : tupleTypeNode.getMemberNodes()) {
+            lookupNodes(member.getAnnotationAttachments());
+            lookupNode(member.getTypeNode());
+        }
         lookupNode(tupleTypeNode.restParamType);
     }
 
@@ -1524,6 +1603,11 @@ class SymbolFinder extends BaseVisitor {
 
     @Override
     public void visit(BLangWorkerFlushExpr workerFlushExpr) {
+        // Ignore incomplete worker-flush expressions
+        // Ex: var a = flush;
+        if (workerFlushExpr.workerIdentifier == null) {
+            return;
+        }
         setEnclosingNode(workerFlushExpr.workerSymbol, workerFlushExpr.workerIdentifier.pos);
     }
 
@@ -1591,8 +1675,167 @@ class SymbolFinder extends BaseVisitor {
     @Override
     public void visit(BLangXMLNavigationAccess xmlNavigation) {
         lookupNode(xmlNavigation.expr);
-        lookupNode(xmlNavigation.childIndex);
         lookupNodes(xmlNavigation.filters);
+    }
+
+    @Override
+    public void visit(BLangExtendedXMLNavigationAccess extendedXmlNavigationAccess) {
+        lookupNode(extendedXmlNavigationAccess.stepExpr);
+        lookupNodes(extendedXmlNavigationAccess.extensions);
+    }
+
+    @Override
+    public void visit(BLangXMLIndexedStepExtend xmlIndexedStepExtend) {
+        lookupNode(xmlIndexedStepExtend.indexExpr);
+    }
+
+    @Override
+    public void visit(BLangXMLFilterStepExtend xmlFilterStepExtend) {
+        lookupNodes(xmlFilterStepExtend.filters);
+    }
+
+    @Override
+    public void visit(BLangXMLMethodCallStepExtend xmlMethodCallStepExtend) {
+        lookupNode(xmlMethodCallStepExtend.invocation);
+    }
+
+    @Override
+    public void visit(BLangInvocation.BLangResourceAccessInvocation resourceAccessInvocation) {
+        lookupNodes(resourceAccessInvocation.annAttachments);
+        lookupResourceAccessPathSegments(resourceAccessInvocation);
+        lookupNodes(resourceAccessInvocation.requiredArgs);
+        lookupNodes(resourceAccessInvocation.restArgs);
+        lookupNode(resourceAccessInvocation.expr);
+
+        // The assumption is that if it's moduled-qualified, it must be a public symbol.
+        // Hence, the owner would be a package symbol.
+        BSymbol symbol = resourceAccessInvocation.symbol;
+        if (symbol != null && setEnclosingNode(symbol.owner, resourceAccessInvocation.pkgAlias.pos)) {
+            return;
+        }
+
+        if (this.symbolAtCursor == null) {
+            setEnclosingNode(symbol, resourceAccessInvocation.name.pos);
+        }
+    }
+
+    @Override
+    public void visit(BLangRegExpTemplateLiteral regExpTemplateLiteral) {
+        lookupNode(regExpTemplateLiteral.reDisjunction);
+    }
+
+    @Override
+    public void visit(BLangReSequence reSequence) {
+        lookupNodes(reSequence.termList);
+    }
+
+    @Override
+    public void visit(BLangReAtomQuantifier reAtomQuantifier) {
+        lookupNode(reAtomQuantifier.atom);
+        lookupNode(reAtomQuantifier.quantifier);
+    }
+
+    @Override
+    public void visit(BLangReAtomCharOrEscape reAtomCharOrEscape) {
+        lookupNode(reAtomCharOrEscape.charOrEscape);
+    }
+
+    @Override
+    public void visit(BLangReQuantifier reQuantifier) {
+        lookupNode(reQuantifier.quantifier);
+        lookupNode(reQuantifier.nonGreedyChar);
+    }
+
+    @Override
+    public void visit(BLangReCharacterClass reCharacterClass) {
+        lookupNode(reCharacterClass.characterClassStart);
+        lookupNode(reCharacterClass.negation);
+        lookupNode(reCharacterClass.charSet);
+        lookupNode(reCharacterClass.characterClassEnd);
+    }
+
+    @Override
+    public void visit(BLangReCharSet reCharSet) {
+        lookupNodes(reCharSet.charSetAtoms);
+    }
+
+    @Override
+    public void visit(BLangReCharSetRange reCharSetRange) {
+        lookupNode(reCharSetRange.lhsCharSetAtom);
+        lookupNode(reCharSetRange.dash);
+        lookupNode(reCharSetRange.rhsCharSetAtom);
+    }
+
+    @Override
+    public void visit(BLangReAssertion reAssertion) {
+        lookupNode(reAssertion.assertion);
+    }
+
+    @Override
+    public void visit(BLangReCapturingGroups reCapturingGroups) {
+        lookupNode(reCapturingGroups.openParen);
+        lookupNode(reCapturingGroups.flagExpr);
+        lookupNode(reCapturingGroups.disjunction);
+        lookupNode(reCapturingGroups.closeParen);
+    }
+
+    @Override
+    public void visit(BLangReDisjunction reDisjunction) {
+        lookupNodes(reDisjunction.sequenceList);
+    }
+
+    @Override
+    public void visit(BLangReFlagsOnOff reFlagsOnOff) {
+        lookupNode(reFlagsOnOff.flags);
+    }
+
+    @Override
+    public void visit(BLangReFlagExpression reFlagExpression) {
+        lookupNode(reFlagExpression.questionMark);
+        lookupNode(reFlagExpression.flagsOnOff);
+        lookupNode(reFlagExpression.colon);
+    }
+
+    @Override
+    public void visit(BLangNaturalExpression naturalExpression) {
+        lookupNodes(naturalExpression.arguments);
+        lookupNodes(naturalExpression.strings);
+        lookupNodes(naturalExpression.insertions);
+    }
+
+    private void lookupResourceAccessPathSegments(BLangInvocation.BLangResourceAccessInvocation resourceInvocation) {
+        if (resourceInvocation.targetResourceFunc == null) {
+            // Return if target-function is not set.
+            // Ex: Ambiguous target-functions
+            return;
+        }
+
+        List<BResourcePathSegmentSymbol> pathSegSymbols = resourceInvocation.targetResourceFunc.pathSegmentSymbols;
+        List<BLangExpression> pathExprs = resourceInvocation.resourceAccessPathSegments.exprs;
+
+        if (pathExprs.isEmpty() && pathSegSymbols.get(0).getKind() == SymbolKind.RESOURCE_ROOT_PATH_SEGMENT) {
+            // Returns since the resource-function has only the root-path segment
+            // Assumption: If a resource-action with 0 path-expr matches with a resource function, 
+            // then it must have a root-path
+            return;
+        }
+
+        for (int i = 0; i < pathExprs.size(); i++) {
+            BResourcePathSegmentSymbol pathSymbol = pathSegSymbols.get(i);
+
+            if (pathSymbol.getKind() == SymbolKind.RESOURCE_PATH_REST_PARAM_SEGMENT) {
+                // Return since the path segment is a rest-param segment.
+                // e.i. Resource path segment is not allowed after resource path rest parameter.
+                return;
+            }
+
+            BLangExpression expr = pathExprs.get(i);
+            if (expr.getKind() == NodeKind.LITERAL
+                    && pathSymbol.getKind() == SymbolKind.RESOURCE_PATH_IDENTIFIER_SEGMENT
+                    && setEnclosingNode(pathSymbol, expr.pos)) {
+                return;
+            }
+        }
     }
 
     private boolean setEnclosingNode(BSymbol symbol, Location pos) {
@@ -1619,10 +1862,9 @@ class SymbolFinder extends BaseVisitor {
     }
 
     private boolean isWithinNodeMetaData(TopLevelNode node) {
-        if (node instanceof AnnotatableNode) {
+        if (node instanceof AnnotatableNode annotatableNode) {
 
-            List<AnnotationAttachmentNode> nodes =
-                    (List<AnnotationAttachmentNode>) ((AnnotatableNode) node).getAnnotationAttachments();
+            List<? extends AnnotationAttachmentNode> nodes = annotatableNode.getAnnotationAttachments();
 
             for (AnnotationAttachmentNode annotAttachment : nodes) {
                 if (PositionUtil.withinBlock(this.cursorPos, annotAttachment.getPosition())) {
@@ -1631,8 +1873,8 @@ class SymbolFinder extends BaseVisitor {
             }
         }
 
-        if (node instanceof DocumentableNode) {
-            BLangMarkdownDocumentation markdown = ((DocumentableNode) node).getMarkdownDocumentationAttachment();
+        if (node instanceof DocumentableNode documentableNode) {
+            BLangMarkdownDocumentation markdown = documentableNode.getMarkdownDocumentationAttachment();
             if (markdown != null) {
                 LinkedList<BLangMarkdownParameterDocumentation> parameters = markdown.getParameters();
                 for (BLangMarkdownParameterDocumentation parameter : parameters) {

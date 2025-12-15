@@ -21,7 +21,9 @@ import io.ballerina.tools.diagnostics.Location;
 import io.netty.buffer.ByteBuf;
 import org.ballerinalang.compiler.BLangCompilerException;
 import org.ballerinalang.model.elements.PackageID;
-import org.wso2.ballerinalang.compiler.bir.model.BIRArgument;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JLargeArrayInstruction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JLargeMapInstruction;
+import org.wso2.ballerinalang.compiler.bir.codegen.model.JMethodCallInstruction;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRBasicBlock;
 import org.wso2.ballerinalang.compiler.bir.model.BIRNode.BIRGlobalVariableDcl;
@@ -46,6 +48,7 @@ import org.wso2.ballerinalang.compiler.bir.writer.CPEntry.ByteCPEntry;
 import org.wso2.ballerinalang.compiler.bir.writer.CPEntry.FloatCPEntry;
 import org.wso2.ballerinalang.compiler.bir.writer.CPEntry.IntegerCPEntry;
 import org.wso2.ballerinalang.compiler.bir.writer.CPEntry.StringCPEntry;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
 import org.wso2.ballerinalang.compiler.semantics.model.types.BType;
 import org.wso2.ballerinalang.compiler.util.TypeTags;
 
@@ -60,18 +63,16 @@ import java.util.Set;
  */
 public class BIRInstructionWriter extends BIRVisitor {
 
-    private ByteBuf buf;
-    private ByteBuf scopeBuf;
-    private ConstantPool cp;
-    private BIRBinaryWriter binaryWriter;
+    private final ByteBuf buf;
+    private final ByteBuf scopeBuf;
+    private final ConstantPool cp;
     private int instructionOffset;
-    private Set<BirScope> completedScopeSet;
+    private final Set<BirScope> completedScopeSet;
     private int scopeCount;
 
-    BIRInstructionWriter(ByteBuf buf, ByteBuf scopeBuf, ConstantPool cp, BIRBinaryWriter birBinaryWriter) {
+    BIRInstructionWriter(ByteBuf buf, ByteBuf scopeBuf, ConstantPool cp) {
         this.buf = buf;
         this.scopeBuf = scopeBuf;
-        this.binaryWriter = birBinaryWriter;
         this.cp = cp;
         this.instructionOffset = 0;
         this.completedScopeSet = new HashSet<>();
@@ -90,13 +91,18 @@ public class BIRInstructionWriter extends BIRVisitor {
     void writeScopes(BIRNonTerminator instruction) {
         this.instructionOffset++;
         BirScope currentScope = instruction.scope;
-
+        if (currentScope == null) {
+            return;
+        }
         writeScope(currentScope);
     }
 
     void writeScope(BIRTerminator terminator) {
         if (terminator.kind != InstructionKind.RETURN) {
             BirScope currentScope = terminator.scope;
+            if (currentScope == null) {
+                return;
+            }
             writeScope(currentScope);
         }
     }
@@ -109,18 +115,19 @@ public class BIRInstructionWriter extends BIRVisitor {
         this.completedScopeSet.add(currentScope);
         this.scopeCount++; // Increment the scope count so we can read the scopes iteratively
 
-        scopeBuf.writeInt(currentScope.id);
+        scopeBuf.writeInt(currentScope.id());
         scopeBuf.writeInt(this.instructionOffset);
 
-        if (currentScope.parent != null) {
+        if (currentScope.parent() != null) {
             scopeBuf.writeBoolean(true); // Parent available.
-            scopeBuf.writeInt(currentScope.parent.id);
-            writeScope(currentScope.parent);
+            scopeBuf.writeInt(currentScope.parent().id());
+            writeScope(currentScope.parent());
         } else {
             scopeBuf.writeBoolean(false);
         }
     }
 
+    @Override
     public void visit(BIRBasicBlock birBasicBlock) {
         //Name of the basic block
         addCpAndWriteString(birBasicBlock.id.value);
@@ -155,6 +162,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         errorEntries.forEach(birErrorEntry -> birErrorEntry.accept(this));
     }
 
+    @Override
     public void visit(BIRNode.BIRErrorEntry errorEntry) {
         addCpAndWriteString(errorEntry.trapBB.id.value);
         addCpAndWriteString(errorEntry.endBB.id.value);
@@ -164,14 +172,17 @@ public class BIRInstructionWriter extends BIRVisitor {
 
     // Terminating instructions
 
+    @Override
     public void visit(BIRTerminator.GOTO birGoto) {
         addCpAndWriteString(birGoto.targetBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.Lock lock) {
         addCpAndWriteString(lock.lockedBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.FieldLock lock) {
         // TODO properly use operand instead of variablDcl.name here
         addCpAndWriteString(lock.localVar.variableDcl.name.value);
@@ -179,14 +190,17 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(lock.lockedBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.Unlock unlock) {
         addCpAndWriteString(unlock.unlockBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.Return birReturn) {
         // do nothing
     }
 
+    @Override
     public void visit(BIRTerminator.Branch birBranch) {
         birBranch.op.accept(this);
         // true:BB
@@ -195,6 +209,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(birBranch.falseBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.Wait waitEntry) {
         buf.writeInt(waitEntry.exprList.size());
         for (BIROperand expr : waitEntry.exprList) {
@@ -204,6 +219,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(waitEntry.thenBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.Flush entry) {
         buf.writeInt(entry.channels.length);
         for (BIRNode.ChannelDetails detail : entry.channels) {
@@ -215,6 +231,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(entry.thenBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.WorkerReceive entry) {
         buf.writeInt(addStringCPEntry(entry.workerName.getValue()));
         entry.lhsOp.accept(this);
@@ -222,6 +239,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(entry.thenBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.WorkerSend entry) {
         buf.writeInt(addStringCPEntry(entry.channel.getValue()));
         entry.data.accept(this);
@@ -233,6 +251,27 @@ public class BIRInstructionWriter extends BIRVisitor {
         addCpAndWriteString(entry.thenBB.id.value);
     }
 
+    @Override
+    public void visit(BIRTerminator.WorkerAlternateReceive entry) {
+        entry.channels.forEach(key -> buf.writeInt(addStringCPEntry(key)));
+        entry.lhsOp.accept(this);
+        buf.writeBoolean(entry.isSameStrand);
+        addCpAndWriteString(entry.thenBB.id.value);
+    }
+
+    @Override
+    public void visit(BIRTerminator.WorkerMultipleReceive entry) {
+        entry.receiveFields.forEach(key -> {
+            buf.writeInt(addStringCPEntry(key.key()));
+            buf.writeInt(addStringCPEntry(key.workerReceive()));
+        });
+        writeType(entry.targetType);
+        entry.lhsOp.accept(this);
+        buf.writeBoolean(entry.isSameStrand);
+        addCpAndWriteString(entry.thenBB.id.value);
+    }
+
+    @Override
     public void visit(BIRTerminator.WaitAll waitAll) {
         waitAll.lhsOp.accept(this);
         buf.writeInt(waitAll.keys.size());
@@ -252,19 +291,22 @@ public class BIRInstructionWriter extends BIRVisitor {
         newTable.dataOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.Move birMove) {
         birMove.rhsOp.accept(this);
         birMove.lhsOp.accept(this);
     }
 
+    @Override
     public void visit(BIRTerminator.Call birCall) {
         writeCallInstruction(birCall);
         addCpAndWriteString(birCall.thenBB.id.value);
     }
 
+    @Override
     public void visit(BIRTerminator.AsyncCall birAsyncCall) {
         writeCallInstruction(birAsyncCall);
-        binaryWriter.writeAnnotAttachments(buf, birAsyncCall.annotAttachments);
+        BIRWriterUtils.writeAnnotAttachments(this.cp, buf, birAsyncCall.annotAttachments);
         addCpAndWriteString(birAsyncCall.thenBB.id.value);
     }
 
@@ -275,7 +317,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         buf.writeInt(pkgIndex);
         buf.writeInt(addStringCPEntry(birCall.name.getValue()));
         buf.writeInt(birCall.args.size());
-        for (BIRArgument arg : birCall.args) {
+        for (BIROperand arg : birCall.args) {
             arg.accept(this);
         }
         if (birCall.lhsOp != null) {
@@ -286,10 +328,11 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
     }
 
+    @Override
     public void visit(BIRTerminator.FPCall fpCall) {
         fpCall.fp.accept(this);
         buf.writeInt(fpCall.args.size());
-        for (BIRArgument arg : fpCall.args) {
+        for (BIROperand arg : fpCall.args) {
             arg.accept(this);
         }
         if (fpCall.lhsOp != null) {
@@ -299,26 +342,30 @@ public class BIRInstructionWriter extends BIRVisitor {
             buf.writeByte(0);
         }
         buf.writeBoolean(fpCall.isAsync);
+        BIRWriterUtils.writeAnnotAttachments(this.cp, buf, fpCall.annotAttachments);
         addCpAndWriteString(fpCall.thenBB.id.value);
     }
 
+    @Override
     public void visit(BIRNonTerminator.BinaryOp birBinaryOp) {
         birBinaryOp.rhsOp1.accept(this);
         birBinaryOp.rhsOp2.accept(this);
         birBinaryOp.lhsOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.UnaryOP birUnaryOp) {
         birUnaryOp.rhsOp.accept(this);
         birUnaryOp.lhsOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.ConstantLoad birConstantLoad) {
         writeType(birConstantLoad.type);
         birConstantLoad.lhsOp.accept(this);
 
         BType type = birConstantLoad.type;
-        switch (type.tag) {
+        switch (Types.getImpliedType(type).tag) {
             case TypeTags.INT:
             case TypeTags.SIGNED32_INT:
             case TypeTags.SIGNED16_INT:
@@ -354,6 +401,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
     }
 
+    @Override
     public void visit(NewStructure birNewStructure) {
         birNewStructure.rhsOp.accept(this);
         birNewStructure.lhsOp.accept(this);
@@ -373,6 +421,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
     }
 
+    @Override
     public void visit(BIRNonTerminator.NewInstance newInstance) {
         buf.writeBoolean(newInstance.isExternalDef);
         if (newInstance.isExternalDef) {
@@ -385,9 +434,22 @@ public class BIRInstructionWriter extends BIRVisitor {
         newInstance.lhsOp.accept(this);
     }
 
+    @Override
     public void visit(NewArray birNewArray) {
         writeType(birNewArray.type);
         birNewArray.lhsOp.accept(this);
+        if (birNewArray.typedescOp != null) {
+            buf.writeByte(1);
+            birNewArray.typedescOp.accept(this);
+        } else {
+            buf.writeByte(0);
+        }
+        if (birNewArray.elementTypedescOp != null) {
+            buf.writeByte(1);
+            birNewArray.elementTypedescOp.accept(this);
+        } else {
+            buf.writeByte(0);
+        }
         birNewArray.sizeOp.accept(this);
         buf.writeInt(birNewArray.values.size());
         for (BIRNode.BIRListConstructorEntry listValueEntry : birNewArray.values) {
@@ -395,6 +457,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
     }
 
+    @Override
     public void visit(BIRNonTerminator.FieldAccess birFieldAccess) {
         if (birFieldAccess.kind == InstructionKind.MAP_LOAD || birFieldAccess.kind == InstructionKind.ARRAY_LOAD) {
             buf.writeBoolean(birFieldAccess.optionalFieldAccess);
@@ -405,6 +468,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         birFieldAccess.rhsOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.TypeCast birTypeCast) {
         birTypeCast.lhsOp.accept(this);
         birTypeCast.rhsOp.accept(this);
@@ -412,12 +476,14 @@ public class BIRInstructionWriter extends BIRVisitor {
         buf.writeBoolean(birTypeCast.checkTypes);
     }
 
+    @Override
     public void visit(BIRNonTerminator.IsLike birIsLike) {
         writeType(birIsLike.type);
         birIsLike.lhsOp.accept(this);
         birIsLike.rhsOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.TypeTest birTypeTest) {
         writeType(birTypeTest.type);
         birTypeTest.lhsOp.accept(this);
@@ -425,6 +491,7 @@ public class BIRInstructionWriter extends BIRVisitor {
     }
 
     // Operands
+    @Override
     public void visit(BIROperand birOperand) {
         if (birOperand.variableDcl.ignoreVariable) {
             buf.writeBoolean(true);
@@ -447,10 +514,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         }
     }
 
-    public void visit(BIRArgument birArgument) {
-        birArgument.accept(this);
-    }
-
+    @Override
     public void visit(BIRNonTerminator.NewError birNewError) {
         writeType(birNewError.type);
         birNewError.lhsOp.accept(this);
@@ -459,6 +523,7 @@ public class BIRInstructionWriter extends BIRVisitor {
         birNewError.detailOp.accept(this);
     }
 
+    @Override
     public void visit(BIRNonTerminator.FPLoad fpLoad) {
         fpLoad.lhsOp.accept(this);
 
@@ -479,9 +544,16 @@ public class BIRInstructionWriter extends BIRVisitor {
             writeType(param.type);
             buf.writeInt(addStringCPEntry(param.name.value));
         });
-
     }
 
+    @Override
+    public void visit(BIRNonTerminator.RecordDefaultFPLoad recordDefaultFPLoad) {
+        recordDefaultFPLoad.lhsOp.accept(this);
+        writeType(recordDefaultFPLoad.enclosedType);
+        buf.writeInt(addStringCPEntry(recordDefaultFPLoad.fieldName));
+    }
+
+    @Override
     public void visit(BIRTerminator.Panic birPanic) {
         birPanic.errorOp.accept(this);
     }
@@ -541,6 +613,120 @@ public class BIRInstructionWriter extends BIRVisitor {
     public void visit(NewTypeDesc newTypeDesc) {
         newTypeDesc.lhsOp.accept(this);
         writeType(newTypeDesc.type);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewRegExp newRegExp) {
+        newRegExp.lhsOp.accept(this);
+        newRegExp.reDisjunction.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReDisjunction reDisjunction) {
+        reDisjunction.lhsOp.accept(this);
+        reDisjunction.sequences.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReSequence reSequence) {
+        reSequence.lhsOp.accept(this);
+        reSequence.terms.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReAssertion reAssertion) {
+        reAssertion.lhsOp.accept(this);
+        reAssertion.assertion.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReAtomQuantifier reAtomQuantifier) {
+        reAtomQuantifier.lhsOp.accept(this);
+        reAtomQuantifier.atom.accept(this);
+        reAtomQuantifier.quantifier.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReLiteralCharOrEscape reLiteralCharOrEscape) {
+        reLiteralCharOrEscape.lhsOp.accept(this);
+        reLiteralCharOrEscape.charOrEscape.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReQuantifier reQuantifier) {
+        reQuantifier.lhsOp.accept(this);
+        reQuantifier.quantifier.accept(this);
+        reQuantifier.nonGreedyChar.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReCharacterClass reCharacterClass) {
+        reCharacterClass.lhsOp.accept(this);
+        reCharacterClass.classStart.accept(this);
+        reCharacterClass.negation.accept(this);
+        reCharacterClass.charSet.accept(this);
+        reCharacterClass.classEnd.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReCharSet reCharSet) {
+        reCharSet.lhsOp.accept(this);
+        reCharSet.charSetAtoms.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReCharSetRange reCharSetRange) {
+        reCharSetRange.lhsOp.accept(this);
+        reCharSetRange.lhsCharSetAtom.accept(this);
+        reCharSetRange.dash.accept(this);
+        reCharSetRange.rhsCharSetAtom.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReCapturingGroup reCapturingGroups) {
+        reCapturingGroups.lhsOp.accept(this);
+        reCapturingGroups.openParen.accept(this);
+        reCapturingGroups.flagExpr.accept(this);
+        reCapturingGroups.reDisjunction.accept(this);
+        reCapturingGroups.closeParen.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReFlagExpression reFlagExpression) {
+        reFlagExpression.lhsOp.accept(this);
+        reFlagExpression.questionMark.accept(this);
+        reFlagExpression.flagsOnOff.accept(this);
+        reFlagExpression.colon.accept(this);
+    }
+
+    @Override
+    public void visit(BIRNonTerminator.NewReFlagOnOff reFlagsOnOff) {
+        reFlagsOnOff.lhsOp.accept(this);
+        reFlagsOnOff.flags.accept(this);
+    }
+
+    @Override
+    public void visit(JMethodCallInstruction jMethodCallInstruction) {
+        for (BIROperand arg : jMethodCallInstruction.args) {
+            arg.accept(this);
+        }
+    }
+
+    @Override
+    public void visit(JLargeArrayInstruction jLargeArrayInstruction) {
+        jLargeArrayInstruction.lhsOp.accept(this);
+        jLargeArrayInstruction.sizeOp.accept(this);
+        jLargeArrayInstruction.values.accept(this);
+        if (jLargeArrayInstruction.typedescOp != null) {
+            jLargeArrayInstruction.typedescOp.accept(this);
+        }
+    }
+
+    @Override
+    public void visit(JLargeMapInstruction jLargeMapInstruction) {
+        jLargeMapInstruction.lhsOp.accept(this);
+        jLargeMapInstruction.rhsOp.accept(this);
+        jLargeMapInstruction.initialValues.accept(this);
     }
 
     // Positions

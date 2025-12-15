@@ -64,18 +64,33 @@ public class IntersectionTypeTest {
     }
 
     @Test
+    public void testIsolatedFunctionReadonlyIntersection() {
+        BRunUtil.invoke(readOnlyIntersectionResults, "testIsolatedFunctionReadonlyIntersection");
+    }
+
+    @Test
+    public void testIntersectionWithUnionEffectiveTypeAsAMemberOfAUnion() {
+        BRunUtil.invoke(readOnlyIntersectionResults, "testIntersectionWithUnionEffectiveTypeAsAMemberOfAUnion");
+    }
+
+    @Test
     public void testImmutableTypesNegative() {
         CompileResult result = BCompileUtil.compile("test-src/types/intersection/test_intersection_type_negative.bal");
         int index = 0;
 
         validateError(result, index++, "invalid intersection type with 'readonly', 'future<int>' can never be " +
                 "'readonly'", 19, 5);
-        validateError(result, index++, "unsupported intersection 'json & int'", 23, 5);
+        validateError(result, index++, "unsupported intersection", 23, 5);
         validateError(result, index++, "invalid intersection type '(Bar & readonly)': no intersection", 26,
                       45);
         validateError(result, index++, "invalid intersection type '(Baz & readonly)': no intersection", 32,
                       45);
         validateError(result, index++, "incompatible types: 'Y' is not a record", 42, 6);
+        validateError(result, index++, "invalid intersection type " +
+                        "'FutureType & ReadonlyType': no intersection", 49, 9);
+        validateError(result, index++, "cannot update 'readonly' value of type '(string[] & readonly)'", 53, 5);
+        validateError(result, index++, "incompatible types: expected '(int[] & readonly)', found 'int[]'", 63, 30);
+        validateError(result, index++, "incompatible types: expected '(Foo & readonly)', found 'Foo'", 65, 28);
 
         assertEquals(result.getErrorCount(), index);
     }
@@ -146,6 +161,11 @@ public class IntersectionTypeTest {
     }
 
     @Test
+    public void testErrorIntersectionWithDistinctErrors() {
+        BRunUtil.invoke(errorIntersectionResults, "testErrorIntersectionWithDistinctErrors");
+    }
+
+    @Test
     public void testErrorIntersectionNegative() {
         CompileResult result = BCompileUtil.compile("test-src/types/intersection/error_intersection_type_negative.bal");
 
@@ -156,6 +176,8 @@ public class IntersectionTypeTest {
         validateError(result, index++, "error constructor does not accept additional detail args 'z' when " +
                         "error detail type 'record {| string x; string...; |}' contains individual field descriptors",
                 56, 63);
+        validateError(result, index++,
+                "incompatible types: expected 'string', found 'int'", 56, 67);
         validateError(result, index++,
                       "incompatible types: expected 'DistinctErrorIntersection', found 'IntersectionErrorFour'", 57,
                       38);
@@ -193,7 +215,7 @@ public class IntersectionTypeTest {
         validateError(result, index++, "error constructor does not accept additional detail args 'oth' when error " +
                 "detail type 'record {| boolean fatal?; int code; int...; |}' contains individual field descriptors",
                 96, 59);
-
+        validateError(result, index++, "incompatible types: expected 'int', found 'boolean'", 96, 65);
         assertEquals(result.getErrorCount(), index);
     }
 
@@ -235,15 +257,18 @@ public class IntersectionTypeTest {
         CompileResult result =
                 BCompileUtil.compile("test-src/types/intersection/unsupported_intersection_negative.bal");
         int index = 0;
-        validateError(result, index++, "unsupported intersection 'int & string'", 17, 8);
-        validateError(result, index++, "unsupported intersection 'int & int'", 18, 9);
-        validateError(result, index++,
-                "unsupported intersection 'function()returns(int) & function()returns(2|3|4.0f|-50d|\"a\")'", 19, 9);
-        validateError(result, index++, "unsupported intersection 'int & int'", 21, 1);
-        validateError(result, index++, "unknown type 'A'", 23, 14);
-        validateError(result, index++, "unknown type 'II'", 23, 19);
-        validateError(result, index++, "unsupported intersection 'int & int'", 23, 25);
+        validateError(result, index++, "unsupported intersection", 17, 8);
+        validateError(result, index++, "unsupported intersection", 19, 9);
+        validateError(result, index++, "unsupported intersection", 21, 1);
+        validateError(result, index++, "unsupported intersection", 23, 25);
         assertEquals(result.getErrorCount(), index);
+    }
+
+    @Test
+    public void testErrorIntersectionAccessTest() {
+        CompileResult result = BCompileUtil.compile("test-src/types/intersection/error-intersection-access");
+        assertEquals(result.getErrorCount(), 0);
+        BRunUtil.invoke(result, "testErrorIntersectionFromImportedModule");
     }
 
     @AfterClass

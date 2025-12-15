@@ -17,13 +17,18 @@
  */
 package org.wso2.ballerinalang.compiler.semantics.model.types;
 
+import io.ballerina.types.Core;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
+import io.ballerina.types.SemTypes;
 import org.ballerinalang.model.Name;
 import org.ballerinalang.model.types.SelectivelyImmutableReferenceType;
 import org.ballerinalang.model.types.TypeKind;
-import org.wso2.ballerinalang.compiler.semantics.model.TypeVisitor;
 import org.wso2.ballerinalang.compiler.util.Names;
+import org.wso2.ballerinalang.compiler.util.TypeTags;
+import org.wso2.ballerinalang.util.Flags;
 
-import java.util.Optional;
+import static org.wso2.ballerinalang.compiler.semantics.analyzer.Types.AND_READONLY_SUFFIX;
 
 /**
  * Represents Builtin Subtype of integer.
@@ -32,74 +37,52 @@ import java.util.Optional;
  */
 public class BXMLSubType extends BType implements SelectivelyImmutableReferenceType {
 
-    public BIntersectionType immutableType;
-    private BIntersectionType intersectionType = null;
+    public static final BXMLSubType XML_ELEMENT = new BXMLSubType(TypeTags.XML_ELEMENT, Names.XML_ELEMENT,
+                                                                SemTypes.XML_ELEMENT);
+    public static final BXMLSubType XML_PI = new BXMLSubType(TypeTags.XML_PI, Names.XML_PI, SemTypes.XML_PI);
+    public static final BXMLSubType XML_COMMENT = new BXMLSubType(TypeTags.XML_COMMENT, Names.XML_COMMENT,
+                                                                SemTypes.XML_COMMENT);
+    public static final BXMLSubType XML_TEXT = new BXMLSubType(TypeTags.XML_TEXT, Names.XML_TEXT, Flags.READONLY,
+                                                            SemTypes.XML_TEXT);
 
-    public BXMLSubType(int tag, Name name) {
-
-        super(tag, null, name, 0);
+    private BXMLSubType(int tag, Name name, SemType semType) {
+        this(tag, name, 0, semType);
     }
 
-    public BXMLSubType(int tag, Name name, long flags) {
-
-        super(tag, null, name, flags);
+    private BXMLSubType(int tag, Name name, long flags, SemType semType) {
+        super(tag, null, name, flags, semType);
     }
 
+    public static BXMLSubType newImmutableXMLSubType(BXMLSubType xmlSubType) {
+        return new BXMLSubType(xmlSubType.tag,
+                Names.fromString(xmlSubType.name.getValue().concat(AND_READONLY_SUFFIX)),
+                xmlSubType.getFlags() | Flags.READONLY,
+                Core.intersect(xmlSubType.semType, PredefinedType.VAL_READONLY));
+    }
+
+    @Override
     public boolean isNullable() {
-
         return false;
     }
 
+    @Override
     public <T, R> R accept(BTypeVisitor<T, R> visitor, T t) {
-
         return visitor.visit(this, t);
     }
 
     @Override
     public TypeKind getKind() {
-
         return TypeKind.XML;
     }
 
     @Override
-    public void accept(TypeVisitor visitor) {
-
-        visitor.visit(this);
-    }
-
-    @Override
     public String toString() {
-
         return Names.XML.value + Names.ALIAS_SEPARATOR + name;
     }
 
-    protected String getQualifiedTypeName() {
-
+    @Override
+    public String getQualifiedTypeName() {
         return Names.BALLERINA_ORG.value + Names.ORG_NAME_SEPARATOR.value
                 + Names.LANG.value + Names.DOT.value + Names.XML.value + Names.ALIAS_SEPARATOR + name;
-    }
-
-    public boolean isAnydata() {
-        return true;
-    }
-
-    @Override
-    public BIntersectionType getImmutableType() {
-        return this.immutableType;
-    }
-
-    @Override
-    public void unsetImmutableType() {
-        this.immutableType = null;
-    }
-
-    @Override
-    public Optional<BIntersectionType> getIntersectionType() {
-        return Optional.ofNullable(this.intersectionType);
-    }
-
-    @Override
-    public void setIntersectionType(BIntersectionType intersectionType) {
-        this.intersectionType = intersectionType;
     }
 }

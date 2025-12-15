@@ -16,7 +16,7 @@
 package org.ballerinalang.langserver.semantictokens;
 
 import io.ballerina.projects.Document;
-import org.ballerinalang.langserver.common.utils.CommonUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.SemanticTokensContext;
 import org.ballerinalang.langserver.commons.client.ExtendedLanguageClient;
 import org.eclipse.lsp4j.Registration;
@@ -33,14 +33,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Semantic tokens util class.
  *
  * @since 2.0.0
  */
-public class SemanticTokensUtils {
+public final class SemanticTokensUtils {
 
     private SemanticTokensUtils() {
     }
@@ -53,7 +52,7 @@ public class SemanticTokensUtils {
      */
     public static SemanticTokens getSemanticTokens(SemanticTokensContext semanticTokensContext) {
         String fileUri = semanticTokensContext.fileUri();
-        Optional<Path> filePath = CommonUtil.getPathFromURI(fileUri);
+        Optional<Path> filePath = PathUtil.getPathFromURI(fileUri);
         if (filePath.isEmpty()) {
             return new SemanticTokens(Collections.emptyList());
         }
@@ -73,7 +72,7 @@ public class SemanticTokensUtils {
     public static List<String> getTokenTypes() {
         return Arrays.stream(SemanticTokensContext.TokenTypes.values())
                 .map(SemanticTokensContext.TokenTypes::getValue)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -84,7 +83,7 @@ public class SemanticTokensUtils {
     public static List<String> getTokenTypeModifiers() {
         return Arrays.stream(SemanticTokensContext.TokenTypeModifiers.values())
                 .map(SemanticTokensContext.TokenTypeModifiers::getValue)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**

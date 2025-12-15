@@ -28,12 +28,20 @@ public class JsonToRecordRequest {
     private String recordName;
     private boolean isRecordTypeDesc;
     private boolean isClosed;
+    private boolean forceFormatRecordFields;
+    private String filePathUri;
 
-    public JsonToRecordRequest(String jsonString, String recordName, boolean isRecordTypeDesc, boolean isClosed) {
+    private final boolean isNullAsOptional;
+
+    public JsonToRecordRequest(String jsonString, String recordName, boolean isRecordTypeDesc, boolean isClosed,
+                               boolean forceFormatRecordFields, String filePathUri, boolean isNullAsOptional) {
         this.jsonString = jsonString;
         this.recordName = recordName;
         this.isRecordTypeDesc = isRecordTypeDesc;
         this.isClosed = isClosed;
+        this.forceFormatRecordFields = forceFormatRecordFields;
+        this.filePathUri = filePathUri;
+        this.isNullAsOptional = isNullAsOptional;
     }
 
     public String getJsonString() {
@@ -66,5 +74,25 @@ public class JsonToRecordRequest {
 
     public void setIsClosed(boolean isClosed) {
         this.isClosed = isClosed;
+    }
+
+    public boolean getForceFormatRecordFields() {
+        return forceFormatRecordFields;
+    }
+
+    public void setForceFormatRecordFields(boolean forceFormatRecordFields) {
+        this.forceFormatRecordFields = forceFormatRecordFields;
+    }
+
+    public String getFilePathUri() {
+        return filePathUri;
+    }
+
+    public void setFilePathUri(String filePathUri) {
+        this.filePathUri = filePathUri;
+    }
+
+    public boolean getIsNullAsOptional() {
+        return isNullAsOptional;
     }
 }

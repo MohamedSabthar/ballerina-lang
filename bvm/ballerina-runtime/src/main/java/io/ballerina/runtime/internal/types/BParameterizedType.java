@@ -18,9 +18,14 @@
 
 package io.ballerina.runtime.internal.types;
 
-import io.ballerina.runtime.api.TypeTags;
 import io.ballerina.runtime.api.types.ParameterizedType;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.TypeTags;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Context;
+import io.ballerina.runtime.api.types.semtype.SemType;
+
+import java.util.Set;
 
 /**
  * {@code ParameterizedType} represents the parameterized type in dependently-typed functions.
@@ -29,18 +34,18 @@ import io.ballerina.runtime.api.types.Type;
  */
 public class BParameterizedType extends BType implements ParameterizedType {
 
-    private Type paramValueType;
-    private int paramIndex;
+    private final Type paramValueType;
+    private final int paramIndex;
 
     public BParameterizedType(Type paramValueType, int paramIndex) {
-        super(null, null, null);
+        super(null, null, null, true);
         this.paramValueType = paramValueType;
         this.paramIndex = paramIndex;
     }
 
     @Override
     public <V extends Object> V getZeroValue() {
-        return (V) paramValueType.getZeroValue();
+        return paramValueType.getZeroValue();
     }
 
     @Override
@@ -58,11 +63,9 @@ public class BParameterizedType extends BType implements ParameterizedType {
         if (this == obj) {
             return true;
         }
-        if (!(obj instanceof BParameterizedType)) {
+        if (!(obj instanceof BParameterizedType otherParameterizedType)) {
             return false;
         }
-
-        BParameterizedType otherParameterizedType = (BParameterizedType) obj;
 
         return paramIndex == otherParameterizedType.paramIndex &&
                 paramValueType.equals(otherParameterizedType.getParamValueType());
@@ -74,6 +77,11 @@ public class BParameterizedType extends BType implements ParameterizedType {
     }
 
     @Override
+    public BasicTypeBitSet getBasicType() {
+        return paramValueType.getBasicType();
+    }
+
+    @Override
     public Type getParamValueType() {
         return this.paramValueType;
     }
@@ -81,5 +89,15 @@ public class BParameterizedType extends BType implements ParameterizedType {
     @Override
     public int getParamIndex() {
         return this.paramIndex;
+    }
+
+    @Override
+    public SemType createSemType(Context cx) {
+        return SemType.tryInto(cx, this.paramValueType);
+    }
+
+    @Override
+    protected boolean isDependentlyTypedInner(Set<MayBeDependentType> visited) {
+        return true;
     }
 }

@@ -2,12 +2,11 @@ NAME
        ballerina-run - Compile and run the current package
 
 SYNOPSIS
-       bal run [OPTIONS] [<package>|<source-file>|<jar-file>] [--] <args...>
+       bal run [OPTIONS] [<package>|<source-file>|<jar-file>] [-- <args...> <(-Ckey=value)...>]
 
 
 DESCRIPTION
-       Compile the current package and run it. This command does not produce
-       an executable program.
+       Compile the current package and run it.
 
        The `run` command executes the program when a JAR file produced by
        'bal build' is given as the argument. If not, compiles and runs the given
@@ -56,6 +55,22 @@ OPTIONS
            Target directory path. The directory path can be absolute or relative
            to the current package.
 
+       --show-dependency-diagnostics
+           Print the diagnostics that are related to the dependencies. By default, these
+           diagnostics are not printed to the console.
+
+       --optimize-dependency-compilation
+           [EXPERIMENTAL] Enables memory-efficient compilation of package dependencies
+           using separate processes. This can help prevent out-of-memory issues during
+           the initial compilation with a clean central cache.
+
+       --watch
+            [Experimental] Automatically re-run Ballerina service projects upon file
+            changes.
+
+       --experimental
+           Enable experimental language features.
+
 
 ARGUMENTS
        --
@@ -64,6 +79,9 @@ ARGUMENTS
 
        args...
            The list of command-line arguments for the Ballerina program.
+           The arguments can be program arguments defined in the parameter
+           list of the 'main' function or configurable variables. Configurable
+           values can be provided with the syntax  '-C<key>=<value>'.
 
 
 EXAMPLES
@@ -79,3 +97,6 @@ EXAMPLES
        Run the 'main' function in the current package with three program args:
        add, 10, and 5.
            $ bal run -- add 10 5
+
+       Run the 'main' function with values provided for configurable variables:
+           $ bal run -- -Cval1=add -Cval2=10 -Cval3=5

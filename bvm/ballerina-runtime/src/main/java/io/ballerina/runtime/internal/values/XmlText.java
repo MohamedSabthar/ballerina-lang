@@ -17,16 +17,16 @@
  */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.Type;
 import io.ballerina.runtime.api.types.XmlNodeType;
 import io.ballerina.runtime.api.values.BXml;
 import org.apache.axiom.om.OMNode;
-import org.apache.axiom.om.impl.llom.CharacterDataImpl;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * XML nodes containing atomic content such as text, comment and processing instructions.
@@ -35,13 +35,12 @@ import java.util.Objects;
  */
 public class XmlText extends XmlNonElementItem {
 
-    private String data;
+    private final String data;
 
     public XmlText(String data) {
         // data is the content of xml comment or text node
         this.data = data;
         this.type = data.isEmpty() ? PredefinedTypes.TYPE_XML_NEVER : PredefinedTypes.TYPE_TEXT;
-        setTypedescValue(type);
     }
 
     @Override
@@ -89,15 +88,13 @@ public class XmlText extends XmlNonElementItem {
 
     @Override
     public OMNode value() {
-        CharacterDataImpl characterData = new CharacterDataImpl();
-        characterData.data = this.data;
-        return characterData;
+        return this.factory.createOMText(this.data);
     }
 
     @Override
-    public IteratorValue getIterator() {
+    public IteratorValue<XmlText> getIterator() {
         XmlText that = this;
-        return new IteratorValue() {
+        return new IteratorValue<>() {
             boolean read = false;
             @Override
             public boolean hasNext() {
@@ -105,7 +102,7 @@ public class XmlText extends XmlNonElementItem {
             }
 
             @Override
-            public Object next() {
+            public XmlText next() {
                 if (!read) {
                     this.read = true;
                     return that;
@@ -121,6 +118,22 @@ public class XmlText extends XmlNonElementItem {
         return this == obj;
     }
 
+    /**
+     * Deep equality check for XML Text.
+     *
+     * @param o The XML Text to be compared
+     * @param visitedValues Visited values in previous recursive calls
+     * @return True if the XML Texts are equal; False otherwise
+     */
+    @Override
+    public boolean equals(Object o, Set<ValuePair> visitedValues) {
+        if ((o instanceof XmlText) || isXmlSequenceWithSingletonTextValue(o)) {
+            return this.getTextValue().equals(((XmlValue) o).getTextValue());
+        }
+        return this.getType() == PredefinedTypes.TYPE_XML_NEVER && (o instanceof XmlSequence xmlSequence) &&
+                xmlSequence.getChildrenList().isEmpty();
+    }
+
     @Override
     public int hashCode() {
         return Objects.hash(data);
@@ -129,5 +142,12 @@ public class XmlText extends XmlNonElementItem {
     @Override
     public Type getType() {
         return this.type;
+    }
+
+    private boolean isXmlSequenceWithSingletonTextValue(Object o) {
+        if (!(o instanceof XmlSequence sequence)) {
+            return false;
+        }
+        return sequence.isSingleton() && sequence.getItem(0).getNodeType() == XmlNodeType.TEXT;
     }
 }

@@ -19,6 +19,7 @@ package org.ballerinalang.test.statements.vardeclr;
 import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -77,7 +78,7 @@ public class ModuleErrorVariableTest {
         validateError(compileResultNegetive, index++,
                 "incompatible types: expected 'string', found 'other'", 40, 69);
         validateError(compileResultNegetive, index++,
-                "invalid arg type in error detail field 'basicErrorNo', expected 'int', found 'other'", 40, 79);
+                "incompatible types: expected 'int', found 'other'", 40, 94);
         validateError(compileResultNegetive, index++,
                 "invalid record binding pattern with type '[int]'", 53, 33);
         validateError(compileResultNegetive, index++,
@@ -114,5 +115,10 @@ public class ModuleErrorVariableTest {
         validateError(compileResult, index++, "variable declaration having binding pattern must be initialized",
                 23, 66);
         assertEquals(compileResult.getErrorCount(), index);
+    }
+
+    @AfterClass
+    public void tearDown() {
+        compileResult = null;
     }
 }

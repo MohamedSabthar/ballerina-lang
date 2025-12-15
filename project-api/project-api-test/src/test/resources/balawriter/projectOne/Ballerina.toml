@@ -9,14 +9,19 @@ keywords = ["ballerina", "security", "crypto"]
 export = ["winery", "winery.services"]
 visibility = "private"
 icon = "./resources/samplePng01.png"
+include = [
+    "**/include-file.*",
+    "**/*module-include/file",
+    "**/*-module-include-dir",
+    ]
 
-[[platform.java11.dependency]]
+[[platform.java21.dependency]]
 artifactId = "ldap"
 version = "1.0.0"
 path = "./libs/ballerina-io-1.0.0-java.txt"
 groupId = "ballerina"
 
-[[platform.java11.dependency]]
+[[platform.java21.dependency]]
 artifactId = "ldap"
 version = "1.0.0"
 path = "./libs/ballerina-io-1.2.0-java.txt"

@@ -47,13 +47,13 @@ import io.ballerina.compiler.syntax.tree.OptionalFieldAccessExpressionNode;
 import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SimpleNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
+import io.ballerina.compiler.syntax.tree.TemplateExpressionNode;
 import io.ballerina.projects.Module;
 import io.ballerina.projects.ModuleId;
 import io.ballerina.projects.Package;
 import io.ballerina.projects.Project;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.PositionedOperationContext;
 import org.wso2.ballerinalang.compiler.util.Names;
 
@@ -62,7 +62,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Symbol resolver for the field access expressions.
@@ -80,14 +79,15 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
 
     @Override
     public Optional<TypeSymbol> transform(SimpleNameReferenceNode node) {
-        Optional<Symbol> symbol = this.getSymbolByName(context.visibleSymbols(context.getCursorPosition()),
-                node.name().text());
-
-        if (symbol.isEmpty()) {
-            return Optional.empty();
+        Optional<TypeSymbol> typeSymbol = this.context.currentSemanticModel()
+                .flatMap(semanticModel -> semanticModel.typeOf(node));
+        if (typeSymbol.isPresent()) {
+            return typeSymbol;
         }
 
-        return SymbolUtil.getTypeDescriptor(symbol.get());
+        List<Symbol> visibleSymbols = context.visibleSymbols(context.getCursorPosition());
+        return this.getSymbolByName(visibleSymbols, node.name().text())
+                .flatMap(SymbolUtil::getTypeDescriptor);
     }
 
     @Override
@@ -149,14 +149,14 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
         String functionName;
         if (nameRef.kind() == SyntaxKind.QUALIFIED_NAME_REFERENCE) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nameRef;
-            visibleEntries = QNameReferenceUtil.getModuleContent(this.context, qNameRef,
+            visibleEntries = QNameRefCompletionUtil.getModuleContent(this.context, qNameRef,
                     fSymbolPredicate.or(fPointerPredicate));
             functionName = qNameRef.identifier().text();
         } else if (nameRef.kind() == SyntaxKind.SIMPLE_NAME_REFERENCE) {
             functionName = ((SimpleNameReferenceNode) nameRef).name().text();
             visibleEntries = context.visibleSymbols(context.getCursorPosition()).stream()
                     .filter(fSymbolPredicate.or(fPointerPredicate))
-                    .collect(Collectors.toList());
+                    .toList();
         } else {
             return Optional.empty();
         }
@@ -191,6 +191,13 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
     @Override
     public Optional<TypeSymbol> transform(BracedExpressionNode node) {
         return node.expression().apply(this);
+    }
+
+    @Override
+    public Optional<TypeSymbol> transform(TemplateExpressionNode templateExpressionNode) {
+        return this.context.currentSemanticModel()
+                .flatMap(semanticModel -> semanticModel.typeOf(templateExpressionNode))
+                .map(CommonUtil::getRawType);
     }
 
     @Override
@@ -251,7 +258,7 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
                 ObjectTypeSymbol objTypeDesc = (ObjectTypeSymbol) rawType;
                 visibleEntries.addAll(objTypeDesc.fieldDescriptors().values().stream()
                         .filter(objectFieldSymbol -> withValidAccessModifiers(node, objectFieldSymbol, currentPkg.get(),
-                                currentModule.get().moduleId())).collect(Collectors.toList()));
+                                currentModule.get().moduleId())).toList());
                 boolean isClient = SymbolUtil.isClient(objTypeDesc);
                 boolean isService = SymbolUtil.getTypeDescForObjectSymbol(objTypeDesc)
                         .qualifiers().contains(Qualifier.SERVICE);
@@ -262,7 +269,7 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
                                 && !methodSymbol.qualifiers().contains(Qualifier.RESOURCE)
                                 && withValidAccessModifiers(node, methodSymbol, currentPkg.get(),
                                 currentModule.get().moduleId()))
-                        .collect(Collectors.toList());
+                        .toList();
                 visibleEntries.addAll(methodSymbols);
                 break;
             case UNION:
@@ -272,7 +279,7 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
                 }
                 List<TypeSymbol> members = ((UnionTypeSymbol) rawType).memberTypeDescriptors().stream()
                         .map(CommonUtil::getRawType)
-                        .collect(Collectors.toList());
+                        .toList();
                 if (!members.stream().allMatch(
                         member -> member.typeKind() == TypeDescKind.NIL || member.typeKind() == TypeDescKind.RECORD)) {
                     break;
@@ -284,6 +291,9 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
                         .findFirst()
                         .get();
                 visibleEntries.addAll(new ArrayList<>(((RecordTypeSymbol) recordType).fieldDescriptors().values()));
+                break;
+            case TYPE_REFERENCE:
+                visibleEntries = getVisibleEntries(rawType, node);
                 break;
             default:
                 break;
@@ -305,8 +315,7 @@ public class FieldAccessCompletionResolver extends NodeTransformer<Optional<Type
         boolean isPublic = false;
         boolean isResource = false;
 
-        if (symbol instanceof Qualifiable) {
-            Qualifiable qSymbol = (Qualifiable) symbol;
+        if (symbol instanceof Qualifiable qSymbol) {
             isPrivate = qSymbol.qualifiers().contains(Qualifier.PRIVATE);
             isPublic = qSymbol.qualifiers().contains(Qualifier.PUBLIC);
             isResource = qSymbol.qualifiers().contains(Qualifier.RESOURCE);

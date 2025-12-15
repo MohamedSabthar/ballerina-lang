@@ -22,6 +22,7 @@ import io.ballerina.projects.environment.ResolutionOptions;
 import io.ballerina.projects.environment.ResolutionRequest;
 import io.ballerina.projects.environment.ResolutionResponse;
 import org.ballerinalang.model.elements.PackageID;
+import org.wso2.ballerinalang.compiler.PackageCache;
 import org.wso2.ballerinalang.compiler.semantics.analyzer.SymbolResolver;
 import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BPackageSymbol;
@@ -37,13 +38,16 @@ import static org.ballerinalang.model.elements.PackageID.BOOLEAN;
 import static org.ballerinalang.model.elements.PackageID.DECIMAL;
 import static org.ballerinalang.model.elements.PackageID.ERROR;
 import static org.ballerinalang.model.elements.PackageID.FLOAT;
+import static org.ballerinalang.model.elements.PackageID.FUNCTION;
 import static org.ballerinalang.model.elements.PackageID.FUTURE;
 import static org.ballerinalang.model.elements.PackageID.INT;
 import static org.ballerinalang.model.elements.PackageID.INTERNAL;
 import static org.ballerinalang.model.elements.PackageID.JAVA;
 import static org.ballerinalang.model.elements.PackageID.MAP;
+import static org.ballerinalang.model.elements.PackageID.NATURAL;
 import static org.ballerinalang.model.elements.PackageID.OBJECT;
 import static org.ballerinalang.model.elements.PackageID.QUERY;
+import static org.ballerinalang.model.elements.PackageID.REGEXP;
 import static org.ballerinalang.model.elements.PackageID.RUNTIME;
 import static org.ballerinalang.model.elements.PackageID.STREAM;
 import static org.ballerinalang.model.elements.PackageID.STRING;
@@ -127,10 +131,16 @@ public class Bootstrap {
             symbolTable.langObjectModuleSymbol = loadLangLibFromBala(OBJECT, compilerContext);
         }
 
+        if (langLib.equals(STRING)) {
+            // String module requires Regexp module. Hence, loading it.
+            symbolTable.langRegexpModuleSymbol = loadLangLibFromBala(REGEXP, compilerContext);
+        }
+
         if (langLib.equals(TRANSACTION) || langLib.equals(QUERY)) {
             symbolTable.langArrayModuleSymbol = loadLangLibFromBala(ARRAY, compilerContext);
             symbolTable.langMapModuleSymbol = loadLangLibFromBala(MAP, compilerContext);
             symbolTable.langValueModuleSymbol = loadLangLibFromBala(VALUE, compilerContext);
+            symbolTable.langRegexpModuleSymbol = loadLangLibFromBala(REGEXP, compilerContext);
             symbolTable.langStringModuleSymbol = loadLangLibFromBala(STRING, compilerContext);
             symbolTable.updateStringSubtypeOwners();
         }
@@ -145,6 +155,16 @@ public class Bootstrap {
             symbolTable.langValueModuleSymbol = loadLangLibFromBala(VALUE, compilerContext);
         }
 
+        if (langLib.equals(REGEXP)) {
+            // Regexp module requires array module. Hence loading it.
+            symbolTable.langArrayModuleSymbol = loadLangLibFromBala(ARRAY, compilerContext);
+        }
+
+        if (langLib.equals(INT)) {
+            symbolTable.langValueModuleSymbol = loadLangLibFromBala(VALUE, compilerContext);
+            symbolTable.langMapModuleSymbol = loadLangLibFromBala(MAP, compilerContext);
+        }
+
         symResolver.bootstrapCloneableType();
         symResolver.defineOperators();
     }
@@ -156,6 +176,7 @@ public class Bootstrap {
         // we will load any lang.lib found in cache directory
         symbolTable.langAnnotationModuleSymbol = loadLangLibFromBala(ANNOTATIONS, compilerContext);
         symbolTable.langJavaModuleSymbol = loadLangLibFromBala(JAVA, compilerContext);
+        symbolTable.langRegexpModuleSymbol = loadLangLibFromBala(REGEXP, compilerContext);
         symbolTable.langInternalModuleSymbol = loadLangLibFromBala(INTERNAL, compilerContext);
         symbolTable.langValueModuleSymbol = loadLangLibFromBala(VALUE, compilerContext);
         symResolver.bootstrapJsonType();
@@ -167,14 +188,18 @@ public class Bootstrap {
         symbolTable.langDecimalModuleSymbol = loadLangLibFromBala(DECIMAL, compilerContext);
         symbolTable.langErrorModuleSymbol = loadLangLibFromBala(ERROR, compilerContext);
         symbolTable.langFloatModuleSymbol = loadLangLibFromBala(FLOAT, compilerContext);
+        symbolTable.langFunctionModuleSymbol = loadLangLibFromBala(FUNCTION, compilerContext);
         symbolTable.langFutureModuleSymbol = loadLangLibFromBala(FUTURE, compilerContext);
-        symbolTable.langIntModuleSymbol = loadLangLibFromBala(INT, compilerContext);
         symbolTable.langMapModuleSymbol = loadLangLibFromBala(MAP, compilerContext);
+        symbolTable.langIntModuleSymbol = loadLangLibFromBala(INT, compilerContext);
         symbolTable.langObjectModuleSymbol = loadLangLibFromBala(OBJECT, compilerContext);
         symResolver.loadRawTemplateType();
         symResolver.bootstrapIterableType();
+        symbolTable.langNaturalModuleSymbol = loadLangLibFromBala(NATURAL, compilerContext);
+        symResolver.loadNaturalGeneratorType();
         symbolTable.langStreamModuleSymbol = loadLangLibFromBala(STREAM, compilerContext);
         symbolTable.langTableModuleSymbol = loadLangLibFromBala(TABLE, compilerContext);
+        symbolTable.langRegexpModuleSymbol = loadLangLibFromBala(REGEXP, compilerContext);
         symbolTable.langStringModuleSymbol = loadLangLibFromBala(STRING, compilerContext);
         symbolTable.langTypedescModuleSymbol = loadLangLibFromBala(TYPEDESC, compilerContext);
         symbolTable.langXmlModuleSymbol = loadLangLibFromBala(XML, compilerContext);
@@ -217,8 +242,7 @@ public class Bootstrap {
     }
 
     private BPackageSymbol getSymbolFromCache(CompilerContext context, PackageID packageID) {
-        org.wso2.ballerinalang.compiler.PackageCache pkgCache =
-                org.wso2.ballerinalang.compiler.PackageCache.getInstance(context);
+        PackageCache pkgCache = PackageCache.getInstance(context);
         BLangPackage bLangPackage = pkgCache.get(packageID);
         if (bLangPackage != null) {
             return bLangPackage.symbol;

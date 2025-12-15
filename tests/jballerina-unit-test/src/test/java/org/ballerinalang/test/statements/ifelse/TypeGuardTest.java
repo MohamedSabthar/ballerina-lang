@@ -64,6 +64,8 @@ public class TypeGuardTest {
         BAssertUtil.validateError(negativeResult, i++,
                 "incompatible types: '(boolean|float)' will not be matched to 'int'", 99, 30);
         BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: '(int|string)' will not be matched to 'boolean'", 99, 44);
+        BAssertUtil.validateError(negativeResult, i++,
                 "incompatible types: 'string' will not be matched to 'int'", 108, 25);
         BAssertUtil.validateError(negativeResult, i++,
                 "incompatible types: 'string' will not be matched to 'float'", 108, 37);
@@ -93,14 +95,10 @@ public class TypeGuardTest {
         BAssertUtil.validateError(negativeResult, i++,
                 "incompatible types: 'map<(int|string)>' will not be matched to 'record {| int i; float f; |}'", 214,
                 8);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: 'map<(int|string)>' will not be matched " +
-                "to 'map<boolean>'", 221, 8);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: 'CyclicComplexUnion' will not" +
                 " be matched to 'float'", 232, 8);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: 'CyclicComplexUnion' will not" +
                 " be matched to 'floatUnion'", 239, 8);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: 'CyclicComplexUnion' will not" +
-                " be matched to 'float[]'", 245, 8);
 
         Assert.assertEquals(negativeResult.getDiagnostics().length, i);
     }
@@ -134,29 +132,33 @@ public class TypeGuardTest {
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(int|boolean)'",
                 181, 17);
         // TODO : Fix me : #21609
-//        BAssertUtil.validateError(negativeResult, i++,
-//                                  "incompatible types: expected 'string', found '(float|string|int|boolean)'", 183,
-//                                  20);
+        BAssertUtil.validateError(negativeResult, i++,
+                                  "incompatible types: expected 'string', found '(float|string)'", 183,
+                                  20);
         // TODO : Fix me : #21609
-//        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(boolean|float)'",
-//                190, 17);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(int|string|float)'",
+                190, 17);
 //        BAssertUtil.validateError(negativeResult, i++,
 //                "incompatible types: expected 'string', found '(boolean|int|string)'", 192, 20);
+                BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected 'string', found 'boolean'", 192, 20);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(int|boolean)'",
                 199, 17);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'string', found '(float|string)'",
                 201, 20);
         // TODO : Fix me : #21609
-//        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(string|boolean)'",
-//                208, 17);
-//        BAssertUtil.validateError(negativeResult, i++,
-//                "incompatible types: expected 'string', found '(int|float|string)'", 210, 20);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(string|boolean)'",
+                208, 17);
+        // TODO : Fix me : #21609
+        BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected 'string', found '(int|float)'", 210, 20);
         BAssertUtil.validateError(negativeResult, i++, "unknown type 'T'", 216, 30);
         // TODO : Fix me : #21609
-//        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(string|boolean)'",
-//                217, 17);
-//        BAssertUtil.validateError(negativeResult, i++,
-//                "incompatible types: expected 'string', found '(int|float|string)'", 219, 20);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(string|boolean)'",
+                217, 17);
+        // TODO : Fix me : #21609
+        BAssertUtil.validateError(negativeResult, i++,
+                "incompatible types: expected 'string', found '(int|float)'", 219, 20);
 //        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '(Person|boolean)'",
 //                238, 17);
         BAssertUtil.validateError(negativeResult, i++,
@@ -227,14 +229,14 @@ public class TypeGuardTest {
                 "string s; |}? & readonly)'", 499, 21);
         BAssertUtil.validateError(negativeResult, i++, "field access cannot be used to access an optional field of " +
                 "a type that includes nil, use optional field access or member access", 500, 50);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '\"r\"|\"g\"', found 'Colour'",
-                512, 22);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '1', found 'Ints'", 518, 16);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '2|3', found 'Ints'", 524, 18);
-        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '\"r\"', found 'Colour'",
-                530, 18);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '\"r\"|\"g\"', found " +
+                "'\"r\"|\"g\"|\"b\"'", 512, 22);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '1', found '1|2'", 518, 16);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '2|3', found '1|2'", 524, 18);
+        BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '\"r\"', found " +
+                "'\"r\"|\"g\"|\"b\"'", 530, 18);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected '\"r\"|\"g\"|\"x\"', " +
-                "found 'Colour'", 536, 26);
+                "found '\"r\"|\"g\"|\"b\"'", 536, 26);
         BAssertUtil.validateError(negativeResult, i++, "missing non-defaultable required record field 'b'", 556, 16);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'byte', found 'int'", 556, 20);
         BAssertUtil.validateError(negativeResult, i++, "incompatible types: expected 'int', found '" +
@@ -742,6 +744,21 @@ public class TypeGuardTest {
     }
 
     @Test
+    public void testTypeTestingInReadonlyRecord() {
+        BRunUtil.invoke(result, "testTypeTestingInReadonlyRecord");
+    }
+
+    @Test(description = "Test is condition with circular tuples inside a if block")
+    public void testCustomCircularTupleTypeWithIsCheck() {
+        BRunUtil.invoke(result, "testCustomCircularTupleTypeWithIsCheck");
+    }
+
+    @Test
+    public void testSingletonTypeNarrowedTypeDesc() {
+        BRunUtil.invoke(result, "testSingletonTypeNarrowedTypeDesc");
+    }
+
+    @Test
     public void testTypeGuardsAccountingForSemTypes1() {
         CompileResult result = BCompileUtil.compile("test-src/statements/ifelse/test_type_guard_sem_types_1.bal");
         int index = 0;
@@ -753,34 +770,34 @@ public class TypeGuardTest {
                 222, 19);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '[string]', " +
                 "found '([int]|[string])'", 230, 22);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected '[int] & readonly', " +
-                "found '([string] & readonly)'", 241, 30);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '([int] & readonly)'," +
+                " found '[string] & readonly'", 241, 30);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '[string]', found '[int]'", 253, 22);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected '[int] & readonly', found '[int]'",
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '([int] & readonly)', found '[int]'",
                 260, 30);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected '[string] & readonly', " +
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '([string] & readonly)', " +
                 "found '[int]'", 261, 33);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '[int]', " +
-                "found '([string] & readonly)'", 272, 19);
+                "found '[string] & readonly'", 272, 19);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '[int]', found '[string] & " +
                 "readonly'", 278, 19);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected '[int]', found '([string] & " +
-                "readonly)'", 292, 19);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '[int]', found '[string] & " +
+                "readonly'", 292, 19);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'string[]', " +
                 "found '(int[]|string[])'", 300, 22);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[] & readonly', " +
-                "found '(string[] & readonly)'", 313, 30);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[]', found '(string[] & " +
-                "readonly)'", 323, 19);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[]', found '(string[] & " +
-                "readonly)'", 333, 19);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '(int[] & readonly)', " +
+                "found 'string[] & readonly'", 313, 30);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[]', found 'string[] & " +
+                "readonly'", 323, 19);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[]', found 'string[] & " +
+                "readonly'", 333, 19);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'string[]', " +
                 "found '((int|string)[] & readonly)'", 344, 22);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'string[] & readonly', " +
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '(string[] & readonly)', " +
                 "found '((int|string)[] & readonly)'", 345, 33);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[]', " +
                 "found '((int|string)[] & readonly)'", 354, 19);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'int[] & readonly', " +
+        BAssertUtil.validateError(result, index++, "incompatible types: expected '(int[] & readonly)', " +
                 "found '((int|string)[] & readonly)'", 355, 30);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'json', found '(Z|json)'", 379, 18);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'Z', found '(Z|json)'", 385, 15);
@@ -816,12 +833,14 @@ public class TypeGuardTest {
                 "'record {| anydata...; |}'", 602, 20);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '(byte[]|Utc)', found 'record {| " +
                 "anydata...; |}'", 609, 24);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'byte[]', found 'Utc'", 615, 20);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected 'byte[]', found " +
+                "'[int,decimal] & readonly'", 615, 20);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '(byte[]|Utc)', " +
-                "found '(Utc|record {| anydata...; |})'", 622, 24);
+                "found '([int,decimal] & readonly|record {| anydata...; |})'", 622, 24);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '(Utc|record {| anydata...; |})', " +
                 "found '(record {| anydata...; |}|byte[])'", 630, 27);
-        BAssertUtil.validateError(result, index++, "incompatible types: expected 'byte[]', found 'Utc'", 639, 20);
+        BAssertUtil.validateError(result, index++, "incompatible types: expected 'byte[]', " +
+                "found '[int,decimal] & readonly'", 639, 20);
         BAssertUtil.validateError(result, index++, "incompatible types: expected 'record {| anydata...; |}', found '" +
                 "([int,decimal]|record {| anydata...; |}|byte[])'", 649, 23);
         BAssertUtil.validateError(result, index++, "incompatible types: expected '[int,decimal]', found '" +
@@ -1062,8 +1081,6 @@ public class TypeGuardTest {
         BAssertUtil.validateError(result, index++,
                 "incompatible types: expected 'string', found '(string|int)'", 252, 20);
         BAssertUtil.validateError(result, index++,
-                "incompatible types: expected 'int', found 'other'", 263, 17); // issue #34965
-        BAssertUtil.validateError(result, index++,
                 "incompatible types: expected 'string', found '(string|int)'", 265, 20); // issue #34965
         BAssertUtil.validateError(result, index++,
                 "incompatible types: expected 'string', found '(string|int)'", 271, 20);
@@ -1105,14 +1122,7 @@ public class TypeGuardTest {
     @Test
     public void testTypeGuardTypeNarrowing4() {
         CompileResult result = BCompileUtil.compile("test-src/statements/ifelse/test_type_guard_type_narrow_4.bal");
-        int index = 0;
-        BAssertUtil.validateError(result, index++,
-                "expression of type 'never' or equivalent to type 'never' not allowed here", 21, 19); // issue #34965
-        BAssertUtil.validateError(result, index++,
-                "expression of type 'never' or equivalent to type 'never' not allowed here", 27, 19); // issue #34965
-        BAssertUtil.validateError(result, index++,
-                "expression of type 'never' or equivalent to type 'never' not allowed here", 33, 19); // issue #34965
-        Assert.assertEquals(result.getDiagnostics().length, index);
+        Assert.assertEquals(result.getDiagnostics().length, 0);
     }
 
     @Test(description = "Test type guard type narrowing with no errors")

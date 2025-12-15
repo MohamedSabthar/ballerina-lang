@@ -18,41 +18,33 @@
 
 package org.ballerinalang.langlib.decimal;
 
-import io.ballerina.runtime.api.PredefinedTypes;
 import io.ballerina.runtime.api.creators.ErrorCreator;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.values.BError;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.internal.TypeConverter;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
-import io.ballerina.runtime.internal.util.exceptions.RuntimeErrors;
+import io.ballerina.runtime.internal.errors.ErrorCodes;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 
 import static io.ballerina.runtime.api.constants.RuntimeConstants.DECIMAL_LANG_LIB;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.NUMBER_PARSING_ERROR_IDENTIFIER;
-import static io.ballerina.runtime.internal.util.exceptions.BallerinaErrorReasons.getModulePrefixedReason;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.NUMBER_PARSING_ERROR_IDENTIFIER;
+import static io.ballerina.runtime.internal.errors.ErrorReasons.getModulePrefixedReason;
 
 /**
  * Native implementation of lang.decimal:fromString(string).
  *
  * @since 1.0
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.decimal", functionName = "fromString",
-//        args = {@Argument(name = "s", type = TypeKind.STRING)},
-//        returnType = {@ReturnType(type = TypeKind.UNION)},
-//        isPublic = true
-//)
 public class FromString {
 
     private static final BString ERROR_REASON = getModulePrefixedReason(DECIMAL_LANG_LIB,
                                                                         NUMBER_PARSING_ERROR_IDENTIFIER);
 
+    private FromString() {
+    }
+
     public static Object fromString(BString s) {
         String decimalFloatingPointNumber = s.getValue();
-        String upperCaseValue = decimalFloatingPointNumber.toUpperCase();
-        if (upperCaseValue.startsWith("0X") || upperCaseValue.startsWith("-0X")) {
-            return getTypeConversionError(decimalFloatingPointNumber);
-        }
-
         try {
             return TypeConverter.stringToDecimal(decimalFloatingPointNumber);
         } catch (NumberFormatException e) {
@@ -61,8 +53,8 @@ public class FromString {
     }
 
     private static BError getTypeConversionError(String value) {
-        return ErrorCreator.createError(ERROR_REASON, BLangExceptionHelper.getErrorDetails(
-                        RuntimeErrors.INCOMPATIBLE_SIMPLE_TYPE_CONVERT_OPERATION,
+        return ErrorCreator.createError(ERROR_REASON, ErrorHelper.getErrorDetails(
+                        ErrorCodes.INCOMPATIBLE_SIMPLE_TYPE_CONVERT_OPERATION,
                         PredefinedTypes.TYPE_STRING, value, PredefinedTypes.TYPE_DECIMAL));
     }
 }

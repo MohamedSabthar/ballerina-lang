@@ -18,7 +18,7 @@
 
 package org.ballerinalang.debugadapter.runtime;
 
-import io.ballerina.runtime.internal.types.BMapType;
+import io.ballerina.runtime.api.types.MapType;
 import io.ballerina.runtime.internal.values.MapValueImpl;
 
 /**
@@ -27,10 +27,13 @@ import io.ballerina.runtime.internal.values.MapValueImpl;
  * @since 2.0.0
  */
 @SuppressWarnings("unused")
-public class VariableUtils {
+public final class VariableUtils {
 
     private static final String MAP_TYPE_TEMPLATE = "map<%s>";
     private static final String UNKNOWN = "unknown";
+
+    private VariableUtils() {
+    }
 
     /**
      * Extract map type with constraint from a given BMapValue.
@@ -39,16 +42,14 @@ public class VariableUtils {
      * @return map type with constraint from a given BMapValue
      */
     public static String getBMapType(Object mapObject) {
-        if (!(mapObject instanceof MapValueImpl)) {
-            return String.format(MAP_TYPE_TEMPLATE, UNKNOWN);
-        }
-        MapValueImpl<?, ?> mapValue = (MapValueImpl<?, ?>) mapObject;
-
-        if (!(mapValue.getType() instanceof BMapType)) {
+        if (!(mapObject instanceof MapValueImpl<?, ?> mapValue)) {
             return String.format(MAP_TYPE_TEMPLATE, UNKNOWN);
         }
 
-        BMapType type = (BMapType) mapValue.getType();
+        if (!(mapValue.getType() instanceof MapType type)) {
+            return String.format(MAP_TYPE_TEMPLATE, UNKNOWN);
+        }
+
         return String.format(MAP_TYPE_TEMPLATE, type.getConstrainedType().toString());
     }
 }

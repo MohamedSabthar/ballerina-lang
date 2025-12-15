@@ -17,47 +17,54 @@
 */
 package org.wso2.ballerinalang.compiler.semantics.model.types;
 
+import io.ballerina.types.Core;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
 import org.ballerinalang.model.Name;
 import org.ballerinalang.model.types.SelectivelyImmutableReferenceType;
 import org.ballerinalang.model.types.TypeKind;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
 import org.wso2.ballerinalang.compiler.semantics.model.TypeVisitor;
-import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
+import org.wso2.ballerinalang.compiler.util.TypeTags;
 import org.wso2.ballerinalang.util.Flags;
 
-import java.util.Optional;
+import static io.ballerina.types.PredefinedType.ANY;
+import static io.ballerina.types.PredefinedType.VAL_READONLY;
 
 /**
  * @since 0.94
  */
-public class BAnyType extends BBuiltInRefType implements SelectivelyImmutableReferenceType {
+public class BAnyType extends BType implements SelectivelyImmutableReferenceType {
 
-    private BIntersectionType intersectionType = null;
     private boolean nullable = true;
-    public BIntersectionType immutableType;
 
-    public BAnyType(int tag, BTypeSymbol tsymbol) {
-        super(tag, tsymbol);
+    public BAnyType() {
+        this(ANY);
     }
 
-    public BAnyType(int tag, BTypeSymbol tsymbol, Name name, long flag) {
+    public BAnyType(Name name, long flag) {
+        this(name, flag, Symbols.isFlagOn(flag, Flags.READONLY) ? Core.intersect(ANY, VAL_READONLY) : ANY);
+    }
 
-        super(tag, tsymbol);
+    private BAnyType(Name name, long flags, SemType semType) {
+        super(TypeTags.ANY, null, semType);
         this.name = name;
-        this.flags = flag;
+        this.setFlags(flags);
     }
 
-    public BAnyType(int tag, BTypeSymbol tsymbol, boolean nullable) {
-        super(tag, tsymbol);
-        this.nullable = nullable;
+    private BAnyType(SemType semType) {
+        super(TypeTags.ANY, null, semType);
     }
 
-    public BAnyType(int tag, BTypeSymbol tsymbol, Name name, long flags, boolean nullable) {
+    public static BAnyType newNilLiftedBAnyType() {
+        BAnyType result = new BAnyType(Core.diff(ANY, PredefinedType.NIL));
+        result.nullable = false;
+        return result;
+    }
 
-        super(tag, tsymbol);
-        this.name = name;
-        this.flags = flags;
-        this.nullable = nullable;
+    public static BAnyType newImmutableBAnyType() {
+        return new BAnyType(Types.getImmutableTypeName(TypeKind.ANY.typeName()), Flags.READONLY);
     }
 
     @Override
@@ -65,6 +72,7 @@ public class BAnyType extends BBuiltInRefType implements SelectivelyImmutableRef
         return visitor.visit(this, t);
     }
 
+    @Override
     public boolean isNullable() {
         return nullable;
     }
@@ -81,27 +89,7 @@ public class BAnyType extends BBuiltInRefType implements SelectivelyImmutableRef
 
     @Override
     public String toString() {
-        return !Symbols.isFlagOn(flags, Flags.READONLY) ? getKind().typeName() :
+        return !Symbols.isFlagOn(getFlags(), Flags.READONLY) ? getKind().typeName() :
                 getKind().typeName().concat(" & readonly");
-    }
-
-    @Override
-    public BIntersectionType getImmutableType() {
-        return this.immutableType;
-    }
-
-    @Override
-    public void unsetImmutableType() {
-        this.immutableType = null;
-    }
-
-    @Override
-    public Optional<BIntersectionType> getIntersectionType() {
-        return Optional.ofNullable(this.intersectionType);
-    }
-
-    @Override
-    public void setIntersectionType(BIntersectionType intersectionType) {
-        this.intersectionType = intersectionType;
     }
 }

@@ -19,29 +19,26 @@
 package org.ballerinalang.langlib.xml;
 
 import io.ballerina.runtime.api.values.BXml;
+import io.ballerina.runtime.internal.errors.ErrorHelper;
 import io.ballerina.runtime.internal.scheduling.Strand;
-import io.ballerina.runtime.internal.util.exceptions.BLangExceptionHelper;
 
 /**
  * Remove an attribute from an XML.
  * 
  * @since 0.95
  */
-//@BallerinaFunction(
-//        orgName = "ballerina", packageName = "lang.xml",
-//        functionName = "removeAttribute",
-//        args = {@Argument(name = "qname", type = TypeKind.STRING)},
-//        isPublic = true
-//)
 public class RemoveAttribute {
 
     private static final String OPERATION = "remove attribute";
+
+    private RemoveAttribute() {
+    }
 
     public static void removeAttribute(Strand strand, BXml xml, String qname) {
         try {
             xml.removeAttribute(qname);
         } catch (Throwable e) {
-            BLangExceptionHelper.handleXMLException(OPERATION, e);
+            ErrorHelper.handleXMLException(OPERATION, e);
         }
 
     }

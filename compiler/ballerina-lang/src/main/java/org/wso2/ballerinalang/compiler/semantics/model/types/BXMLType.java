@@ -16,7 +16,12 @@
  */
 package org.wso2.ballerinalang.compiler.semantics.model.types;
 
+import io.ballerina.types.Core;
+import io.ballerina.types.PredefinedType;
+import io.ballerina.types.SemType;
+import io.ballerina.types.SemTypes;
 import org.ballerinalang.model.types.SelectivelyImmutableReferenceType;
+import org.ballerinalang.model.types.TypeKind;
 import org.wso2.ballerinalang.compiler.semantics.model.TypeVisitor;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BTypeSymbol;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.Symbols;
@@ -24,19 +29,14 @@ import org.wso2.ballerinalang.compiler.util.Names;
 import org.wso2.ballerinalang.compiler.util.TypeTags;
 import org.wso2.ballerinalang.util.Flags;
 
-import java.util.Optional;
-
 /**
  * Represents XML Type.
  *
  * @since 0.961.0
  */
-public class BXMLType extends BBuiltInRefType implements SelectivelyImmutableReferenceType {
-
+public class BXMLType extends BType implements SelectivelyImmutableReferenceType {
     public BType constraint;
-    public BIntersectionType immutableType;
-
-    private BIntersectionType intersectionType = null;
+    public BXMLType mutableType;
 
     public BXMLType(BType constraint, BTypeSymbol tsymbol) {
         super(TypeTags.XML, tsymbol);
@@ -59,7 +59,7 @@ public class BXMLType extends BBuiltInRefType implements SelectivelyImmutableRef
             stringRep = Names.XML.value;
         }
 
-        return !Symbols.isFlagOn(flags, Flags.READONLY) ? stringRep : stringRep.concat(" & readonly");
+        return !Symbols.isFlagOn(getFlags(), Flags.READONLY) ? stringRep : stringRep.concat(" & readonly");
     }
 
     @Override
@@ -68,27 +68,41 @@ public class BXMLType extends BBuiltInRefType implements SelectivelyImmutableRef
     }
 
     @Override
+    public TypeKind getKind() {
+        return TypeKind.XML;
+    }
+
+    @Override
     public void accept(TypeVisitor visitor) {
         visitor.visit(this);
     }
 
     @Override
-    public BIntersectionType getImmutableType() {
-        return this.immutableType;
-    }
+    public SemType semType() {
+        if (this.semType != null) {
+            return this.semType;
+        }
 
-    @Override
-    public void unsetImmutableType() {
-        this.immutableType = null;
-    }
+        SemType s;
+        if (constraint == null) {
+            s = PredefinedType.XML;
+        } else {
+            SemType contraintSemtype;
+            if (constraint instanceof BParameterizedType parameterizedType) {
+                contraintSemtype = parameterizedType.paramValueType.semType();
+            } else {
+                contraintSemtype = constraint.semType();
+            }
 
-    @Override
-    public Optional<BIntersectionType> getIntersectionType() {
-        return Optional.ofNullable(this.intersectionType);
-    }
+            if (contraintSemtype == null || !Core.isSubtypeSimple(contraintSemtype, PredefinedType.XML)) {
+                // we reach here for negative semantics
+                contraintSemtype = PredefinedType.NEVER;
+            }
+            s = SemTypes.xmlSequence(contraintSemtype);
+        }
 
-    @Override
-    public void setIntersectionType(BIntersectionType intersectionType) {
-        this.intersectionType = intersectionType;
+        boolean readonly = Symbols.isFlagOn(this.getFlags(), Flags.READONLY);
+        this.semType = readonly ? SemTypes.intersect(PredefinedType.VAL_READONLY, s) : s;
+        return this.semType;
     }
 }

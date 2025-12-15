@@ -38,6 +38,8 @@ public enum InstructionKind {
     FIELD_LOCK((byte) 12),
     UNLOCK((byte) 13),
     WAIT_ALL((byte) 14),
+    WK_ALT_RECEIVE((byte) 15),
+    WK_MULTIPLE_RECEIVE((byte) 16),
 
     // Non-terminating instructions
     MOVE((byte) 20),
@@ -108,9 +110,24 @@ public enum InstructionKind {
     BITWISE_RIGHT_SHIFT((byte) 87),
     BITWISE_UNSIGNED_RIGHT_SHIFT((byte) 88),
 
+    // Regular expression related instructions.
+    NEW_REG_EXP((byte) 89),
+    NEW_RE_DISJUNCTION((byte) 90),
+    NEW_RE_SEQUENCE((byte) 91),
+    NEW_RE_ASSERTION((byte) 92),
+    NEW_RE_ATOM_QUANTIFIER((byte) 93),
+    NEW_RE_LITERAL_CHAR_ESCAPE((byte) 94),
+    NEW_RE_CHAR_CLASS((byte) 95),
+    NEW_RE_CHAR_SET((byte) 96),
+    NEW_RE_CHAR_SET_RANGE((byte) 97),
+    NEW_RE_CAPTURING_GROUP((byte) 98),
+    NEW_RE_FLAG_EXPR((byte) 99),
+    NEW_RE_FLAG_ON_OFF((byte) 100),
+    NEW_RE_QUANTIFIER((byte) 101),
+    RECORD_DEFAULT_FP_LOAD((byte) 102),
     PLATFORM((byte) 128);
 
-    byte value;
+    final byte value;
 
     InstructionKind(byte value) {
         this.value = value;

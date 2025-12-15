@@ -22,11 +22,14 @@ package io.ballerina.runtime.api.flags;
  *
  * @since 1.1.0
  */
-public class TypeFlags {
+public final class TypeFlags {
 
     public static final int NILABLE = 1;
     public static final int ANYDATA = NILABLE << 1;
     public static final int PURETYPE = ANYDATA << 1;
+
+    private TypeFlags() {
+    }
 
     public static boolean isFlagOn(int bitmask, int flag) {
         return (bitmask & flag) == flag;
@@ -36,20 +39,28 @@ public class TypeFlags {
         return addToMask(0, flags);
     }
 
+    public static int asMask(int flag) {
+        return addToMask(0, flag);
+    }
+
     public static int addToMask(int mask, int... flags) {
         for (int flag : flags) {
-            switch (flag) {
-                case NILABLE:
-                    mask |= NILABLE;
-                    break;
-                case ANYDATA:
-                    mask |= ANYDATA;
-                    break;
-                case PURETYPE:
-                    mask |= PURETYPE;
-                    break;
-            }
+            mask = addToMask(mask, flag);
+        }
+        return mask;
+    }
 
+    public static int addToMask(int mask, int flag) {
+        switch (flag) {
+            case NILABLE:
+                mask |= NILABLE;
+                break;
+            case ANYDATA:
+                mask |= ANYDATA;
+                break;
+            case PURETYPE:
+                mask |= PURETYPE;
+                break;
         }
         return mask;
     }

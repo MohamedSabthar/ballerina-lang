@@ -19,12 +19,25 @@ package org.ballerinalang.testerina.test.utils;
 
 import org.testng.Assert;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Locale;
+
 /**
  * Util class for test assertions.
  *
  * @since 2.0.0
  */
-public class AssertionUtils {
+public final class AssertionUtils {
+
+    private static final Boolean isWindows = System.getProperty("os.name").toLowerCase(Locale.getDefault())
+            .contains("win");
+
+    private static final Path commandOutputsDir = Path.of("src", "test", "resources", "command-outputs");
+
+    private AssertionUtils() {
+    }
 
     public static void assertForTestFailures(String programOutput, String errMessage) {
         if (programOutput.contains("error: there are test failures")) {
@@ -32,6 +45,23 @@ public class AssertionUtils {
         } else if (programOutput.contains("error: compilation contains errors")) {
             Assert.fail("Test failed due to a compilation error with following output\n" +
                     programOutput);
+        }
+    }
+
+    public static void assertOutput(String outputFileName, String output) throws IOException {
+        String regex = "(?m)^\\s*[/A-Za-z].*\\R?";
+        if (isWindows) {
+            output = CommonUtils.replaceExecutionTime(output);
+            String fileContent =  Files.readString(commandOutputsDir.resolve("windows").resolve(outputFileName));
+            Assert.assertEquals(output.replaceAll("\r\n|\r", "\n").replaceAll(regex, "")
+                            .stripTrailing(),
+                    fileContent.replaceAll("\r\n|\r", "\n").replaceAll(regex, "")
+                            .stripTrailing());
+        } else {
+            output = CommonUtils.replaceExecutionTime(output);
+            String fileContent = Files.readString(commandOutputsDir.resolve("unix").resolve(outputFileName));
+            Assert.assertEquals(output.stripTrailing().replaceAll(regex, ""),
+                    fileContent.stripTrailing().replaceAll(regex, ""));
         }
     }
 }

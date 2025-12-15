@@ -26,33 +26,38 @@ import io.ballerina.projects.internal.ModuleContextDataHolder;
 import io.ballerina.projects.util.ProjectUtils;
 import io.ballerina.tools.diagnostics.Diagnostic;
 import io.ballerina.tools.diagnostics.Location;
-import org.ballerinalang.compiler.CompilerOptionName;
 import org.ballerinalang.model.TreeBuilder;
 import org.ballerinalang.model.elements.Flag;
 import org.ballerinalang.model.elements.PackageID;
 import org.wso2.ballerinalang.compiler.BIRPackageSymbolEnter;
+import org.wso2.ballerinalang.compiler.PackageCache;
 import org.wso2.ballerinalang.compiler.bir.writer.BIRBinaryWriter;
 import org.wso2.ballerinalang.compiler.diagnostic.BLangDiagnosticLocation;
 import org.wso2.ballerinalang.compiler.semantics.analyzer.SymbolEnter;
+import org.wso2.ballerinalang.compiler.semantics.analyzer.Types;
+import org.wso2.ballerinalang.compiler.semantics.model.SymbolTable;
 import org.wso2.ballerinalang.compiler.semantics.model.symbols.BPackageSymbol;
 import org.wso2.ballerinalang.compiler.tree.BLangPackage;
 import org.wso2.ballerinalang.compiler.tree.BLangTestablePackage;
 import org.wso2.ballerinalang.compiler.util.CompilerContext;
-import org.wso2.ballerinalang.compiler.util.CompilerOptions;
-import org.wso2.ballerinalang.programfile.CompiledBinaryFile;
+import org.wso2.ballerinalang.programfile.BIRPackageFile;
 import org.wso2.ballerinalang.programfile.PackageFileWriter;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.ref.WeakReference;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static org.ballerinalang.model.tree.SourceKind.REGULAR_SOURCE;
 import static org.ballerinalang.model.tree.SourceKind.TEST_SOURCE;
@@ -64,19 +69,18 @@ import static org.ballerinalang.model.tree.SourceKind.TEST_SOURCE;
  *
  * @since 2.0.0
  */
-class ModuleContext {
+public class ModuleContext {
+
+    private static final WeakReference<byte[]> DEFAULT_BIR_BYTE = new WeakReference<>(new byte[0]);
+
     private final ModuleId moduleId;
     private final ModuleDescriptor moduleDescriptor;
     private final Collection<DocumentId> srcDocIds;
     private final boolean isDefaultModule;
     private final Map<DocumentId, DocumentContext> srcDocContextMap;
     private final Collection<DocumentId> testSrcDocIds;
-    private final MdDocumentContext moduleMdContext;
+    private final MdDocumentContext readmeMdContext;
     private final Map<DocumentId, DocumentContext> testDocContextMap;
-    private final Collection<DocumentId> resourceIds;
-    private final Collection<DocumentId> testResourceIds;
-    private final Map<DocumentId, ResourceContext> resourceContextMap;
-    private final Map<DocumentId, ResourceContext> testResourceContextMap;
     private final Project project;
     private final CompilationCache compilationCache;
     private final List<ModuleDescriptor> moduleDescDependencies;
@@ -84,7 +88,7 @@ class ModuleContext {
     private Set<ModuleDependency> moduleDependencies;
     private BLangPackage bLangPackage;
     private BPackageSymbol bPackageSymbol;
-    private byte[] birBytes = new byte[0];
+    private WeakReference<byte[]> birBytes = DEFAULT_BIR_BYTE;
     private final Bootstrap bootstrap;
     private ModuleCompilationState moduleCompState;
     private Set<ModuleLoadRequest> allModuleLoadRequests = null;
@@ -96,10 +100,8 @@ class ModuleContext {
                   boolean isDefaultModule,
                   Map<DocumentId, DocumentContext> srcDocContextMap,
                   Map<DocumentId, DocumentContext> testDocContextMap,
-                  MdDocumentContext moduleMd,
-                  List<ModuleDescriptor> moduleDescDependencies,
-                  Map<DocumentId, ResourceContext> resourceContextMap,
-                  Map<DocumentId, ResourceContext> testResourceContextMap) {
+                  MdDocumentContext readmeMd,
+                  List<ModuleDescriptor> moduleDescDependencies) {
         this.project = project;
         this.moduleId = moduleId;
         this.moduleDescriptor = moduleDescriptor;
@@ -108,50 +110,39 @@ class ModuleContext {
         this.srcDocIds = Collections.unmodifiableCollection(srcDocContextMap.keySet());
         this.testDocContextMap = testDocContextMap;
         this.testSrcDocIds = Collections.unmodifiableCollection(testDocContextMap.keySet());
-        this.moduleMdContext = moduleMd;
+        this.readmeMdContext = readmeMd;
         this.moduleDescDependencies = Collections.unmodifiableList(moduleDescDependencies);
-        this.resourceContextMap = resourceContextMap;
-        this.testResourceContextMap = testResourceContextMap;
-        this.resourceIds = Collections.unmodifiableCollection(resourceContextMap.keySet());
-        this.testResourceIds = Collections.unmodifiableCollection(testResourceContextMap.keySet());
+
 
         ProjectEnvironment projectEnvironment = project.projectEnvironmentContext();
         this.bootstrap = new Bootstrap(projectEnvironment.getService(PackageResolver.class));
         this.compilationCache = projectEnvironment.getService(CompilationCache.class);
     }
 
-    static ModuleContext from(Project project, ModuleConfig moduleConfig) {
-        Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>();
+    static ModuleContext from(Project project, ModuleConfig moduleConfig, boolean disableSyntaxTree) {
+        Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
         for (DocumentConfig sourceDocConfig : moduleConfig.sourceDocs()) {
-            srcDocContextMap.put(sourceDocConfig.documentId(), DocumentContext.from(sourceDocConfig));
+            srcDocContextMap.put(sourceDocConfig.documentId(), DocumentContext.from(sourceDocConfig,
+                    disableSyntaxTree));
         }
 
-        Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>();
+        Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
         for (DocumentConfig testSrcDocConfig : moduleConfig.testSourceDocs()) {
-            testDocContextMap.put(testSrcDocConfig.documentId(), DocumentContext.from(testSrcDocConfig));
-        }
-
-        Map<DocumentId, ResourceContext> resourceContextMap = new HashMap<>();
-        for (ResourceConfig resourceConfig : moduleConfig.resources()) {
-            resourceContextMap.put(resourceConfig.documentId(), ResourceContext.from(resourceConfig));
-        }
-
-        Map<DocumentId, ResourceContext> testResourceContextMap = new HashMap<>();
-        for (ResourceConfig resourceConfig : moduleConfig.testResources()) {
-            testResourceContextMap.put(resourceConfig.documentId(), ResourceContext.from(resourceConfig));
+            testDocContextMap.put(testSrcDocConfig.documentId(), DocumentContext.from(testSrcDocConfig,
+                    disableSyntaxTree));
         }
 
         return new ModuleContext(project, moduleConfig.moduleId(), moduleConfig.moduleDescriptor(),
                 moduleConfig.isDefaultModule(), srcDocContextMap, testDocContextMap,
-                moduleConfig.moduleMd().map(c ->MdDocumentContext.from(c)).orElse(null),
-                moduleConfig.dependencies(), resourceContextMap, testResourceContextMap);
+                moduleConfig.readmeMd().map(c ->MdDocumentContext.from(c)).orElse(null),
+                moduleConfig.dependencies());
     }
 
     ModuleId moduleId() {
         return this.moduleId;
     }
 
-    ModuleDescriptor descriptor() {
+    public ModuleDescriptor descriptor() {
         return moduleDescriptor;
     }
 
@@ -167,27 +158,11 @@ class ModuleContext {
         return this.testSrcDocIds;
     }
 
-    Collection<DocumentId> resourceIds() {
-        return this.resourceIds;
-    }
-
-    Collection<DocumentId> testResourceIds() {
-        return this.testResourceIds;
-    }
-
     DocumentContext documentContext(DocumentId documentId) {
         if (this.srcDocIds.contains(documentId)) {
             return this.srcDocContextMap.get(documentId);
         } else {
             return this.testDocContextMap.get(documentId);
-        }
-    }
-
-    ResourceContext resourceContext(DocumentId documentId) {
-        if (this.resourceIds.contains(documentId)) {
-            return this.resourceContextMap.get(documentId);
-        } else {
-            return this.testResourceContextMap.get(documentId);
         }
     }
 
@@ -218,7 +193,8 @@ class ModuleContext {
         }
         allModuleLoadRequests = new OverwritableLinkedHashSet();
         for (DocumentContext docContext : srcDocContextMap.values()) {
-            allModuleLoadRequests.addAll(docContext.moduleLoadRequests(moduleName(), PackageDependencyScope.DEFAULT));
+            allModuleLoadRequests.addAll(docContext.moduleLoadRequests(moduleDescriptor,
+                    PackageDependencyScope.DEFAULT));
         }
 
         return allModuleLoadRequests;
@@ -231,7 +207,7 @@ class ModuleContext {
         allTestModuleLoadRequests = new OverwritableLinkedHashSet();
         for (DocumentContext docContext : testDocContextMap.values()) {
             allTestModuleLoadRequests.addAll(
-                    docContext.moduleLoadRequests(moduleName(), PackageDependencyScope.TEST_ONLY));
+                    docContext.moduleLoadRequests(moduleDescriptor, PackageDependencyScope.TEST_ONLY));
         }
 
         return allTestModuleLoadRequests;
@@ -239,6 +215,10 @@ class ModuleContext {
 
     BLangPackage bLangPackage() {
         return getBLangPackageOrThrow();
+    }
+
+    protected void cleanBLangPackage() {
+        this.bLangPackage = null;
     }
 
     ModuleCompilationState compilationState() {
@@ -268,7 +248,8 @@ class ModuleContext {
     }
 
     private void parseTestSources(BLangPackage pkgNode, PackageID pkgId, CompilerContext compilerContext) {
-        BLangTestablePackage testablePkg = TreeBuilder.createTestablePackageNode();
+        Types types = Types.getInstance(compilerContext);
+        BLangTestablePackage testablePkg = TreeBuilder.createTestablePackageNode(types.typeEnv());
         // TODO Not sure why we need to do this. It is there in the current implementation
         testablePkg.packageID = pkgId;
         testablePkg.flagSet.add(Flag.TESTABLE);
@@ -291,6 +272,8 @@ class ModuleContext {
         // TODO This logic needs to be updated. We need a proper way to decide on the initial state
         if (compilationCache.getBir(moduleDescriptor.name()).length == 0) {
             moduleCompState = ModuleCompilationState.LOADED_FROM_SOURCES;
+        } else if (this.project().kind() == ProjectKind.BUILD_PROJECT) {
+            moduleCompState = ModuleCompilationState.LOADED_FROM_SOURCES;
         } else {
             moduleCompState = ModuleCompilationState.LOADED_FROM_CACHE;
         }
@@ -299,10 +282,6 @@ class ModuleContext {
 
     void setCompilationState(ModuleCompilationState moduleCompState) {
         this.moduleCompState = moduleCompState;
-    }
-
-    void parse() {
-        currentCompilationState().parse(this);
     }
 
     void resolveDependencies(DependencyResolution dependencyResolution) {
@@ -350,8 +329,7 @@ class ModuleContext {
 
         ModuleContext resolvedModule = resolvedModuleOptional.get();
         ModuleDependency moduleDependency = new ModuleDependency(
-                new PackageDependency(resolvedModule.moduleId().packageId(), scope),
-                resolvedModule.moduleId());
+                new PackageDependency(resolvedModule.moduleId().packageId(), scope), resolvedModule.descriptor());
         moduleDependencies.add(moduleDependency);
     }
 
@@ -369,7 +347,7 @@ class ModuleContext {
         Module resolvedModule = resolvedModuleOptional.get();
         ModuleDependency moduleDependency = new ModuleDependency(
                 new PackageDependency(resolvedModule.packageInstance().packageId(), scope),
-                resolvedModule.moduleId());
+                resolvedModule.descriptor());
         moduleDependencies.add(moduleDependency);
     }
 
@@ -397,17 +375,21 @@ class ModuleContext {
             moduleContext.bootstrap.loadLangLib(compilerContext, moduleCompilationId);
         }
 
-        org.wso2.ballerinalang.compiler.PackageCache packageCache =
-                org.wso2.ballerinalang.compiler.PackageCache.getInstance(compilerContext);
+        PackageCache packageCache = PackageCache.getInstance(compilerContext);
         SymbolEnter symbolEnter = SymbolEnter.getInstance(compilerContext);
         CompilerPhaseRunner compilerPhaseRunner = CompilerPhaseRunner.getInstance(compilerContext);
 
-        BLangPackage pkgNode = (BLangPackage) TreeBuilder.createPackageNode();
+        Types types = Types.getInstance(compilerContext);
+        BLangPackage pkgNode = (BLangPackage) TreeBuilder.createPackageNode(types.typeEnv());
         pkgNode.moduleContextDataHolder = new ModuleContextDataHolder(
                 moduleContext.isExported(),
                 moduleContext.descriptor(),
                 moduleContext.project.kind(),
-                moduleContext.project.buildOptions().skipTests());
+                moduleContext.project.buildOptions().skipTests(),
+                moduleContext.project().sourceRoot(),
+                moduleContext.project().buildOptions().observabilityIncluded(),
+                moduleContext.project().buildOptions().compilationOptions().dumpBir(),
+                moduleContext.project().buildOptions().cloud());
         packageCache.put(moduleCompilationId, pkgNode);
 
         // Parse source files
@@ -427,8 +409,12 @@ class ModuleContext {
             packageCache.putSymbol(pkgNode.packageID, pkgNode.symbol);
             compilerPhaseRunner.performTypeCheckPhases(pkgNode);
         } catch (Throwable t) {
-            assert false : "Compilation failed due to" +
-                    (t.getMessage() != null ? ": " + t.getMessage() : " an unhandled exception");
+            assert false : "Compilation failed due to " + ((Supplier<String>) () -> {
+                StringWriter errors = new StringWriter();
+                t.printStackTrace(new PrintWriter(errors));
+                return errors.toString();
+            }).get();
+
             compilerPhaseRunner.addDiagnosticForUnhandledException(pkgNode, t);
         }
         moduleContext.bLangPackage = pkgNode;
@@ -446,8 +432,11 @@ class ModuleContext {
             try {
                 compilerPhaseRunner.performBirGenPhases(moduleContext.bLangPackage);
             } catch (Throwable t) {
-                assert false : "Compilation failed due to" +
-                        (t.getMessage() != null ? ": " + t.getMessage() : " an unhandled exception");
+                assert false : "Compilation failed due to " + ((Supplier<String>) () -> {
+                    StringWriter errors = new StringWriter();
+                    t.printStackTrace(new PrintWriter(errors));
+                    return errors.toString();
+                }).get();
                 compilerPhaseRunner.addDiagnosticForUnhandledException(moduleContext.bLangPackage, t);
                 return;
             }
@@ -472,7 +461,11 @@ class ModuleContext {
         // Generate and write the thin JAR to the file system
         compilerBackend.performCodeGen(moduleContext, moduleContext.compilationCache);
 
-        // Skip writing the bir for BuildProject
+        // Skip bir caching if jar generation is not successful
+        if (Diagnostics.hasErrors(moduleContext.diagnostics())) {
+            return;
+        }
+
         if (birContent == null) {
             return;
         }
@@ -483,28 +476,36 @@ class ModuleContext {
         moduleContext.compilationCache.cacheBir(moduleContext.moduleName(), birContent);
     }
 
-    private static ByteArrayOutputStream generateBIR(ModuleContext moduleContext, CompilerContext compilerContext) {
-        // Skip caching the BIR if it is a Build Project (current package) unless the --dump-bir-file flag is passed
-        if (moduleContext.project.kind().equals(ProjectKind.BUILD_PROJECT) && !ProjectUtils.isBuiltInPackage(
-                moduleContext.descriptor().org(), moduleContext.descriptor().packageName().toString())) {
-            CompilerOptions compilerOptions = CompilerOptions.getInstance(compilerContext);
-            if (!Boolean.parseBoolean(compilerOptions.get(CompilerOptionName.DUMP_BIR_FILE))) {
-                return null;
-            }
+    private static boolean shouldGenerateBir(ModuleContext moduleContext) {
+        if (moduleContext.project.kind().equals(ProjectKind.BALA_PROJECT)) {
+            return true;
         }
+        if (ProjectUtils.isBuiltInPackage(
+                moduleContext.descriptor().org(), moduleContext.descriptor().packageName().toString())) {
+            return true;
+        }
+        if (moduleContext.project.buildOptions().compilationOptions().dumpBirFile()) {
+            return true;
+        }
+        return moduleContext.project.kind().equals(ProjectKind.BUILD_PROJECT);
+    }
 
+    private static ByteArrayOutputStream generateBIR(ModuleContext moduleContext, CompilerContext compilerContext) {
+        if (!shouldGenerateBir(moduleContext)) {
+            return null;
+        }
         // Can we improve this logic
         ByteArrayOutputStream birContent = new ByteArrayOutputStream();
+        SymbolTable symTable = SymbolTable.getInstance(compilerContext);
         try {
-            CompiledBinaryFile.BIRPackageFile birPackageFile = moduleContext.bLangPackage.symbol.birPackageFile;
+            BIRPackageFile birPackageFile = moduleContext.bLangPackage.symbol.birPackageFile;
             if (birPackageFile == null) {
-                birPackageFile = new CompiledBinaryFile
-                        .BIRPackageFile(new BIRBinaryWriter(moduleContext.bLangPackage.symbol.bir).serialize());
+                birPackageFile = new BIRPackageFile.EagerBirPackageFile(
+                        new BIRBinaryWriter(moduleContext.bLangPackage.symbol.bir, symTable.typeEnv()).serialize());
                 moduleContext.bLangPackage.symbol.birPackageFile = birPackageFile;
             }
             byte[] pkgBirBinaryContent = PackageFileWriter.writePackage(birPackageFile);
             birContent.writeBytes(pkgBirBinaryContent);
-            moduleContext.compilationCache.cacheBir(moduleContext.moduleName(), birContent);
             return birContent;
         } catch (IOException e) {
             // This path may never be executed
@@ -513,7 +514,11 @@ class ModuleContext {
     }
 
     static void loadBirBytesInternal(ModuleContext moduleContext) {
-        moduleContext.birBytes = moduleContext.compilationCache.getBir(moduleContext.moduleName());
+        moduleContext.birBytes = new WeakReference<>(moduleContext.loadBirBytesInternalInner());
+    }
+
+    private byte[] loadBirBytesInternalInner() {
+        return compilationCache.getBir(this.moduleName());
     }
 
     static void resolveDependenciesFromBALAInternal(ModuleContext moduleContext) {
@@ -521,12 +526,12 @@ class ModuleContext {
     }
 
     static void loadPackageSymbolInternal(ModuleContext moduleContext, CompilerContext compilerContext) {
-        org.wso2.ballerinalang.compiler.PackageCache packageCache =
-                org.wso2.ballerinalang.compiler.PackageCache.getInstance(compilerContext);
+        PackageCache packageCache = PackageCache.getInstance(compilerContext);
         BIRPackageSymbolEnter birPackageSymbolEnter = BIRPackageSymbolEnter.getInstance(compilerContext);
 
         PackageID moduleCompilationId = moduleContext.descriptor().moduleCompilationId();
-        moduleContext.bPackageSymbol = birPackageSymbolEnter.definePackage(moduleCompilationId, moduleContext.birBytes);
+        moduleContext.bPackageSymbol =
+                birPackageSymbolEnter.definePackage(moduleContext);
         moduleContext.bPackageSymbol.exported = moduleContext.isExported();
         moduleContext.bPackageSymbol.descriptor = moduleContext.descriptor();
         packageCache.putSymbol(moduleCompilationId, moduleContext.bPackageSymbol);
@@ -536,25 +541,34 @@ class ModuleContext {
         // TODO implement
     }
 
+    static void shrinkDocuments(ModuleContext moduleContext) {
+        moduleContext.srcDocContextMap.values().forEach(DocumentContext::shrink);
+    }
+
+    @Deprecated (forRemoval = true)
     Optional<MdDocumentContext> moduleMdContext() {
-        return Optional.ofNullable(this.moduleMdContext);
+        return Optional.ofNullable(this.readmeMdContext);
+    }
+
+    public Optional<MdDocumentContext> readmeMdContext() {
+        return Optional.ofNullable(readmeMdContext);
     }
 
     ModuleContext duplicate(Project project) {
-        Map<DocumentId, DocumentContext> srcDocContextMap = new HashMap<>();
+        Map<DocumentId, DocumentContext> srcDocContextMap = new LinkedHashMap<>();
         for (DocumentId documentId : this.srcDocumentIds()) {
             DocumentContext documentContext = this.documentContext(documentId);
             srcDocContextMap.put(documentId, documentContext.duplicate());
         }
 
-        Map<DocumentId, DocumentContext> testDocContextMap = new HashMap<>();
+        Map<DocumentId, DocumentContext> testDocContextMap = new LinkedHashMap<>();
         for (DocumentId documentId : this.testSrcDocumentIds()) {
             DocumentContext documentContext = this.documentContext(documentId);
             testDocContextMap.put(documentId, documentContext.duplicate());
         }
         return new ModuleContext(project, this.moduleId, this.moduleDescriptor, this.isDefaultModule,
-                srcDocContextMap, testDocContextMap, this.moduleMdContext().orElse(null),
-                this.moduleDescDependencies, this.resourceContextMap, this.testResourceContextMap);
+                srcDocContextMap, testDocContextMap, this.readmeMdContext().orElse(null),
+                this.moduleDescDependencies);
     }
 
     /**
@@ -586,5 +600,14 @@ class ModuleContext {
             }
             return super.add(moduleLoadRequest);
         }
+    }
+
+    public byte[] getBirBytes() {
+        byte[] birBytes = this.birBytes.get();
+        if (birBytes == null) {
+            birBytes = loadBirBytesInternalInner();
+            this.birBytes = new WeakReference<>(birBytes);
+        }
+        return birBytes;
     }
 }

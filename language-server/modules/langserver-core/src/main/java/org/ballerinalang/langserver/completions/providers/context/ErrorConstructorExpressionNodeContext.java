@@ -16,11 +16,13 @@
 package org.ballerinalang.langserver.completions.providers.context;
 
 import io.ballerina.compiler.api.SemanticModel;
+import io.ballerina.compiler.api.Types;
 import io.ballerina.compiler.api.symbols.RecordFieldSymbol;
 import io.ballerina.compiler.api.symbols.RecordTypeSymbol;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.api.symbols.UnionTypeSymbol;
 import io.ballerina.compiler.syntax.tree.ErrorConstructorExpressionNode;
 import io.ballerina.compiler.syntax.tree.FunctionArgumentNode;
 import io.ballerina.compiler.syntax.tree.NamedArgumentNode;
@@ -29,17 +31,17 @@ import io.ballerina.compiler.syntax.tree.QualifiedNameReferenceNode;
 import io.ballerina.compiler.syntax.tree.SyntaxKind;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.compiler.syntax.tree.TypeDescriptorNode;
+import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.TextRange;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
-import org.ballerinalang.langserver.common.utils.completion.QNameReferenceUtil;
 import org.ballerinalang.langserver.commons.BallerinaCompletionContext;
 import org.ballerinalang.langserver.commons.completion.LSCompletionItem;
 import org.ballerinalang.langserver.completions.NamedArgCompletionItem;
 import org.ballerinalang.langserver.completions.builder.NamedArgCompletionItemBuilder;
 import org.ballerinalang.langserver.completions.providers.AbstractCompletionProvider;
-import org.ballerinalang.langserver.completions.util.ContextTypeResolver;
+import org.ballerinalang.langserver.completions.util.QNameRefCompletionUtil;
 import org.ballerinalang.langserver.completions.util.SortingUtil;
 import org.eclipse.lsp4j.CompletionItem;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
@@ -49,7 +51,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /**
  * Completion provider for {@link ErrorConstructorExpressionNode} context.
@@ -61,12 +62,14 @@ public class ErrorConstructorExpressionNodeContext extends
         AbstractCompletionProvider<ErrorConstructorExpressionNode> {
 
     public ErrorConstructorExpressionNodeContext() {
+
         super(ErrorConstructorExpressionNode.class);
     }
 
     @Override
     public List<LSCompletionItem> getCompletions(BallerinaCompletionContext context,
                                                  ErrorConstructorExpressionNode node) {
+
         List<LSCompletionItem> completionItems = new ArrayList<>();
 
         if (withinArgs(context, node)) {
@@ -91,6 +94,7 @@ public class ErrorConstructorExpressionNodeContext extends
     }
 
     private boolean withinTypeRefContext(BallerinaCompletionContext context, ErrorConstructorExpressionNode node) {
+
         int cursor = context.getCursorPositionInTree();
         Token errorKeyword = node.errorKeyword();
         Optional<TypeDescriptorNode> typeDescNode = node.typeReference();
@@ -101,11 +105,12 @@ public class ErrorConstructorExpressionNodeContext extends
 
     private List<LSCompletionItem> getCompletionWithinArgs(BallerinaCompletionContext ctx,
                                                            ErrorConstructorExpressionNode node) {
+
         List<LSCompletionItem> completionItems = new ArrayList<>();
         NonTerminalNode nodeAtCursor = ctx.getNodeAtCursor();
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            return this.getCompletionItemList(QNameReferenceUtil.getExpressionContextEntries(ctx, qNameRef), ctx);
+            return this.getCompletionItemList(QNameRefCompletionUtil.getExpressionContextEntries(ctx, qNameRef), ctx);
         }
 
         completionItems.addAll(this.expressionCompletions(ctx));
@@ -115,10 +120,11 @@ public class ErrorConstructorExpressionNodeContext extends
     }
 
     private List<LSCompletionItem> getErrorTypeRefCompletions(BallerinaCompletionContext ctx) {
+
         NonTerminalNode nodeAtCursor = ctx.getNodeAtCursor();
-        if (QNameReferenceUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
+        if (QNameRefCompletionUtil.onQualifiedNameIdentifier(ctx, nodeAtCursor)) {
             QualifiedNameReferenceNode qNameRef = (QualifiedNameReferenceNode) nodeAtCursor;
-            List<Symbol> moduleContent = QNameReferenceUtil.getModuleContent(ctx, qNameRef,
+            List<Symbol> moduleContent = QNameRefCompletionUtil.getModuleContent(ctx, qNameRef,
                     SymbolUtil.isOfType(TypeDescKind.ERROR));
 
             return this.getCompletionItemList(moduleContent, ctx);
@@ -127,7 +133,7 @@ public class ErrorConstructorExpressionNodeContext extends
         List<Symbol> errorTypes = ctx.visibleSymbols(ctx.getCursorPosition()).stream()
                 .filter(SymbolUtil.isOfType(TypeDescKind.ERROR)
                         .and(symbol -> !symbol.getName().orElse("").equals(Names.ERROR.getValue())))
-                .collect(Collectors.toList());
+                .toList();
         List<LSCompletionItem> completionItems = this.getCompletionItemList(errorTypes, ctx);
         completionItems.addAll(this.getModuleCompletionItems(ctx));
 
@@ -138,43 +144,54 @@ public class ErrorConstructorExpressionNodeContext extends
     public void sort(BallerinaCompletionContext context, ErrorConstructorExpressionNode node,
                      List<LSCompletionItem> completionItems) {
 
-        if (!withinArgs(context, node)) {
+        if (!withinArgs(context, node) || context.currentSemanticModel().isEmpty()) {
             super.sort(context, node, completionItems);
             return;
         }
+
+        Types types = context.currentSemanticModel().get().types();
+
         if (isInErrorMessageArgContext(context, node)) {
             /*
-              Covers the following.
-              error(<cursor>,)
+            Covers the following.
+            error(<cursor>,)
             */
-            sortInErrorMessageArgContext(context, completionItems, node);
+            for (LSCompletionItem completionItem : completionItems) {
+                completionItem.getCompletionItem()
+                        .setSortText(SortingUtil.genSortTextByAssignability(context, completionItem, types.STRING));
+            }
             return;
         }
-        /*
-          Covers the following.
-          error(arg1, <cursor>)
-        */
-        for (LSCompletionItem completionItem : completionItems) {
-            String sortText;
-            if (completionItem.getType() == LSCompletionItem.CompletionItemType.NAMED_ARG) {
-                sortText = SortingUtil.genSortText(1) +
-                        SortingUtil.genSortText(SortingUtil.toRank(context, completionItem));
-            } else {
-                sortText = SortingUtil.genSortText(2) +
-                        SortingUtil.genSortText(SortingUtil.toRank(context, completionItem));
-            }
-            completionItem.getCompletionItem().setSortText(sortText);
-        }
-    }
 
-    private void sortInErrorMessageArgContext(BallerinaCompletionContext context,
-                                              List<LSCompletionItem> completionItems,
-                                              ErrorConstructorExpressionNode node) {
-        //Todo:#33027
+        if (isInErrorCauseArgContext(context, node) || node.typeReference().isPresent()) {
+            /*
+            Covers the following.
+            error(arg1, <cursor>)
+            */
+            UnionTypeSymbol optionalErrorTypeSymbol = types.builder().UNION_TYPE
+                    .withMemberTypes(types.ERROR, types.NIL).build();
+            for (LSCompletionItem completionItem : completionItems) {
+                String sortText;
+                if (completionItem.getType() == LSCompletionItem.CompletionItemType.NAMED_ARG) {
+                    if (isInErrorCauseArgContext(context, node)) {
+                        sortText = SortingUtil.genSortText(1)
+                                + SortingUtil.genSortText(SortingUtil.toRank(context, completionItem));
+                    } else {
+                        sortText = SortingUtil.genSortText(1);
+                    }
+                } else {
+                    sortText = SortingUtil.genSortTextByAssignability(context, completionItem, optionalErrorTypeSymbol);
+                }
+                completionItem.getCompletionItem().setSortText(sortText);
+            }
+            return;
+        }
+
         super.sort(context, node, completionItems);
     }
 
     private boolean withinArgs(BallerinaCompletionContext context, ErrorConstructorExpressionNode node) {
+
         int cursor = context.getCursorPositionInTree();
         Token openParenToken = node.openParenToken();
         Token closeParenToken = node.closeParenToken();
@@ -186,6 +203,7 @@ public class ErrorConstructorExpressionNodeContext extends
 
     private boolean isInErrorMessageArgContext(BallerinaCompletionContext context,
                                                ErrorConstructorExpressionNode node) {
+
         if (!withinArgs(context, node)) {
             return false;
         }
@@ -199,15 +217,35 @@ public class ErrorConstructorExpressionNodeContext extends
                 && textRange.startOffset() <= cursor && cursor <= textRange.endOffset());
     }
 
+    private boolean isInErrorCauseArgContext(BallerinaCompletionContext context,
+                                             ErrorConstructorExpressionNode node) {
+
+        if (!withinArgs(context, node) || node.arguments().isEmpty() || node.arguments().size() == 1) {
+            return false;
+        }
+        FunctionArgumentNode secondArgNode = node.arguments().get(1);
+        TextRange textRange = secondArgNode.textRange();
+        int cursor = context.getCursorPositionInTree();
+        return cursor < textRange.startOffset() || (secondArgNode.kind() == SyntaxKind.POSITIONAL_ARG
+                && textRange.startOffset() <= cursor && cursor <= textRange.endOffset());
+    }
+
     private List<LSCompletionItem> getNamedArgExpressionCompletionItems(BallerinaCompletionContext context,
                                                                         ErrorConstructorExpressionNode node) {
+
         List<LSCompletionItem> completionItems = new ArrayList<>();
         Optional<SemanticModel> semanticModel = context.currentSemanticModel();
         if (semanticModel.isEmpty()) {
             return completionItems;
         }
-        ContextTypeResolver resolver = new ContextTypeResolver(context);
-        Optional<TypeSymbol> detailTypeDesc = node.apply(resolver);
+
+        Optional<TypeSymbol> detailTypeDesc = Optional.empty();
+        if (context.currentSemanticModel().isPresent() && context.currentDocument().isPresent()) {
+            LinePosition linePosition = node.location().lineRange().endLine();
+            detailTypeDesc = context.currentSemanticModel().get()
+                    .expectedType(context.currentDocument().get(), linePosition);
+        }
+
         if (detailTypeDesc.isEmpty()) {
             return completionItems;
         }
@@ -220,7 +258,7 @@ public class ErrorConstructorExpressionNodeContext extends
             return completionItems;
         }
         List<String> existingNamedArgs = node.arguments().stream().filter(arg -> arg.kind() == SyntaxKind.NAMED_ARG)
-                .map(arg -> ((NamedArgumentNode) arg).argumentName().name().text()).collect(Collectors.toList());
+                .map(arg -> ((NamedArgumentNode) arg).argumentName().name().text()).toList();
 
         fields.entrySet().forEach(field -> {
             Optional<String> fieldName = field.getValue().getName();

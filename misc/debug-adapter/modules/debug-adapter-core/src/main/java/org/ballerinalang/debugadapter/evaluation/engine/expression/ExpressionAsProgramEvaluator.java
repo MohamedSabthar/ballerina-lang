@@ -41,6 +41,7 @@ import io.ballerina.projects.ProjectException;
 import io.ballerina.projects.directory.BuildProject;
 import io.ballerina.projects.internal.model.Target;
 import io.ballerina.projects.util.ProjectConstants;
+import io.ballerina.projects.util.ProjectUtils;
 import io.ballerina.tools.diagnostics.DiagnosticSeverity;
 import org.ballerinalang.debugadapter.EvaluationContext;
 import org.ballerinalang.debugadapter.evaluation.BExpressionValue;
@@ -51,6 +52,7 @@ import org.ballerinalang.debugadapter.evaluation.engine.Evaluator;
 import org.ballerinalang.debugadapter.evaluation.engine.ExternalVariableReferenceFinder;
 import org.ballerinalang.debugadapter.evaluation.engine.ModuleLevelDefinitionFinder;
 import org.ballerinalang.debugadapter.evaluation.engine.invokable.RuntimeStaticMethod;
+import org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils;
 import org.ballerinalang.debugadapter.evaluation.utils.FileUtils;
 import org.ballerinalang.debugadapter.evaluation.utils.VariableUtils;
 import org.ballerinalang.debugadapter.variable.BVariable;
@@ -70,6 +72,7 @@ import java.util.stream.Collectors;
 
 import static org.ballerinalang.debugadapter.evaluation.EvaluationException.createEvaluationException;
 import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.INTERNAL_ERROR;
+import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.VARIABLE_NOT_FOUND;
 import static org.ballerinalang.debugadapter.evaluation.IdentifierModifier.QUOTED_IDENTIFIER_PREFIX;
 import static org.ballerinalang.debugadapter.evaluation.IdentifierModifier.decodeAndEscapeIdentifier;
 import static org.ballerinalang.debugadapter.evaluation.utils.EvaluationUtils.B_DEBUGGER_RUNTIME_CLASS;
@@ -201,7 +204,10 @@ public class ExpressionAsProgramEvaluator extends Evaluator {
                 fillOtherModuleDefinitions();
             }
 
-            BuildOptions buildOptions = BuildOptions.builder().setOffline(true).build();
+            BuildOptions buildOptions = BuildOptions.builder()
+                    .setOffline(true)
+                    .targetDir(ProjectUtils.getTemporaryTargetPath())
+                    .build();
             return BuildProject.load(this.tempProjectDir, buildOptions);
         } catch (EvaluationException e) {
             throw e;
@@ -246,7 +252,7 @@ public class ExpressionAsProgramEvaluator extends Evaluator {
         try {
             PackageCompilation pkgCompilation = project.currentPackage().getCompilation();
             validateForCompilationErrors(pkgCompilation);
-            JBallerinaBackend jBallerinaBackend = JBallerinaBackend.from(pkgCompilation, JvmTarget.JAVA_11);
+            JBallerinaBackend jBallerinaBackend = JBallerinaBackend.from(pkgCompilation, JvmTarget.JAVA_21);
             jBallerinaBackend.emit(JBallerinaBackend.OutputType.EXEC, executablePath);
         } catch (ProjectException e) {
             throw createEvaluationException("failed to create executables while evaluating expression: "
@@ -504,7 +510,7 @@ public class ExpressionAsProgramEvaluator extends Evaluator {
             modifier = modifier.withModuleName(newModuleName);
 
             return modifier.apply();
-        }).collect(Collectors.toList());
+        }).toList();
     }
 
     private void processSnippetFunctionParameters() throws EvaluationException {
@@ -513,10 +519,15 @@ public class ExpressionAsProgramEvaluator extends Evaluator {
                 .getCapturedVariables());
         List<String> capturedTypes = new ArrayList<>();
         for (String name : capturedVarNames) {
-            Value jdiValue = VariableUtils.fetchVariableValue(context, name);
-            BVariable bVar = VariableFactory.getVariable(context, jdiValue);
+            Optional<BExpressionValue> variableValue = EvaluationUtils.fetchVariableReferenceValue(evaluationContext,
+                    name);
+            if (variableValue.isEmpty()) {
+                throw createEvaluationException(VARIABLE_NOT_FOUND, name);
+            }
+
+            BVariable bVar = VariableFactory.getVariable(context, variableValue.get().getJdiValue());
             capturedTypes.add(getTypeNameString(bVar));
-            externalVariableValues.add(getValueAsObject(context, jdiValue));
+            externalVariableValues.add(getValueAsObject(context, variableValue.get().getJdiValue()));
         }
 
         for (int index = 0; index < capturedVarNames.size(); index++) {
@@ -544,43 +555,35 @@ public class ExpressionAsProgramEvaluator extends Evaluator {
      * @return type name
      */
     private String getTypeNameString(BVariable bVar) {
-        switch (bVar.getBType()) {
-            case BOOLEAN:
-            case INT:
-            case FLOAT:
-            case DECIMAL:
-            case STRING:
-            case XML:
-            case TABLE:
-            case ERROR:
-            case FUNCTION:
-            case FUTURE:
-            case TYPE_DESC:
-            case HANDLE:
-            case STREAM:
-            case SINGLETON:
-            case ANY:
-            case ANYDATA:
-            case NEVER:
-            case BYTE:
-            case SERVICE:
-                return bVar.getBType().getString();
-            case JSON:
-                return "map<json>";
-            case MAP:
-                return VariableUtils.getMapType(context, bVar.getJvmValue());
-            case NIL:
-                return "()";
-            case ARRAY:
-                return bVar.computeValue().substring(0, bVar.computeValue().indexOf("[")) + "[]";
-            case TUPLE:
-                return bVar.computeValue();
-            case RECORD:
-            case OBJECT:
-                return resolveObjectType(bVar);
-            default:
-                return UNKNOWN_VALUE;
-        }
+        return switch (bVar.getBType()) {
+            case BOOLEAN,
+                 INT,
+                 FLOAT,
+                 DECIMAL,
+                 STRING,
+                 XML,
+                 TABLE,
+                 ERROR,
+                 FUNCTION,
+                 FUTURE,
+                 TYPE_DESC,
+                 HANDLE,
+                 STREAM,
+                 SINGLETON,
+                 ANY,
+                 ANYDATA,
+                 NEVER,
+                 BYTE,
+                 SERVICE -> bVar.getBType().getString();
+            case JSON -> "map<json>";
+            case MAP -> VariableUtils.getMapType(context, bVar.getJvmValue());
+            case NIL -> "()";
+            case ARRAY -> bVar.computeValue().substring(0, bVar.computeValue().indexOf("[")) + "[]";
+            case TUPLE -> bVar.computeValue();
+            case RECORD,
+                 OBJECT -> resolveObjectType(bVar);
+            default -> UNKNOWN_VALUE;
+        };
     }
 
     private String resolveObjectType(BVariable bVar) {

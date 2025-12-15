@@ -20,6 +20,7 @@ import com.sun.jdi.BooleanValue;
 import com.sun.jdi.ClassObjectReference;
 import com.sun.jdi.ClassType;
 import com.sun.jdi.DoubleValue;
+import com.sun.jdi.Field;
 import com.sun.jdi.FloatValue;
 import com.sun.jdi.IntegerValue;
 import com.sun.jdi.InvocationException;
@@ -31,36 +32,52 @@ import com.sun.jdi.StringReference;
 import com.sun.jdi.Value;
 import io.ballerina.compiler.api.ModuleID;
 import io.ballerina.compiler.api.symbols.Symbol;
+import io.ballerina.identifier.Utils;
+import org.ballerinalang.debugadapter.EvaluationContext;
 import org.ballerinalang.debugadapter.SuspendedContext;
 import org.ballerinalang.debugadapter.evaluation.BExpressionValue;
 import org.ballerinalang.debugadapter.evaluation.EvaluationException;
+import org.ballerinalang.debugadapter.evaluation.IdentifierModifier;
+import org.ballerinalang.debugadapter.evaluation.engine.NameBasedTypeResolver;
 import org.ballerinalang.debugadapter.evaluation.engine.invokable.GeneratedStaticMethod;
 import org.ballerinalang.debugadapter.evaluation.engine.invokable.RuntimeInstanceMethod;
 import org.ballerinalang.debugadapter.evaluation.engine.invokable.RuntimeStaticMethod;
+import org.ballerinalang.debugadapter.jdi.JdiProxyException;
+import org.ballerinalang.debugadapter.jdi.LocalVariableProxyImpl;
 import org.ballerinalang.debugadapter.variable.BVariable;
+import org.ballerinalang.debugadapter.variable.BVariableType;
+import org.ballerinalang.debugadapter.variable.DebugVariableException;
+import org.ballerinalang.debugadapter.variable.IndexedCompoundVariable;
 import org.ballerinalang.debugadapter.variable.JVMValueType;
 import org.ballerinalang.debugadapter.variable.VariableFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static org.ballerinalang.debugadapter.evaluation.EvaluationException.createEvaluationException;
 import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.CLASS_LOADING_FAILED;
 import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.HELPER_UTIL_NOT_FOUND;
+import static org.ballerinalang.debugadapter.evaluation.EvaluationExceptionKind.NAME_REF_RESOLVING_ERROR;
 import static org.ballerinalang.debugadapter.evaluation.IdentifierModifier.encodeModuleName;
+import static org.ballerinalang.debugadapter.evaluation.utils.VariableUtils.loadClassRef;
 import static org.ballerinalang.debugadapter.utils.PackageUtils.BAL_FILE_EXT;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.GLOBAL_CONSTANTS_PACKAGE_NAME;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.GLOBAL_VARIABLES_PACKAGE_NAME;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.VALUE_VAR_FIELD_NAME;
+import static org.ballerinalang.debugadapter.utils.PackageUtils.getQualifiedClassName;
 
 /**
  * Debug expression evaluation utils.
  *
  * @since 2.0.0
  */
-public class EvaluationUtils {
+public final class EvaluationUtils {
 
     // Debugger runtime helper classes
     private static final String DEBUGGER_HELPER_PREFIX = "ballerina.debugger_helpers.1.";
@@ -83,7 +100,7 @@ public class EvaluationUtils {
     public static final String B_VALUE_CREATOR_CLASS = RUNTIME_HELPER_PREFIX + "api.creators.ValueCreator";
     public static final String B_STRING_UTILS_CLASS = RUNTIME_HELPER_PREFIX + "api.utils.StringUtils";
     public static final String B_TYPE_UTILS_CLASS = RUNTIME_HELPER_PREFIX + "api.utils.TypeUtils";
-    public static final String B_XML_FACTORY_CLASS = RUNTIME_HELPER_PREFIX + "internal.XmlFactory";
+    public static final String B_XML_FACTORY_CLASS = RUNTIME_HELPER_PREFIX + "internal.xml.XmlFactory";
     public static final String B_DECIMAL_VALUE_CLASS = RUNTIME_HELPER_PREFIX + "internal.values.DecimalValue";
     public static final String B_XML_CLASS = RUNTIME_HELPER_PREFIX + "api.values.BXml";
     public static final String B_XML_VALUE_CLASS = RUNTIME_HELPER_PREFIX + "internal.values.XmlValue";
@@ -145,6 +162,7 @@ public class EvaluationUtils {
     public static final String CREATE_XML_VALUE_METHOD = "createXmlValue";
     public static final String CREATE_OBJECT_VALUE_METHOD = "createObjectValue";
     public static final String CREATE_ERROR_VALUE_METHOD = "createErrorValue";
+    public static final String CREATE_TYPEDESC_VALUE_METHOD = "createTypedescValue";
     public static final String VALUE_OF_METHOD = "valueOf";
     public static final String VALUE_FROM_STRING_METHOD = "fromString";
     public static final String REF_EQUAL_METHOD = "isReferenceEqual";
@@ -170,6 +188,7 @@ public class EvaluationUtils {
     private static final String DOUBLE_VALUE_METHOD = "doubleValue";
 
     // Misc
+    public static final String SELF_VAR_NAME = "self";
     public static final String STRAND_VAR_NAME = "__strand";
     public static final String REST_ARG_IDENTIFIER = "...";
     public static final String MODULE_NAME_SEPARATOR = ".";
@@ -201,7 +220,7 @@ public class EvaluationUtils {
             throw createEvaluationException(HELPER_UTIL_NOT_FOUND, methodName);
         }
         methods = methods.stream().filter(method -> method.isPublic() && method.isStatic() &&
-                compare(method.argumentTypeNames(), argTypeNames)).collect(Collectors.toList());
+                compare(method.argumentTypeNames(), argTypeNames)).toList();
         if (methods.size() != 1) {
             throw createEvaluationException(HELPER_UTIL_NOT_FOUND, methodName);
         }
@@ -222,7 +241,7 @@ public class EvaluationUtils {
         }
         methods = methods.stream()
                 .filter(method -> method.isPublic() && method.isStatic())
-                .collect(Collectors.toList());
+                .toList();
 
         if (methods.size() != 1) {
             throw createEvaluationException(HELPER_UTIL_NOT_FOUND, methodName);
@@ -240,8 +259,10 @@ public class EvaluationUtils {
             Method forNameMethod = null;
             List<Method> methods = classType.methodsByName(FOR_NAME_METHOD);
             for (Method method : methods) {
-                if (method.argumentTypeNames().size() == 3) {
+                List<String> argumentTypeNames = method.argumentTypeNames();
+                if (argumentTypeNames.size() == 3 && argumentTypeNames.getFirst().equals(JAVA_STRING_CLASS)) {
                     forNameMethod = method;
+                    break;
                 }
             }
             if (forNameMethod == null) {
@@ -262,7 +283,20 @@ public class EvaluationUtils {
     }
 
     /**
-     * As some of the JVM runtime util method accepts only the sub classes of @{@link java.lang.Object},
+     * Converts java primitive types into their wrapper implementations, as some of the the JVM runtime util methods
+     * accepts only the sub classes of @{@link Object}.
+     */
+    public static List<Value> getAsObjects(SuspendedContext context, List<Value> argValueList)
+            throws EvaluationException {
+        List<Value> boxedValues = new ArrayList<>();
+        for (Value value : argValueList) {
+            boxedValues.add(getValueAsObject(context, value));
+        }
+        return boxedValues;
+    }
+
+    /**
+     * As some of the JVM runtime util method accepts only the sub classes of @{@link Object},
      * java primitive types need to be converted into their wrapper implementations.
      *
      * @param value JDI value instance.
@@ -281,7 +315,7 @@ public class EvaluationUtils {
      */
     public static Value unboxValue(SuspendedContext context, Value value) {
         try {
-            if (!(value instanceof ObjectReference)) {
+            if (!(value instanceof ObjectReference objRef)) {
                 return value;
             }
 
@@ -289,16 +323,16 @@ public class EvaluationUtils {
             List<Method> method;
             switch (typeName) {
                 case JAVA_INT_CLASS:
-                    method = ((ObjectReference) value).referenceType().methodsByName(INT_VALUE_METHOD);
+                    method = objRef.referenceType().methodsByName(INT_VALUE_METHOD);
                     break;
                 case JAVA_LONG_CLASS:
-                    method = ((ObjectReference) value).referenceType().methodsByName(LONG_VALUE_METHOD);
+                    method = objRef.referenceType().methodsByName(LONG_VALUE_METHOD);
                     break;
                 case JAVA_FLOAT_CLASS:
-                    method = ((ObjectReference) value).referenceType().methodsByName(FLOAT_VALUE_METHOD);
+                    method = objRef.referenceType().methodsByName(FLOAT_VALUE_METHOD);
                     break;
                 case JAVA_DOUBLE_CLASS:
-                    method = ((ObjectReference) value).referenceType().methodsByName(DOUBLE_VALUE_METHOD);
+                    method = objRef.referenceType().methodsByName(DOUBLE_VALUE_METHOD);
                     break;
                 default:
                     return value;
@@ -316,7 +350,7 @@ public class EvaluationUtils {
     }
 
     /**
-     * As some of the JVM runtime util method accepts only the sub classes of @{@link java.lang.Object},
+     * As some of the JVM runtime util method accepts only the sub classes of @{@link Object},
      * java primitive types need to be converted into their wrapper implementations.
      *
      * @param variable ballerina variable instance.
@@ -466,7 +500,7 @@ public class EvaluationUtils {
      * @return the fully-qualified generated java class name for the source file, which includes the given symbol
      */
     public static String constructQualifiedClassName(Symbol symbol) {
-        String className = symbol.getLocation().orElseThrow().lineRange().filePath().replaceAll(BAL_FILE_EXT + "$", "");
+        String className = symbol.getLocation().orElseThrow().lineRange().fileName().replaceAll(BAL_FILE_EXT + "$", "");
         if (symbol.getModule().isEmpty()) {
             return className;
         }
@@ -489,13 +523,13 @@ public class EvaluationUtils {
     }
 
     /**
-     * Converts the user given string literal into a {@link com.sun.jdi.StringReference} instance.
+     * Converts the user given string literal into a {@link StringReference} instance.
      *
      * @param context suspended debug context
      * @param val     string value
-     * @return {@link com.sun.jdi.StringReference} instance
+     * @return {@link StringReference} instance
      */
-    public static Value getAsJString(SuspendedContext context, String val) throws EvaluationException {
+    public static Value getAsJString(SuspendedContext context, String val) {
         return context.getAttachedVm().mirrorOf(val);
     }
 
@@ -504,12 +538,12 @@ public class EvaluationUtils {
      * so, returns it as a JDI value instance.
      */
     public static Optional<Value> getBError(Exception e) {
-        if (!(e instanceof InvocationException)) {
+        if (!(e instanceof InvocationException e1)) {
             return Optional.empty();
         }
-        String typeName = ((InvocationException) e).exception().referenceType().name();
+        String typeName = e1.exception().referenceType().name();
         if (typeName.equals(B_ERROR_VALUE_CLASS)) {
-            return Optional.ofNullable(((InvocationException) e).exception());
+            return Optional.ofNullable(e1.exception());
         }
         return Optional.empty();
     }
@@ -517,5 +551,141 @@ public class EvaluationUtils {
     private static boolean compare(List<String> list1, List<String> list2) {
         return list1.size() == list2.size() && IntStream.range(0, list1.size()).allMatch(i ->
                 list1.get(i).equals(list2.get(i)));
+    }
+
+    /**
+     * This util is used as a workaround till the ballerina identifier encoding/decoding mechanisms get fixed.
+     * Todo - remove
+     */
+    public static String modifyName(String identifier) {
+        return Utils.decodeIdentifier(IdentifierModifier.encodeIdentifier(identifier,
+                IdentifierModifier.IdentifierType.OTHER));
+    }
+
+    /**
+     * Returns runtime value of the Ballerina value reference for the given name. For that, this method searches for a
+     * match according to the below order.
+     *
+     * <ul>
+     * <li> variables defined both local and global scopes
+     * <li> types defined int both local and global scopes
+     * </ul>
+     *
+     * @param context suspended context
+     * @param name    name of the variable to be retrieved
+     * @return the JDI value instance of the Ballerina variable
+     */
+    public static Value fetchNameReferenceValue(EvaluationContext context, String name) throws EvaluationException {
+        Optional<BExpressionValue> variableReferenceValue = fetchVariableReferenceValue(context, name);
+        if (variableReferenceValue.isPresent()) {
+            return variableReferenceValue.get().getJdiValue();
+        }
+
+        NameBasedTypeResolver typeResolver = new NameBasedTypeResolver(context);
+        try {
+            List<Value> resolvedTypes = typeResolver.resolve(name);
+            if (resolvedTypes.size() != 1) {
+                throw createEvaluationException(NAME_REF_RESOLVING_ERROR, name);
+            }
+            Value type = resolvedTypes.get(0);
+            List<String> argTypeNames = new LinkedList<>();
+            argTypeNames.add(B_TYPE_CLASS);
+            RuntimeStaticMethod createTypeDescMethod = getRuntimeMethod(context.getSuspendedContext(),
+                    B_VALUE_CREATOR_CLASS, CREATE_TYPEDESC_VALUE_METHOD, argTypeNames);
+            List<Value> argValues = new LinkedList<>();
+            argValues.add(type);
+            createTypeDescMethod.setArgValues(argValues);
+            return createTypeDescMethod.invokeSafely();
+        } catch (EvaluationException e) {
+            throw createEvaluationException(NAME_REF_RESOLVING_ERROR, name);
+        }
+    }
+
+    /**
+     * Returns runtime value of the Ballerina variable value reference for the given name.
+     *
+     * @param context suspended context
+     * @param name    name of the variable to be retrieved
+     * @return the JDI value instance of the Ballerina variable
+     */
+    public static Optional<BExpressionValue> fetchVariableReferenceValue(EvaluationContext context, String name) {
+        Optional<BExpressionValue> bExpressionValue = searchLocalVariables(context.getSuspendedContext(), name);
+        if (bExpressionValue.isPresent()) {
+            return bExpressionValue;
+        }
+
+        bExpressionValue = searchGlobalVariables(context.getSuspendedContext(), name);
+        return bExpressionValue;
+    }
+
+    /**
+     * Returns runtime value of the matching local variable, for the given name.
+     *
+     * @param context       suspended context
+     * @param nameReference name of the variable to be retrieved
+     * @return the JDI value instance of the local variable
+     */
+    private static Optional<BExpressionValue> searchLocalVariables(SuspendedContext context, String nameReference) {
+        try {
+            LocalVariableProxyImpl jvmVar = context.getFrame().visibleVariableByName(nameReference);
+            if (jvmVar != null) {
+                return Optional.of(new BExpressionValue(context, context.getFrame().getValue(jvmVar)));
+            }
+
+            // As all the ballerina variables which are being used inside lambda functions are converted into maps
+            // during the runtime code generation, such local variables should be accessed in a different manner.
+            List<LocalVariableProxyImpl> lambdaParamMaps = context.getFrame().visibleVariables().stream()
+                    .filter(org.ballerinalang.debugadapter.variable.VariableUtils::isLambdaParamMap)
+                    .toList();
+
+            Optional<Value> localVariableMatch = lambdaParamMaps.stream()
+                    .map(localVariableProxy -> {
+                        try {
+                            Value varValue = context.getFrame().getValue(localVariableProxy);
+                            BVariable mapVar = VariableFactory.getVariable(context, varValue);
+                            if (mapVar == null || mapVar.getBType() != BVariableType.MAP
+                                    || !(mapVar instanceof IndexedCompoundVariable indexedCompoundVariable)) {
+                                return null;
+                            }
+                            return indexedCompoundVariable.getChildByName(nameReference);
+                        } catch (JdiProxyException | DebugVariableException e) {
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .findAny();
+
+            if (localVariableMatch.isEmpty()) {
+                return Optional.empty();
+            }
+            return Optional.of(new BExpressionValue(context, localVariableMatch.get()));
+        } catch (JdiProxyException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Returns runtime value of the matching global variable, for the given name.
+     *
+     * @param context       suspended context
+     * @param nameReference name of the variable to be retrieved
+     * @return the JDI value instance of the global variable
+     */
+    private static Optional<BExpressionValue> searchGlobalVariables(SuspendedContext context, String nameReference) {
+        return getFieldValue(context, nameReference);
+    }
+
+    private static Optional<BExpressionValue> getFieldValue(SuspendedContext context, String fieldName) {
+        String varClassName = getQualifiedClassName(context, fieldName, GLOBAL_VARIABLES_PACKAGE_NAME);
+        ReferenceType classesRef = loadClassRef(context, varClassName);
+        if (classesRef == null) {
+            varClassName = getQualifiedClassName(context, fieldName, GLOBAL_CONSTANTS_PACKAGE_NAME);
+            classesRef = loadClassRef(context, varClassName);
+        }
+        if (classesRef != null) {
+            Field field = classesRef.fieldByName(VALUE_VAR_FIELD_NAME);
+            return Optional.of(new BExpressionValue(context, classesRef.getValue(field)));
+        }
+        return Optional.empty();
     }
 }

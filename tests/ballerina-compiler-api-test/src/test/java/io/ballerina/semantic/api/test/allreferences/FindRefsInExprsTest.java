@@ -31,6 +31,7 @@ import java.util.List;
 @Test
 public class FindRefsInExprsTest extends FindAllReferencesTest {
 
+    @Override
     @DataProvider(name = "PositionProvider")
     public Object[][] getLookupPositions() {
         return new Object[][]{
@@ -190,6 +191,43 @@ public class FindRefsInExprsTest extends FindAllReferencesTest {
                 {182, 10, location(182, 10, 12),
                         List.of(location(182, 10, 12),
                                 location(183, 19, 21))
+                },
+                // Regexp expression
+                {190, 19, location(190, 18, 20),
+                        List.of(location(190, 18, 20),
+                                location(191, 34, 36))
+                },
+                // Invalid expression
+                {201, 7, location(201, 5, 9),
+                        List.of(location(201, 5, 9))
+                },
+                // Parameters in named-args
+                {209, 10, location(215, 22, 24),
+                        List.of(location(209, 10, 12),
+                                location(215, 22, 24))
+                },
+                {209, 22, location(215, 37, 39),
+                        List.of(location(209, 22, 24),
+                                location(215, 37, 39))
+                },
+                {210, 10, location(218, 24, 29),
+                        List.of(location(210, 10, 15),
+                                location(211, 10, 15),
+                                location(218, 24, 29))
+                },
+                {212, 16, location(223, 22, 24),
+                        List.of(location(212, 16, 18),
+                                location(223, 22, 24))
+                },
+                // Alternate receive
+                {228, 11, location(228, 11, 13),
+                        List.of(location(228, 11, 13),
+                                location(237, 19, 21))
+                },
+                // Multiple receive
+                {246, 11, location(246, 11, 13),
+                        List.of(location(246, 11, 13),
+                                location(251, 26, 28))
                 }
         };
     }

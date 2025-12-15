@@ -19,6 +19,7 @@
 package org.ballerinalang.langlib.runtime;
 
 import io.ballerina.runtime.api.Environment;
+import io.ballerina.runtime.api.values.BFunctionPointer;
 import io.ballerina.runtime.api.values.BObject;
 
 /**
@@ -27,7 +28,7 @@ import io.ballerina.runtime.api.values.BObject;
  *
  * @since 2.0.0
  */
-public class Registry {
+public final class Registry {
 
     public static void registerListener(Environment env, BObject listener) {
         env.getRuntime().registerListener(listener);
@@ -35,6 +36,10 @@ public class Registry {
 
     public static void deregisterListener(Environment env, BObject listener) {
         env.getRuntime().deregisterListener(listener);
+    }
+
+    public static void onGracefulStop(Environment env, BFunctionPointer stopHandler) {
+        env.getRuntime().registerStopHandler(stopHandler);
     }
 
     private Registry() {

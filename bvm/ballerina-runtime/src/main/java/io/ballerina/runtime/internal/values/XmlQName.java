@@ -17,8 +17,10 @@
 */
 package io.ballerina.runtime.internal.values;
 
-import io.ballerina.runtime.api.PredefinedTypes;
+import io.ballerina.runtime.api.types.PredefinedTypes;
 import io.ballerina.runtime.api.types.Type;
+import io.ballerina.runtime.api.types.semtype.BasicTypeBitSet;
+import io.ballerina.runtime.api.types.semtype.Builder;
 import io.ballerina.runtime.api.values.BLink;
 import io.ballerina.runtime.api.values.BString;
 import io.ballerina.runtime.api.values.BTypedesc;
@@ -26,6 +28,8 @@ import io.ballerina.runtime.api.values.BXmlQName;
 
 import java.util.Map;
 import java.util.Objects;
+
+import static io.ballerina.runtime.internal.utils.ValueUtils.getTypedescValue;
 
 /**
  * <p>
@@ -39,10 +43,11 @@ import java.util.Objects;
  */
 public final class XmlQName implements RefValue, BXmlQName {
 
+    private static final BasicTypeBitSet BASIC_TYPE = Builder.getXmlType();
     private String localName;
     private String uri;
     private String prefix;
-    private final BTypedesc typedesc = new TypedescValueImpl(PredefinedTypes.TYPE_XML_ATTRIBUTES);
+    private BTypedesc typedesc = null;
 
     /**
      * Create attribute map with an XML.
@@ -118,6 +123,11 @@ public final class XmlQName implements RefValue, BXmlQName {
     }
 
     @Override
+    public BasicTypeBitSet getBasicType() {
+        return BASIC_TYPE;
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (!(obj instanceof XmlQName)) {
             return false;
@@ -142,6 +152,9 @@ public final class XmlQName implements RefValue, BXmlQName {
 
     @Override
     public BTypedesc getTypedesc() {
+        if (this.typedesc == null) {
+            this.typedesc = getTypedescValue(PredefinedTypes.TYPE_XML_ATTRIBUTES, this);
+        }
         return typedesc;
     }
 
@@ -157,26 +170,32 @@ public final class XmlQName implements RefValue, BXmlQName {
         return copy;
     }
 
+    @Override
     public String getLocalName() {
         return localName;
     }
 
+    @Override
     public void setLocalName(String localName) {
         this.localName = localName;
     }
 
+    @Override
     public String getUri() {
         return uri;
     }
 
+    @Override
     public void setUri(String uri) {
         this.uri = uri;
     }
 
+    @Override
     public String getPrefix() {
         return prefix;
     }
 
+    @Override
     public void setPrefix(String prefix) {
         this.prefix = prefix;
     }

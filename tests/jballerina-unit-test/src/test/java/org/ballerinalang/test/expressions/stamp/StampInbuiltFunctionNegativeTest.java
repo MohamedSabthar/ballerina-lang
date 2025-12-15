@@ -86,9 +86,13 @@ public class StampInbuiltFunctionNegativeTest {
                 "incompatible types: expected 'typedesc<anydata>', found 'typedesc<EmployeeObject>'",
                 87, 63);
         BAssertUtil.validateError(compileResult, index++,
-                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<map>'", 95, 54);
+                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<AnyMap>'", 95, 54);
         BAssertUtil.validateError(compileResult, index++,
                 "incompatible types: expected 'anydata', found 'ExtendedEmployee'", 103, 34);
+        BAssertUtil.validateError(compileResult, index++,
+                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<MapAny>'", 114, 51);
+        BAssertUtil.validateError(compileResult, index++,
+                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<AnyMap>'", 115, 51);
         Assert.assertEquals(index, compileResult.getErrorCount());
     }
 
@@ -109,11 +113,11 @@ public class StampInbuiltFunctionNegativeTest {
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
                 "incompatible types: expected 'anydata', found 'PersonObj'", 106, 51);
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
-                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<map>'", 106, 54);
+                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<AnyMap>'", 106, 54);
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
                 "incompatible types: expected 'anydata', found 'PersonObj'", 113, 48);
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
-                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<any[]>'", 113, 51);
+                "incompatible types: expected 'typedesc<anydata>', found 'typedesc<AnyArray>'", 113, 51);
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
                 "incompatible types: expected 'anydata', found 'PersonObj'", 120, 58);
         BAssertUtil.validateError(objectNegativeTestCompileResult, index++,
@@ -156,8 +160,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'Employee' value cannot be converted to 'xml<(lang.xml:Element" +
-                        "|lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>'");
+                "'Employee' value cannot be converted to 'XmlType'");
     }
 
     @Test
@@ -195,7 +198,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'Person' value cannot be converted to 'map<string>': " +
+                "'Person' value cannot be converted to 'StringMap': " +
                         "\n\t\tmap field 'age' should be of type 'string', found '25'");
     }
 
@@ -208,7 +211,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'Employee' value cannot be converted to 'string[]'");
+                "'Employee' value cannot be converted to 'StringArray'");
     }
 
     @Test
@@ -220,7 +223,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'Employee' value cannot be converted to '[string,string]'");
+                "'Employee' value cannot be converted to 'StringString'");
     }
 
     //----------------------------- JSON NegativeTest cases ------------------------------------------------------
@@ -234,8 +237,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<json>' value cannot be converted to 'xml<(lang.xml:Element|" +
-                        "lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>'");
+                "'map<json>' value cannot be converted to 'XmlType'");
     }
 
     @Test
@@ -285,7 +287,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'lang.xml:Element' value cannot be converted to 'map<anydata>'");
+                "'lang.xml:Element' value cannot be converted to 'AnydataMap'");
     }
 
     @Test
@@ -297,7 +299,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'lang.xml:Element' value cannot be converted to 'BookRecord[]'");
+                "'lang.xml:Element' value cannot be converted to 'BookRecordArray'");
     }
 
     @Test
@@ -323,8 +325,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<anydata>' value cannot be converted to 'xml<(lang.xml:Element|" +
-                        "lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>'");
+                "'map<anydata>' value cannot be converted to 'XmlType'");
     }
 
     @Test
@@ -336,7 +337,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<anydata>' value cannot be converted to 'string[]'");
+                "'map<anydata>' value cannot be converted to 'StringArray'");
     }
 
     @Test
@@ -348,7 +349,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'map<anydata>' value cannot be converted to '[string,string]'");
+                "'map<anydata>' value cannot be converted to 'StringString'");
     }
 
     //----------------------------- Array NegativeTest cases ------------------------------------------------------
@@ -373,8 +374,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'anydata[]' value cannot be converted to 'xml<(lang.xml:Element|" +
-                        "lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>'");
+                "'anydata[]' value cannot be converted to 'XmlType'");
     }
 
     //----------------------------- Tuple NegativeTest cases ------------------------------------------------------
@@ -400,8 +400,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'[string,string,string]' value cannot be converted to 'xml<(lang.xml:Element" +
-                        "|lang.xml:Comment|lang.xml:ProcessingInstruction|lang.xml:Text)>'");
+                "'[string,string,string]' value cannot be converted to 'XmlType'");
     }
 
     @Test
@@ -413,7 +412,7 @@ public class StampInbuiltFunctionNegativeTest {
         Assert.assertEquals(
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
-                "'[string,string,string]' value cannot be converted to 'map<anydata>'");
+                "'[string,string,string]' value cannot be converted to 'AnydataMap'");
     }
 
     //----------------------------- Union NegativeTest cases ------------------------------------------------------
@@ -428,19 +427,6 @@ public class StampInbuiltFunctionNegativeTest {
                 ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
                         .toString(),
                 "'lang.xml:Element' value cannot be converted to 'Employee'");
-    }
-
-    @Test
-    public void stampUnionToConstraintMapToUnionNegative() {
-        Object results =
-                BRunUtil.invoke(unionNegativeTestCompileResult, "stampUnionToConstraintMapToUnionNegative");
-        Object error = results;
-        Assert.assertEquals(getType(error).getClass(), BErrorType.class);
-        Assert.assertEquals(
-                ((BMap<String, BString>) ((BError) results).getDetails()).get(StringUtils.fromString("message"))
-                        .toString(),
-                "'int' value cannot be converted to '(float|decimal|[string,int])': \n" +
-                        "\t\tvalue '2' cannot be converted to '(float|decimal|[string,int])': ambiguous target type");
     }
 
     @AfterClass

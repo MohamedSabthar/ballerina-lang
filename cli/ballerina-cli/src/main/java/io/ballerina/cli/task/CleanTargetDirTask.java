@@ -32,6 +32,7 @@ import static io.ballerina.cli.launcher.LauncherUtils.createLauncherException;
  * @since 2.0.0
  */
 public class CleanTargetDirTask implements Task {
+
     @Override
     public void execute(Project project) {
         try {

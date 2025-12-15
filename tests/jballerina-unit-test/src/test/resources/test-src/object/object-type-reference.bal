@@ -261,6 +261,164 @@ function testCreatingObjectWithOverriddenMethods() {
     assertEquality(dummyPerson.getName(), "Hello Doe");
 }
 
+public type Groups readonly & object {
+    isolated function get(int index) returns int?;
+};
+
+public type Match record {|
+    Groups groups;
+|};
+
+readonly class MatchGroups {
+    *Groups;
+
+    isolated function get(int index) returns int? {
+        return index;
+    }
+}
+
+function testObjectReferenceRecordUpdate() {
+    Match matched = {
+        groups: new MatchGroups()
+    };
+    assertEquality(matched.groups is MatchGroups, true);
+    assertEquality(matched.groups is Groups, true);
+    assertEquality(matched.groups.get(8), 8);
+}
+
+class C1 {
+    int i = 0;
+}
+
+public type O1 readonly & C1;
+
+class C2 {
+    object {
+        int|string i;
+    } body = object {
+        int|string i = 1;
+    };
+}
+
+class C3 {
+    *C2;
+    O1 body;
+
+    function init(O1 body) {
+        self.body = body;
+    }
+}
+
+function testOverridingIncludedFieldInClassWithReadOnlyIntersection() {
+    O1 x = object {
+        byte i = 123;
+    };
+
+    C3 y = new (x);
+    assertEquality(123, y.body.i);
+}
+
+public type O2 readonly & object {
+    string a;
+    string b;
+};
+
+type O3 object {
+    object {
+        string a;
+        string b;
+    } body;
+};
+
+public type O4 object {
+    *O3;
+    O2 body;
+};
+
+function testOverridingIncludedFieldInObjectTypeDescWithReadOnlyIntersection() {
+    O2 x = object {
+        string a = "abc";
+        string:Char b = "b";
+    };
+
+    O4 y = object {
+        O2 body = x;
+
+        function init() {
+
+        }
+    };
+    assertEquality("abc", y.body.a);
+    assertEquality("b", y.body.b);
+}
+
+type AddMultObject object {
+    function add(int a, int b) returns int;
+
+    function multiply(int a, int b) returns int;
+};
+
+class SubtractClass {
+    function subtract(int m, int n) returns int {
+        return m - n;
+    }
+}
+
+class CalcClass {
+    *AddMultObject;
+    *SubtractClass;
+
+    function add(int m, int n) returns int {
+        return n + m;
+    }
+
+    function multiply(int a, int b) returns int {
+        return a * b;
+    }
+
+    function subtract(int n, int m) returns int {
+        return n - m;
+    }
+}
+
+function testInclusionWithDifferentParamNames() {
+    CalcClass calcClass = new;
+    assertEquality(10, calcClass.add(8, 2));
+    assertEquality(6, calcClass.subtract(8, 2));
+    assertEquality(16, calcClass.multiply(8, 2));
+
+    AddMultObject addMultOb = calcClass;
+    assertEquality(10, addMultOb.add(8, 2));
+    assertEquality(16, addMultOb.multiply(8, 2));
+
+    SubtractClass subClass = calcClass;
+    assertEquality(6, subClass.subtract(8, 2));
+}
+
+public type ClientObject client object {
+    isolated remote function execute(string aVar, int bVar) returns int|error;
+};
+
+client class ClientClass {
+    *ClientObject;
+    
+    isolated remote function execute(string aVar, int bVar) returns int|error {
+        return check int:fromString(aVar) + bVar;
+    }
+}
+
+function testInclusionWithRemoteMethods() {
+    ClientObject cOb = new ClientClass();
+    int|error r1 = cOb->execute("10", 5);
+    assertEquality(15, r1);
+
+    int|error r2 = cOb->execute("10s", 5);
+    assertEquality(true, r2 is error);
+    error err = <error> r2;
+    assertEquality("{ballerina/lang.int}NumberParsingError", err.message());
+    assertEquality("'string' value '10s' cannot be converted to 'int'", err.detail()["message"]);
+}
+
 const ASSERTION_ERROR_REASON = "AssertionError";
 
 function assertEquality(any|error expected, any|error actual) {

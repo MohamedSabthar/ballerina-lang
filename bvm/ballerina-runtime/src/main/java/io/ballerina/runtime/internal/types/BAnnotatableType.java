@@ -36,21 +36,24 @@ public abstract class BAnnotatableType extends BType implements AnnotatableType 
     protected BMap<BString, Object> annotations = ValueCreator.createMapValue();
 
     BAnnotatableType(String typeName, Module pkg, Class<?> valueClass) {
-        super(typeName, pkg, valueClass);
+        super(typeName, pkg, valueClass, true);
     }
 
     public void setAnnotations(BMap<BString, Object> annotations) {
         this.annotations = annotations;
     }
 
+    @Override
     public BMap<BString, Object> getAnnotations() {
         return (BMap<BString, Object>) this.annotations.copy(new LinkedHashMap<>());
     }
 
+    @Override
     public Object getAnnotation(BString key) {
         return this.annotations.get(key);
     }
 
+    @Override
     public Object getAnnotation(BString pkg, BString annotName) {
         return this.annotations.get(StringUtils.fromString(pkg.getValue() + ":" + annotName.getValue()));
     }

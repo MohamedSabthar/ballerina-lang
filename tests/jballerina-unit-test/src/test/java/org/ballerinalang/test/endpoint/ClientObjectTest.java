@@ -23,6 +23,7 @@ import org.ballerinalang.test.BCompileUtil;
 import org.ballerinalang.test.BRunUtil;
 import org.ballerinalang.test.CompileResult;
 import org.testng.Assert;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -86,9 +87,9 @@ public class ClientObjectTest {
     public void testRemoteBasicsNegative() {
         CompileResult compileResult = BCompileUtil.compile("test-src/endpoint/new/remote_basic_negative.bal");
         int errIdx = 0;
-        BAssertUtil.validateError(compileResult, errIdx++, "invalid token 'remote'", 22, 1);
-        BAssertUtil.validateError(compileResult, errIdx++, "invalid token 'remote'", 26, 1);
-        BAssertUtil.validateError(compileResult, errIdx++, "invalid token 'remote'", 30, 1);
+        BAssertUtil.validateError(compileResult, errIdx++, "invalid qualifier 'remote'", 22, 1);
+        BAssertUtil.validateError(compileResult, errIdx++, "invalid qualifier 'remote'", 26, 1);
+        BAssertUtil.validateError(compileResult, errIdx++, "invalid qualifier 'remote'", 30, 1);
         BAssertUtil
                 .validateError(compileResult, errIdx++,
                         "invalid remote method call '.pqr()': use '->pqr()' for remote method calls", 51, 13);
@@ -133,5 +134,10 @@ public class ClientObjectTest {
                 String.format(doubleDeclMessage, "$anonType$_1.a"), 196, 25);
         BAssertUtil.validateError(compileResult, errIdx++, "redeclared symbol '$anonType$_2.a'", 206, 25);
         Assert.assertEquals(compileResult.getErrorCount(), errIdx);
+    }
+
+    @AfterClass
+    public void tearDown() {
+        remoteBasic = null;
     }
 }
