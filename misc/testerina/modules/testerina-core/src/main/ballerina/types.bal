@@ -33,7 +33,8 @@ type ModuleRerunJson record {|
 enum TestType {
     GENERAL_TEST,
     DATA_DRIVEN_TUPLE_OF_TUPLE,
-    DATA_DRIVEN_MAP_OF_TUPLE
+    DATA_DRIVEN_MAP_OF_TUPLE,
+    EVAL_TEST
 }
 
 enum TestCompletionStatus {

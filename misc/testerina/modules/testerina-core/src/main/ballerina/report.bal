@@ -139,12 +139,12 @@ isolated class ReportData {
 }
 
 isolated function consoleReport(ReportData data) {
-    if !isSystemConsole() {
+    // if !isSystemConsole() {
         data.passedCases().forEach(isolated function(ResultData entrydata) {
             Result entry = new (entrydata);
             println("\t\t[pass] " + entry.fullName());
         });
-    }
+    // }
 
     data.failedCases().forEach(isolated function(ResultData entrydata) {
         Result entry = new (entrydata);

@@ -15,6 +15,7 @@
 // under the License.
 import ballerina/lang.'error as langError;
 
+
 isolated boolean shouldSkip = false;
 boolean shouldAfterSuiteSkip = false;
 isolated int exitCode = 0;
@@ -60,6 +61,7 @@ public function startSuite() returns int {
             println(string `${"\n"}${"\t"}${"\t"}Test execution time : ${executionTime / 1000}s`);
         }
     }
+
     lock {
         return exitCode;
     }
@@ -308,6 +310,20 @@ isolated function handleAfterFunctionOutput(ExecutionError? err) returns boolean
     }
     return false;
 }
+
+isolated function getEvalFuncOutput(any|error output, TestFunction testFunction, TestType testType, boolean isEvalTest = false)
+        returns ExecutionError|boolean {
+    if output is TestError {
+        enableExit();
+        return true;
+    }
+    if output is any {
+        return false;
+    }
+    enableExit();
+    return error(getErrorMessage(output), functionName = testFunction.name);
+}
+
 
 isolated function handleTestFuncOutput(any|error output, TestFunction testFunction, string suffix, TestType testType)
         returns ExecutionError|boolean {

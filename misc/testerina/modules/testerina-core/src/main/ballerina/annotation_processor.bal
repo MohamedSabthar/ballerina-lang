@@ -52,6 +52,7 @@ public function registerTest(string name, function f) {
 
 function processConfigAnnotation(string name, function f) returns boolean {
     TestConfig? config = (typeof f).@Config;
+    readonly & EvaluationConfig? evalCofig = (typeof f).@EvalConfig.cloneReadOnly();
     if config != () {
         // Evaluate the test function to determine the parallelizability of the test function.
         boolean isTestFunctionIsolated = f is isolated function;
@@ -112,7 +113,7 @@ function processConfigAnnotation(string name, function f) returns boolean {
         testRegistry.addFunction(name = name, executableFunction = f, before = config.before,
             after = config.after, groups = config.groups.cloneReadOnly(), diagnostics = diagnostics,
             dependsOn = config.dependsOn.cloneReadOnly(), serialExecution = serialExecution,
-            config = config.cloneReadOnly());
+            config = config.cloneReadOnly(), evalCofig = evalCofig);
         executionManager.createTestFunctionMetaData(functionName = name, dependsOnCount = config.dependsOn.length(),
             enabled = enabled);
     }

@@ -13,8 +13,10 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+import ballerina/io;
 
 isolated function executeTestIsolated(TestFunction testFunction, DataProviderReturnType? testFunctionArgs) {
+    io:println("exec isolated tests");
     if !isTestReadyToExecute(testFunction, testFunctionArgs) {
         return;
     }
@@ -52,6 +54,96 @@ isolated function executeBeforeEachFunctionsIsolated() =>
 
 isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) {
+
+    // TODO: if evaluation handle by averaging
+    EvaluationConfig? evalConfig = testFunction.evalCofig;
+    if evalConfig is EvaluationConfig {
+    
+
+        io:println(evalConfig.confidence);
+        io:println(evalConfig.iterations);
+        int n = evalConfig.iterations ?: 1;
+
+        float[] passRatesOfItterations = [];
+        boolean failedEntierDataProvider = false;
+        boolean skipReported = false;
+        foreach int itter in 1 ... n {
+                string[] keys = [];
+        AnyOrError[][] values = [];
+        TestType testType = prepareDataSet(testFunctionArgs, keys, values);
+
+            if executeBeforeFunctionIsolated(testFunction) {
+                if !skipReported {
+                    reportData.onSkipped(name = testFunction.name, testType = testType);
+                    skipReported = true;
+                }
+
+            } else {
+
+                map<future> futuresMap = {};
+                // if skipDataDrivenTest(testFunction, suffix, testType) {
+                //     return;
+                // }
+
+                while keys.length() != 0 {
+                    string key = keys.remove(0);
+                    AnyOrError[] value = values.remove(0);
+                    final readonly & readonly[] readOnlyVal = from any|error item in value
+                        where item is readonly
+                        select item;
+                    if readOnlyVal.length() != value.length() {
+                        reportData.onFailed(name = testFunction.name, suffix = key, message =
+                        string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
+                        string ` Data provider returned non-readonly values`, testType = testType);
+                        println(string `${"\n\t"}${testFunction.name}:${key} has failed.${"\n"}`);
+                        enableExit();
+                    }
+                    future<ExecutionError|boolean> futureResult = start executeEvalunctionIsolated(testFunction, testType, readOnlyVal);
+                    futuresMap[key] = futureResult;
+                }
+
+                int totalEntries = 0;
+                int passedEntries = 0;
+
+                foreach [string, future<any|error>] futureResult in futuresMap.entries() {
+                    totalEntries += 1;
+                    string entryName = futureResult[0];
+                    any|error parallelDataProviderResult = wait futureResult[1];
+                    if parallelDataProviderResult is error {
+                        failedEntierDataProvider = true;
+                        reportData.onFailed(name = testFunction.name,
+                        //  suffix = suffix,
+                        message =
+                        string `[fail data provider for the function ` +
+                        string `${testFunction.name}]${"\n"} ${getErrorMessage(parallelDataProviderResult)}`, testType = testType);
+                        // println(string `${"\n\t"}${testFunction.name}:${suffix} has failed.${"\n"}`);
+                        enableExit();
+                    } else if parallelDataProviderResult is false {
+                        passedEntries += 1;
+                    }
+                }
+                float passRate = <float>passedEntries / totalEntries;
+                io:println("passRate: ", passRate);
+                io:println(passedEntries);
+                io:println(totalEntries);
+                passRatesOfItterations.push(passRate);
+                _ = executeAfterFunctionIsolated(testFunction);
+            }
+
+        }
+        float averagePassrate = passRatesOfItterations.reduce(isolated function(float total, float next) returns float => total + next, 0) / n;
+        io:println(n);
+        if averagePassrate >= evalConfig.confidence {
+            reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        } else if failedEntierDataProvider == false {
+            reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        }
+        return;
+    }
+
+    io:println("executeDataDrivenTestSetIsolated");
     string[] keys = [];
     AnyOrError[][] values = [];
     TestType testType = prepareDataSet(testFunctionArgs, keys, values);
@@ -150,8 +242,16 @@ isolated function executeBeforeFunctionIsolated(TestFunction testFunction) retur
     return failed;
 }
 
+isolated function executeEvalunctionIsolated(TestFunction testFunction, TestType testType,
+        AnyOrError[]? params = (), boolean isEval = false) returns ExecutionError|boolean {
+    isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
+    any|error output = params == () ? trap function:call(isolatedTestFunction)
+        : trap function:call(isolatedTestFunction, ...params);
+    return getEvalFuncOutput(output, testFunction, testType);
+}
+
 isolated function executeTestFunctionIsolated(TestFunction testFunction, string suffix, TestType testType,
-        AnyOrError[]? params = ()) returns ExecutionError|boolean {
+        AnyOrError[]? params = (), boolean isEval = false) returns ExecutionError|boolean {
     isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
     any|error output = params == () ? trap function:call(isolatedTestFunction)
         : trap function:call(isolatedTestFunction, ...params);
