@@ -16,6 +16,7 @@
 import ballerina/io;
 
 isolated function executeTestIsolated(TestFunction testFunction, DataProviderReturnType? testFunctionArgs) {
+    
     io:println("exec isolated tests");
     if !isTestReadyToExecute(testFunction, testFunctionArgs) {
         return;
@@ -58,7 +59,6 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
     // TODO: if evaluation handle by averaging
     EvaluationConfig? evalConfig = testFunction.evalCofig;
     if evalConfig is EvaluationConfig {
-    
 
         io:println(evalConfig.confidence);
         io:println(evalConfig.iterations);
@@ -68,9 +68,9 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
         boolean failedEntierDataProvider = false;
         boolean skipReported = false;
         foreach int itter in 1 ... n {
-                string[] keys = [];
-        AnyOrError[][] values = [];
-        TestType testType = prepareDataSet(testFunctionArgs, keys, values);
+            string[] keys = [];
+            AnyOrError[][] values = [];
+            TestType testType = prepareDataSet(testFunctionArgs, keys, values);
 
             if executeBeforeFunctionIsolated(testFunction) {
                 if !skipReported {

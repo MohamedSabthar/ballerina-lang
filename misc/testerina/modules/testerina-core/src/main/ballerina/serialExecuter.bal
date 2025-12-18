@@ -54,6 +54,85 @@ function executeBeforeEachFunctions() =>
     handleBeforeEachOutput(executeFunctions(beforeEachRegistry.getFunctions(), getShouldSkip()));
 
 function executeDataDrivenTestSet(TestFunction testFunction) {
+        // TODO: if evaluation handle by averaging
+    EvaluationConfig? evalConfig = testFunction.evalCofig;
+    if evalConfig is EvaluationConfig {
+
+        io:println(evalConfig.confidence);
+        io:println(evalConfig.iterations);
+        int n = evalConfig.iterations ?: 1;
+
+        float[] passRatesOfItterations = [];
+        boolean failedEntierDataProvider = false;
+        boolean skipReported = false;
+        foreach int itter in 1 ... n {
+            string[] keys = [];
+            AnyOrError[][] values = [];
+            DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
+            TestType testType = prepareDataSet(params, keys, values);
+
+            if executeBeforeFunction(testFunction) {
+                if !skipReported {
+                    reportData.onSkipped(name = testFunction.name, testType = testType);
+                    skipReported = true;
+                }
+
+            } else {
+                int totalEntries = 0;
+                int passedEntries = 0;
+
+                while keys.length() != 0 {
+                    string key = keys.remove(0);
+                    AnyOrError[] value = values.remove(0);
+                    final readonly & readonly[] readOnlyVal = from any|error item in value
+                        where item is readonly
+                        select item;
+                    if readOnlyVal.length() != value.length() {
+                        reportData.onFailed(name = testFunction.name, suffix = key, message =
+                        string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
+                        string ` Data provider returned non-readonly values`, testType = testType);
+                        println(string `${"\n\t"}${testFunction.name}:${key} has failed.${"\n"}`);
+                        enableExit();
+                    }
+                    ExecutionError|boolean result = executeEvalunction(testFunction, testType, readOnlyVal);
+                    totalEntries += 1;
+                    if result is ExecutionError {
+                        failedEntierDataProvider = true;
+                        reportData.onFailed(name = testFunction.name,
+                        //  suffix = suffix,
+                        message =
+                        string `[fail data provider for the function ` +
+                        string `${testFunction.name}]${"\n"} ${getErrorMessage(result)}`, testType = testType);
+                        // println(string `${"\n\t"}${testFunction.name}:${suffix} has failed.${"\n"}`);
+                        enableExit();
+                    } else if result is false {
+                        passedEntries += 1;
+                    }
+                }
+
+              
+
+                float passRate = <float>passedEntries / totalEntries;
+                io:println("passRate: ", passRate);
+                io:println(passedEntries);
+                io:println(totalEntries);
+                passRatesOfItterations.push(passRate);
+                _ = executeAfterFunctionIsolated(testFunction);
+            }
+
+        }
+        float averagePassrate = passRatesOfItterations.reduce(isolated function(float total, float next) returns float => total + next, 0) / n;
+        io:println(n);
+        if averagePassrate >= evalConfig.confidence {
+            reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        } else if failedEntierDataProvider == false {
+            reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        }
+        return;
+    }
+
     DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
     string[] keys = [];
     AnyOrError[][] values = [];
@@ -123,6 +202,13 @@ function executeBeforeFunction(TestFunction testFunction) returns boolean {
         failed = handleBeforeFunctionOutput(executeFunction(<function>testFunction.before));
     }
     return failed;
+}
+
+function executeEvalunction(TestFunction testFunction, TestType testType,
+        AnyOrError[]? params = ()) returns ExecutionError|boolean {
+    any|error output = params == () ? trap function:call(testFunction.executableFunction)
+        : trap function:call(testFunction.executableFunction, ...params);
+    return getEvalFuncOutput(output, testFunction, testType);
 }
 
 function executeTestFunction(TestFunction testFunction, string suffix, TestType testType,

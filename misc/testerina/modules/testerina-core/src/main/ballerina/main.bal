@@ -6,8 +6,10 @@
     iterations: 2
 }
 function dataProviderTest(int value1, int value2, string fruit) returns error? {
-
+    a = 1;
 }
+
+int a = 0;
 
 function mapDataProvider() returns map<[int, int, string]> {
     map<[int, int, string]> dataSet = {
