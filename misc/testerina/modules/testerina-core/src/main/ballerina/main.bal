@@ -1,12 +1,13 @@
 @Config {
-    dataProvider: mapDataProvider
+    // dataProvider: mapDataProvider
 }
 @EvalConfig {
     confidence: 1,
     iterations: 2
 }
-function dataProviderTest(int value1, int value2, string fruit) returns error? {
+function dataProviderTest() returns error? {
     a = 1;
+
 }
 
 int a = 0;

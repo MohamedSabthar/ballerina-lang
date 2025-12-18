@@ -16,7 +16,7 @@
 import ballerina/io;
 
 isolated function executeTestIsolated(TestFunction testFunction, DataProviderReturnType? testFunctionArgs) {
-    
+
     io:println("exec isolated tests");
     if !isTestReadyToExecute(testFunction, testFunctionArgs) {
         return;
@@ -109,7 +109,7 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
                     totalEntries += 1;
                     string entryName = futureResult[0];
                     any|error parallelDataProviderResult = wait futureResult[1];
-                    if parallelDataProviderResult is error {
+                    if parallelDataProviderResult is error && parallelDataProviderResult !is ExecutionError {
                         failedEntierDataProvider = true;
                         reportData.onFailed(name = testFunction.name,
                         //  suffix = suffix,
@@ -139,6 +139,7 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
         } else if failedEntierDataProvider == false {
             reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassrate}`,
                     testType = EVAL_TEST);
+            enableExit();
         }
         return;
     }
@@ -184,8 +185,36 @@ isolated function executeNonDataDrivenTestIsolated(TestFunction testFunction,
         reportData.onSkipped(name = testFunction.name, testType = getTestType(testFunctionArgs));
         return true;
     }
-    boolean failed = handleNonDataDrivenTestOutput(testFunction, executeTestFunctionIsolated(testFunction, "",
-                    GENERAL_TEST));
+    EvaluationConfig? evalConfig = testFunction.evalCofig;
+    boolean failed = false;
+    if evalConfig is EvaluationConfig {
+        int n = evalConfig.iterations ?: 1;
+        float confidence = evalConfig.confidence;
+        int passCount = 0;
+        foreach int i in 1 ... n {
+            ExecutionError|boolean result = executeEvalunctionIsolated(testFunction, EVAL_TEST);
+            io:println(result);
+            if result is false {
+                passCount += 1;
+            }
+        }
+float averagePassrate = <float>passCount / n;
+        if averagePassrate >= confidence{
+            reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        } else {
+            reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+            enableExit();
+            failed = true;
+        }
+
+
+    } else {
+        failed = handleNonDataDrivenTestOutput(testFunction, executeTestFunctionIsolated(testFunction, "",
+                        GENERAL_TEST));
+    }
+
     if executeAfterFunctionIsolated(testFunction) {
         return true;
     }
@@ -247,6 +276,9 @@ isolated function executeEvalunctionIsolated(TestFunction testFunction, TestType
     isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
     any|error output = params == () ? trap function:call(isolatedTestFunction)
         : trap function:call(isolatedTestFunction, ...params);
+        // TODO: handle panic/trap differently compared to ExecutionError
+        // this would avoid confusing returning error from test function
+        // with passing correct parameters to the acrual test functions
     return getEvalFuncOutput(output, testFunction, testType);
 }
 

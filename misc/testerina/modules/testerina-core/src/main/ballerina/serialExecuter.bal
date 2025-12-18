@@ -54,7 +54,7 @@ function executeBeforeEachFunctions() =>
     handleBeforeEachOutput(executeFunctions(beforeEachRegistry.getFunctions(), getShouldSkip()));
 
 function executeDataDrivenTestSet(TestFunction testFunction) {
-        // TODO: if evaluation handle by averaging
+    // TODO: if evaluation handle by averaging
     EvaluationConfig? evalConfig = testFunction.evalCofig;
     if evalConfig is EvaluationConfig {
 
@@ -96,21 +96,20 @@ function executeDataDrivenTestSet(TestFunction testFunction) {
                     }
                     ExecutionError|boolean result = executeEvalunction(testFunction, testType, readOnlyVal);
                     totalEntries += 1;
-                    if result is ExecutionError {
-                        failedEntierDataProvider = true;
-                        reportData.onFailed(name = testFunction.name,
-                        //  suffix = suffix,
-                        message =
-                        string `[fail data provider for the function ` +
-                        string `${testFunction.name}]${"\n"} ${getErrorMessage(result)}`, testType = testType);
-                        // println(string `${"\n\t"}${testFunction.name}:${suffix} has failed.${"\n"}`);
-                        enableExit();
-                    } else if result is false {
+                    // if result is ExecutionError {
+                    //     failedEntierDataProvider = true;
+                    //     reportData.onFailed(name = testFunction.name,
+                    //     //  suffix = suffix,
+                    //     message =
+                    //     string `[fail data provider for the function ` +
+                    //     string `${testFunction.name}]${"\n"} ${getErrorMessage(result)}`, testType = testType);
+                    //     // println(string `${"\n\t"}${testFunction.name}:${suffix} has failed.${"\n"}`);
+                    //     enableExit();
+                    // } else 
+                    if result is false {
                         passedEntries += 1;
                     }
                 }
-
-              
 
                 float passRate = <float>passedEntries / totalEntries;
                 io:println("passRate: ", passRate);
@@ -152,8 +151,34 @@ function executeNonDataDrivenTest(TestFunction testFunction) returns boolean {
                 dataDrivenTestParams[testFunction.name]));
         return true;
     }
-    boolean failed = handleNonDataDrivenTestOutput(testFunction, executeTestFunction(testFunction, "",
-                    GENERAL_TEST));
+    EvaluationConfig? evalConfig = testFunction.evalCofig;
+    boolean failed = false;
+    if evalConfig is EvaluationConfig {
+        int n = evalConfig.iterations ?: 1;
+        float confidence = evalConfig.confidence;
+        int passCount = 0;
+        foreach int i in 1 ... n {
+            ExecutionError|boolean result = executeEvalunction(testFunction, EVAL_TEST);
+            io:println(result);
+            if result is false {
+                passCount += 1;
+            }
+        }
+        float averagePassrate = <float>passCount / n;
+        if averagePassrate >= confidence {
+            reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+        } else {
+            reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassrate}`,
+                    testType = EVAL_TEST);
+            enableExit();
+            failed = true;
+        }
+    }
+    else {
+        failed = handleNonDataDrivenTestOutput(testFunction, executeTestFunction(testFunction, "",
+                        GENERAL_TEST));
+    }
     return executeAfterFunction(testFunction) || failed;
 }
 
