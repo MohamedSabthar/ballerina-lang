@@ -1,13 +1,14 @@
+import ballerina/io;
 @Config {
     // dataProvider: mapDataProvider
 }
 @EvalConfig {
     confidence: 1,
-    iterations: 2
+    iterations: 100
 }
 function dataProviderTest() returns error? {
-    a = 1;
-
+    // a = 1;
+    io:println("hit");
 }
 
 int a = 0;

@@ -180,6 +180,7 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
 
 isolated function executeNonDataDrivenTestIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) returns boolean {
+    // TODO: think, should we execcute before function before each iteration for evaluation?
     if executeBeforeFunctionIsolated(testFunction) {
         executionManager.setSkip(testFunction.name);
         reportData.onSkipped(name = testFunction.name, testType = getTestType(testFunctionArgs));

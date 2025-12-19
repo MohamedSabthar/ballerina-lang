@@ -47,6 +47,7 @@ type TestFunctionMetaData record {|
     boolean visited = false;
     boolean isReadyToExecute = false;
     TestCompletionStatus executionCompletionStatus = YET_TO_COMPLETE;
+    boolean isEvaluation = false;
 |};
 
 // This class manages the execution of the tests
