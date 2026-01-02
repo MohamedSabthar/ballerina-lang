@@ -52,6 +52,11 @@ isolated function executeBeforeEachFunctionsIsolated() =>
 
 isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) {
+    if isEvaluationTest(testFunction) {
+        executeDataDrivenEvaluationIsolated(testFunction, testFunctionArgs);
+        return;
+    }
+
     string[] keys = [];
     AnyOrError[][] values = [];
     TestType testType = prepareDataSet(testFunctionArgs, keys, values);
@@ -85,8 +90,90 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
     }
 }
 
+isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
+        DataProviderReturnType? testFunctionArgs) {
+    EvaluationConfig evalConfig = getEvalConfig(testFunction);
+    float[] iterationPassRates = [];
+    boolean dataProviderFailed = false;
+    boolean skipAlreadyReported = false;
+
+    foreach int iteration in 1 ... evalConfig.iterations {
+        string[] keys = [];
+        AnyOrError[][] values = [];
+        TestType testType = prepareDataSet(testFunctionArgs, keys, values);
+
+        if executeBeforeFunctionIsolated(testFunction) {
+            if !skipAlreadyReported {
+                reportData.onSkipped(name = testFunction.name, testType = testType);
+                skipAlreadyReported = true;
+            }
+            continue;
+        }
+
+        map<future> futures = {};
+        while keys.length() > 0 {
+            string key = keys.remove(0);
+            AnyOrError[] valueSet = values.remove(0);
+
+            readonly & readonly[] readonlyValues = from any|error item in valueSet
+                where item is readonly
+                select item;
+
+            if readonlyValues.length() != valueSet.length() {
+                reportData.onFailed(name = testFunction.name, suffix = key,
+                message = string `[fail data provider for the function ${testFunction.name}]\n` +
+                    "Data provider returned non-readonly values", testType = EVAL_TEST
+                );
+                enableExit();
+                return;
+            }
+            futures[key] = start executeEvaluationIsolated(testFunction, testType, readonlyValues);
+        }
+
+        int totalEntries = 0;
+        int passedEntries = 0;
+        foreach [string, future<any|error>] entry in futures.entries() {
+            totalEntries += 1;
+            any|error result = wait entry[1];
+            if result is InvalidArgumentError && result.cause() is error {
+                dataProviderFailed = true;
+                reportData.onFailed(name = testFunction.name,
+                    message = string `[fail data provider for the function ${testFunction.name}]\n`
+                    + getErrorMessage(<error>result.cause()), testType = EVAL_TEST
+                );
+                enableExit();
+                return;
+            } else if result is false {
+                passedEntries += 1;
+            }
+        }
+
+        float passRate = <float>passedEntries / totalEntries;
+        iterationPassRates.push(passRate);
+        _ = executeAfterFunctionIsolated(testFunction);
+    }
+
+    float passRateSum = iterationPassRates
+    .reduce(isolated function(float total, float next) returns float => total + next, 0);
+    float averagePassRate = passRateSum / evalConfig.iterations;
+
+    if averagePassRate >= evalConfig.confidence {
+        reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassRate}`,
+        testType = EVAL_TEST);
+        return;
+    }
+    if !dataProviderFailed {
+        reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassRate}`,
+        testType = EVAL_TEST);
+        enableExit();
+    }
+}
+
 isolated function executeNonDataDrivenTestIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) returns boolean {
+    if isEvaluationTest(testFunction) {
+        return executeNonDataDrivenEvaluationIsolated(testFunction, testFunctionArgs);
+    }
     if executeBeforeFunctionIsolated(testFunction) {
         executionManager.setSkip(testFunction.name);
         reportData.onSkipped(name = testFunction.name, testType = getTestType(testFunctionArgs));
@@ -98,6 +185,53 @@ isolated function executeNonDataDrivenTestIsolated(TestFunction testFunction,
         return true;
     }
     return failed;
+}
+
+isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFunction, 
+    DataProviderReturnType? testFunctionArgs) returns boolean {
+    EvaluationConfig evalConfig = getEvalConfig(testFunction);
+    int iterations = evalConfig.iterations;
+    float requiredConfidence = evalConfig.confidence;
+    int passedIterations = 0;
+    boolean skipAlreadyReported = false;
+
+    foreach int _ in 1 ... iterations {
+        if executeBeforeFunctionIsolated(testFunction) {
+            if !skipAlreadyReported {
+                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+                skipAlreadyReported = true;
+            }
+            continue;
+        }
+        InvalidArgumentError|ExecutionError|boolean result = executeEvaluationIsolated(testFunction, EVAL_TEST);
+        if result is false {
+            passedIterations += 1;
+        }
+    }
+
+    float passRate = <float>passedIterations / iterations;
+    if passRate >= requiredConfidence {
+        reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${passRate}`,
+            testType = EVAL_TEST);
+        return false;
+    }
+
+    reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${passRate}`,
+        testType = EVAL_TEST);
+    enableExit();
+    return true;
+}
+
+
+isolated function isEvaluationTest(TestFunction testFunction) returns boolean
+    => testFunction.evalCofig is EvaluationConfig;
+
+isolated function getEvalConfig(TestFunction testFunction) returns EvaluationConfig {
+    EvaluationConfig? evalCofig = testFunction.evalCofig;
+    if evalCofig is EvaluationConfig {
+        return evalCofig;
+    }
+    panic error("unable to obtain valid eval config");
 }
 
 isolated function executeAfterEachFunctionsIsolated() =>
@@ -148,6 +282,25 @@ isolated function executeBeforeFunctionIsolated(TestFunction testFunction) retur
         failed = handleBeforeFunctionOutput(executeFunctionIsolated(<function>testFunction.before));
     }
     return failed;
+}
+
+isolated function executeEvaluationIsolated(TestFunction testFunction, TestType testType,
+        AnyOrError[]? params = (), boolean isEval = false) returns InvalidArgumentError|ExecutionError|boolean {
+    isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
+    record {any|error result;}|error output = trap callEvaluationFunctionIsolated(isolatedTestFunction, params);
+    if output is error && output !is TestError {
+        return error InvalidArgumentError(output.message(), output);
+    }
+    any|error result = output is TestError ? output : output.result;
+    return getEvalFuncOutput(result, testFunction, testType);
+}
+
+isolated function callEvaluationFunctionIsolated(isolated function executableFunction, AnyOrError[]? params = ())
+    returns record {any|error result;} {
+    any|error result = params == ()
+        ? function:call(executableFunction)
+        : function:call(executableFunction, ...params);
+    return {result};
 }
 
 isolated function executeTestFunctionIsolated(TestFunction testFunction, string suffix, TestType testType,

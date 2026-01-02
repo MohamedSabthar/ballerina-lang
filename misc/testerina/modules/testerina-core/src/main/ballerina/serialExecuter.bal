@@ -52,6 +52,11 @@ function executeBeforeEachFunctions() =>
     handleBeforeEachOutput(executeFunctions(beforeEachRegistry.getFunctions(), getShouldSkip()));
 
 function executeDataDrivenTestSet(TestFunction testFunction) {
+    if  isEvaluationTest(testFunction) {
+        executeDataDrivenEvaluation(testFunction);
+        return;
+    }
+
     DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
     string[] keys = [];
     AnyOrError[][] values = [];
@@ -64,7 +69,86 @@ function executeDataDrivenTestSet(TestFunction testFunction) {
     }
 }
 
+function executeDataDrivenEvaluation(TestFunction testFunction) {
+    EvaluationConfig evalConfig = getEvalConfig(testFunction);
+    int iterations = evalConfig.iterations;
+    float[] iterationPassRates = [];
+    boolean dataProviderFailed = false;
+    boolean skipAlreadyReported = false;
+
+    foreach int _ in 1 ... iterations {
+        string[] keys = [];
+        AnyOrError[][] values = [];
+        DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
+        TestType testType = prepareDataSet(params, keys, values);
+
+        if executeBeforeFunction(testFunction) {
+            if !skipAlreadyReported {
+                reportData.onSkipped(name = testFunction.name, testType = testType);
+                skipAlreadyReported = true;
+            }
+            continue;
+        }
+
+        int totalEntries = 0;
+        int passedEntries = 0;
+        while values.length() != 0 {
+            AnyOrError[] value = values.remove(0);
+            final readonly & readonly[] readonlyArgs = from any|error item in value
+                where item is readonly
+                select item;
+
+            if readonlyArgs.length() != value.length() {
+                reportData.onFailed(name = testFunction.name, testType = testType,
+                message = string `[fail data provider for the function ${testFunction.name}]\n` +
+                    "Data provider returned non-readonly values"
+                );
+                enableExit();
+                return;
+            }
+
+            InvalidArgumentError|ExecutionError|boolean result = executeEvaluation(testFunction, testType, readonlyArgs);
+            totalEntries += 1;
+            if result is InvalidArgumentError && result.cause() is error {
+                dataProviderFailed = true;
+                reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
+                    message = string `[fail data provider for the function ${testFunction.name}]\n` +
+                        getErrorMessage(<error>result.cause())
+                );
+                enableExit();
+                return;
+            }
+
+            if result is false {
+                passedEntries += 1;
+            }
+        }
+
+        float passRate = <float>passedEntries / totalEntries;
+        iterationPassRates.push(passRate);
+        _ = executeAfterFunctionIsolated(testFunction);
+    }
+
+    float cumulativePassRateSum = iterationPassRates.reduce(isolated function(float total, float next) returns float => total + next, 0);
+    float averagePassRate = cumulativePassRateSum / iterations;
+
+    if averagePassRate >= evalConfig.confidence {
+        reportData.onPassed(name = testFunction.name, testType = EVAL_TEST,
+            message = string `passed with confidence ${averagePassRate}`
+        );
+        return;
+    } 
+    if !dataProviderFailed {
+        reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
+            message = string `failed with confidence ${averagePassRate}`
+        );
+    }
+}
+
 function executeNonDataDrivenTest(TestFunction testFunction) returns boolean {
+    if  isEvaluationTest(testFunction) {
+        return executeNonDataDrivenEvaluation(testFunction);
+    }
     if executeBeforeFunction(testFunction) {
         executionManager.setSkip(testFunction.name);
         reportData.onSkipped(name = testFunction.name, testType = getTestType(
@@ -74,6 +158,40 @@ function executeNonDataDrivenTest(TestFunction testFunction) returns boolean {
     boolean failed = handleNonDataDrivenTestOutput(testFunction, executeTestFunction(testFunction, "",
                     GENERAL_TEST));
     return executeAfterFunction(testFunction) || failed;
+}
+
+function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boolean {
+    EvaluationConfig evalConfig = getEvalConfig(testFunction);
+    int iterations = evalConfig.iterations;
+    float requiredConfidence = evalConfig.confidence;
+    int passedIterations = 0;
+    boolean skipAlreadyReported = false;
+
+    foreach int _ in 1 ... iterations {
+        if executeBeforeFunction(testFunction) {
+            if !skipAlreadyReported {
+                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+                skipAlreadyReported = true;
+            }
+            continue;
+        }
+        InvalidArgumentError|ExecutionError|boolean result = executeEvaluation(testFunction, EVAL_TEST);
+        if result is false {
+            passedIterations += 1;
+        }
+    }
+
+    float passRate = <float>passedIterations / iterations;
+    if passRate >= requiredConfidence {
+        reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${passRate}`,
+            testType = EVAL_TEST);
+        return false;
+    }
+
+    reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${passRate}`,
+        testType = EVAL_TEST);
+    enableExit();
+    return true;
 }
 
 function executeAfterEachFunctions() =>
@@ -121,6 +239,23 @@ function executeBeforeFunction(TestFunction testFunction) returns boolean {
         failed = handleBeforeFunctionOutput(executeFunction(<function>testFunction.before));
     }
     return failed;
+}
+
+function executeEvaluation(TestFunction testFunction, TestType testType,
+        AnyOrError[]? params = ()) returns InvalidArgumentError|ExecutionError|boolean {
+    record {any|error result;}|error output = trap callEvaluationFunction(testFunction.executableFunction, params);
+    if output is error && output !is TestError {
+        return error InvalidArgumentError(output.message(), output);
+    }
+    any|error result = output is TestError ? output : output.result;
+    return getEvalFuncOutput(result, testFunction, testType);
+}
+
+function callEvaluationFunction(function executableFunction, AnyOrError[]? params = ())
+    returns record {any|error result;} {
+    any|error result = params == () ? function:call(executableFunction)
+        : function:call(executableFunction, ...params);
+    return {result};
 }
 
 function executeTestFunction(TestFunction testFunction, string suffix, TestType testType,
