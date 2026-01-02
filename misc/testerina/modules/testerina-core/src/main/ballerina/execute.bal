@@ -311,14 +311,14 @@ isolated function handleAfterFunctionOutput(ExecutionError? err) returns boolean
 }
 
 isolated function getEvalFuncOutput(any|error output, TestFunction testFunction,
-        TestType testType) returns ExecutionError|boolean {
+        TestType testType) returns ExecutionError|TestError? {
     if output is TestError {
-        return true;
+        return output;
     }
     if output is any {
-        return false;
+        return;
     }
-    return error(getErrorMessage(output), functionName = testFunction.name);
+    return error ExecutionError(getErrorMessage(output), functionName = testFunction.name);
 }
 
 

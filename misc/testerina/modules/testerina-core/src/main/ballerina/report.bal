@@ -30,6 +30,12 @@ type ResultData record {|
     string suffix = "";
     string message = "";
     TestType testType;
+    EvaluationResultEntry[] evalEntries?;
+|} & readonly;
+
+type EvaluationResultEntry record {|
+    string id;
+    string message?;
 |} & readonly;
 
 isolated class Result {
@@ -150,6 +156,14 @@ isolated function consoleReport(ReportData data) {
         Result entry = new (entrydata);
         println("\n\t\t[fail] " + entry.fullName() + ":");
         println("\n\t\t    " + formatFailedError(entry.message(), 3));
+        EvaluationResultEntry[]? evalEntries = entrydata.evalEntries;
+        if evalEntries !is () {
+            println("\n\t\t\t    " + "Evaluation Entries" + ":");
+            foreach EvaluationResultEntry evalEntry in evalEntries {
+                string message = evalEntry.message?: "passed";
+                println("\n\t\t\t\t    " + evalEntry.id + " : " + message);
+            }
+        }
     });
 
     int totalTestCount = data.passedCount() + data.failedCount() + data.skippedCount();

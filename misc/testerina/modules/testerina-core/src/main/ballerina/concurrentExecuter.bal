@@ -96,8 +96,9 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
     float[] iterationPassRates = [];
     boolean dataProviderFailed = false;
     boolean skipAlreadyReported = false;
+    EvaluationResultEntry[] evalEntries = [];
 
-    foreach int iteration in 1 ... evalConfig.iterations {
+    foreach int i in 1 ... evalConfig.iterations {
         string[] keys = [];
         AnyOrError[][] values = [];
         TestType testType = prepareDataSet(testFunctionArgs, keys, values);
@@ -133,7 +134,9 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         int totalEntries = 0;
         int passedEntries = 0;
         foreach [string, future<any|error>] entry in futures.entries() {
+            string id = string`iteration#${i}_key#${entry[0]}`;
             totalEntries += 1;
+
             any|error result = wait entry[1];
             if result is InvalidArgumentError && result.cause() is error {
                 dataProviderFailed = true;
@@ -143,9 +146,11 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
                 );
                 enableExit();
                 return;
-            } else if result is false {
+            } else if result is () {
                 passedEntries += 1;
             }
+            string? evalEntryMessage = result is error ? result.toString() : ();
+            evalEntries.push({id: id, message: evalEntryMessage});
         }
 
         float passRate = <float>passedEntries / totalEntries;
@@ -159,11 +164,13 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
 
     if averagePassRate >= evalConfig.confidence {
         reportData.onPassed(name = testFunction.name, message = string `passed with confidence ${averagePassRate}`,
+        evalEntries = evalEntries.cloneReadOnly(),
         testType = EVAL_TEST);
         return;
     }
     if !dataProviderFailed {
         reportData.onFailed(name = testFunction.name, message = string `failed with confidence ${averagePassRate}`,
+        evalEntries = evalEntries.cloneReadOnly(),
         testType = EVAL_TEST);
         enableExit();
     }
@@ -203,8 +210,8 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
             }
             continue;
         }
-        InvalidArgumentError|ExecutionError|boolean result = executeEvaluationIsolated(testFunction, EVAL_TEST);
-        if result is false {
+        InvalidArgumentError|ExecutionError|TestError? result = executeEvaluationIsolated(testFunction, EVAL_TEST);
+        if result is () {
             passedIterations += 1;
         }
     }
@@ -285,7 +292,7 @@ isolated function executeBeforeFunctionIsolated(TestFunction testFunction) retur
 }
 
 isolated function executeEvaluationIsolated(TestFunction testFunction, TestType testType,
-        AnyOrError[]? params = (), boolean isEval = false) returns InvalidArgumentError|ExecutionError|boolean {
+        AnyOrError[]? params = (), boolean isEval = false) returns InvalidArgumentError|ExecutionError|TestError? {
     isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
     record {any|error result;}|error output = trap callEvaluationFunctionIsolated(isolatedTestFunction, params);
     if output is error && output !is TestError {

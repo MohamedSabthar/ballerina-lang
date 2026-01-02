@@ -75,8 +75,9 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
     float[] iterationPassRates = [];
     boolean dataProviderFailed = false;
     boolean skipAlreadyReported = false;
+    EvaluationResultEntry[] evalEntries = [];
 
-    foreach int _ in 1 ... iterations {
+    foreach int i in 1 ... iterations {
         string[] keys = [];
         AnyOrError[][] values = [];
         DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
@@ -89,7 +90,6 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
             }
             continue;
         }
-
         int totalEntries = 0;
         int passedEntries = 0;
         while values.length() != 0 {
@@ -107,7 +107,8 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
                 return;
             }
 
-            InvalidArgumentError|ExecutionError|boolean result = executeEvaluation(testFunction, testType, readonlyArgs);
+            InvalidArgumentError|ExecutionError|TestError? result = executeEvaluation(testFunction, testType, readonlyArgs);
+            string id = string`iteration#${i}_key#${keys[totalEntries]}`;
             totalEntries += 1;
             if result is InvalidArgumentError && result.cause() is error {
                 dataProviderFailed = true;
@@ -119,9 +120,11 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
                 return;
             }
 
-            if result is false {
+            if result is () {
                 passedEntries += 1;
             }
+            string? evalEntryMessage = result is () ? () : result.toString();
+            evalEntries.push({id: id, message: evalEntryMessage});
         }
 
         float passRate = <float>passedEntries / totalEntries;
@@ -134,14 +137,15 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
 
     if averagePassRate >= evalConfig.confidence {
         reportData.onPassed(name = testFunction.name, testType = EVAL_TEST,
-            message = string `passed with confidence ${averagePassRate}`
+            message = string `passed with confidence ${averagePassRate}`, evalEntries = evalEntries.cloneReadOnly()
         );
         return;
     } 
     if !dataProviderFailed {
         reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
-            message = string `failed with confidence ${averagePassRate}`
+            message = string `failed with confidence ${averagePassRate}`, evalEntries = evalEntries.cloneReadOnly()
         );
+        enableExit();
     }
 }
 
@@ -175,8 +179,8 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
             }
             continue;
         }
-        InvalidArgumentError|ExecutionError|boolean result = executeEvaluation(testFunction, EVAL_TEST);
-        if result is false {
+        InvalidArgumentError|ExecutionError|TestError? result = executeEvaluation(testFunction, EVAL_TEST);
+        if result is () {
             passedIterations += 1;
         }
     }
@@ -242,7 +246,7 @@ function executeBeforeFunction(TestFunction testFunction) returns boolean {
 }
 
 function executeEvaluation(TestFunction testFunction, TestType testType,
-        AnyOrError[]? params = ()) returns InvalidArgumentError|ExecutionError|boolean {
+        AnyOrError[]? params = ()) returns InvalidArgumentError|ExecutionError|TestError? {
     record {any|error result;}|error output = trap callEvaluationFunction(testFunction.executableFunction, params);
     if output is error && output !is TestError {
         return error InvalidArgumentError(output.message(), output);
