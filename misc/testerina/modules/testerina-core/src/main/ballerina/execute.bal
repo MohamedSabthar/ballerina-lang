@@ -13,6 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 import ballerina/lang.'error as langError;
 
 isolated boolean shouldSkip = false;
@@ -308,6 +309,18 @@ isolated function handleAfterFunctionOutput(ExecutionError? err) returns boolean
     }
     return false;
 }
+
+isolated function getEvaluationOutput(any|error output,
+    TestFunction testFunction) returns ExecutionError|TestError? {
+    if output is TestError {
+        return output;
+    }
+    if output is any {
+        return;
+    }
+    return error ExecutionError(getErrorMessage(output), functionName = testFunction.name);
+}
+
 
 isolated function handleTestFuncOutput(any|error output, TestFunction testFunction, string suffix, TestType testType)
         returns ExecutionError|boolean {

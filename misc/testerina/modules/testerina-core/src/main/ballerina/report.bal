@@ -30,6 +30,36 @@ type ResultData record {|
     string suffix = "";
     string message = "";
     TestType testType;
+    EvaluationRuns evaluationRuns?;
+|} & readonly;
+
+type EvaluationRuns EvaluationRunWithoutDataSet[]|EvaluationRunWithDataSet[];
+
+# Represents a single execution run of an evaluation.
+type EvaluationRunWithoutDataSet record {|
+    # Unique identifier of the evaluation run
+    int id;
+    # Represents an optional error message that provides details about the evaluation outcome of the current run
+    string errorMessage?;
+|} & readonly;
+
+# Represents a single execution run of an evaluation.
+type EvaluationRunWithDataSet record {|
+    # Unique identifier of the evaluation run
+    int id;
+    # Outcomes produced for each data entry in evaluation dataset for the current run
+    EvaluationOutcome[] outcomes;
+    # Pass rate of the current run
+    float passRate;
+|} & readonly;
+
+# Represents the outcome of evaluating a single data entry
+# within an evaluation run.
+type EvaluationOutcome record {|
+    # Identifier of the evaluated data entry.
+    string id;
+    # The error message that describes the evaluation outcome for a specific data entry, if any
+    string errorMessage?;
 |} & readonly;
 
 isolated class Result {
@@ -74,6 +104,12 @@ isolated class Result {
     isolated function testType() returns TestType {
         lock {
             return self.data.testType;
+        }
+    }
+
+    isolated function getEvaluationRuns() returns EvaluationRuns? {
+        lock {
+            return self.data.evaluationRuns;
         }
     }
 }
@@ -150,6 +186,9 @@ isolated function consoleReport(ReportData data) {
         Result entry = new (entrydata);
         println("\n\t\t[fail] " + entry.fullName() + ":");
         println("\n\t\t    " + formatFailedError(entry.message(), 3));
+        if entry.testType() is EVAL_TEST {
+            printEvaluationReportInConsole(entry);
+        }
     });
 
     int totalTestCount = data.passedCount() + data.failedCount() + data.skippedCount();
@@ -162,6 +201,40 @@ isolated function consoleReport(ReportData data) {
         println("\t\t" + data.failedCount().toString() + " failing");
         println("\t\t" + data.skippedCount().toString() + " skipped");
     }
+}
+
+isolated function printEvaluationReportInConsole(Result entry) {
+    EvaluationRuns? evalRuns = entry.getEvaluationRuns();
+    if evalRuns is () {
+        return;
+    }
+    println("\t\t\t    " + "evaluation runs" + ":");
+    if evalRuns is EvaluationRunWithDataSet[] {
+        foreach EvaluationRunWithDataSet run in evalRuns {
+            println("\n\t\t\t\t" + string `    iteration: ${run.id}`);
+            foreach EvaluationOutcome outcome in run.outcomes {
+                string indent = "\n\t\t\t\t\t";
+                println(string `${indent}    entry: ${outcome.id}` +
+                        string `${indent}    message: ${getConsoleMessage(outcome.errorMessage, indent + "\t")}`);
+            }
+        }
+        return;
+    }
+    if evalRuns is EvaluationRunWithoutDataSet[] {
+        foreach EvaluationRunWithoutDataSet run in evalRuns {
+            string indent = "\n\t\t\t\t";
+            println(string `${indent}    iteration: ${run.id}` +
+                    string `${indent}    message: ${getConsoleMessage(run.errorMessage, indent + "\t")}`);
+        }
+        return;
+    }
+}
+
+isolated function getConsoleMessage(string? message, string indent = "\n\t") returns string {
+    if message is () {
+        return "passed";
+    }
+    return re`\n`.replaceAll(message, indent);
 }
 
 isolated function formatFailedError(string message, int tabCount) returns string {
