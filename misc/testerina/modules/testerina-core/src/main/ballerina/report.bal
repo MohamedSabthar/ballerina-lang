@@ -234,7 +234,7 @@ isolated function getConsoleMessage(string? message, string indent = "\n\t") ret
     if message is () {
         return "passed";
     }
-    return re`\n`.replaceAll(message, indent);
+    return re `\n`.replaceAll(message, indent);
 }
 
 isolated function formatFailedError(string message, int tabCount) returns string {
@@ -290,20 +290,10 @@ isolated function failedTestsReport(ReportData data) {
 }
 
 function moduleStatusReport(ReportData data) {
-    map<string>[] tests = [];
-    data.passedCases().forEach(result => tests.push({
-        "name": escapeSpecialCharactersJson(new Result(result).fullName()),
-        "status": "PASSED"
-    }));
-    data.failedCases().forEach(result => tests.push({
-        "name": escapeSpecialCharactersJson(new Result(result).fullName()),
-        "status": "FAILURE",
-        "failureMessage": replaceDoubleQuotes(new Result(result).message())
-    }));
-    data.skippedCases().forEach(result => tests.push({
-        "name": escapeSpecialCharactersJson((new Result(result).fullName())),
-        "status": "SKIPPED"
-    }));
+    map<json>[] tests = [];
+    data.passedCases().forEach(result => tests.push(getPassedEntry(result)));
+    data.failedCases().forEach(result => tests.push(getFailedEntry(result)));
+    data.skippedCases().forEach(result => tests.push(getSkippedEntry(result)));
 
     map<json> output = {
         "totalTests": data.passedCount() + data.failedCount() + data.skippedCount(),
@@ -318,6 +308,73 @@ function moduleStatusReport(ReportData data) {
     if err is error {
         println(err.message());
     }
+}
+
+function getPassedEntry(ResultData resultData) returns map<json> {
+    Result result = new (resultData);
+    map<json> entry = {
+        "name": result.fullName(),
+        "status": "PASSED"
+    };
+    if result.testType() == EVAL_TEST {
+        entry["evalRuns"] = replaceDoubleQuotesInEvaluationErrorMessage(result.getEvaluationRuns());
+    }
+    return entry;
+}
+
+function getFailedEntry(ResultData resultData) returns map<json> {
+    Result result = new (resultData);
+    map<json> entry = {
+        "name": result.fullName(),
+        "status": "FAILURE",
+        "failureMessage": replaceDoubleQuotes(result.message())
+    };
+    if result.testType() == EVAL_TEST {
+        entry["evalRuns"] = replaceDoubleQuotesInEvaluationErrorMessage(result.getEvaluationRuns());
+    }
+    return entry;
+}
+
+function getSkippedEntry(ResultData resultData) returns map<json> {
+    Result result = new (resultData);
+    return {
+        "name": escapeSpecialCharactersJson(result.fullName()),
+        "status": "SKIPPED"
+    };
+}
+
+function replaceDoubleQuotesInEvaluationErrorMessage(EvaluationRuns? evalRuns) returns EvaluationRuns? {
+    if evalRuns is EvaluationRunWithoutDataSet[] {
+        EvaluationRunWithoutDataSet[] trasnformedRuns = [];
+        foreach var run in evalRuns {
+            string? errorMessage = run.errorMessage;
+            if errorMessage is string {
+                trasnformedRuns.push({id: run.id, errorMessage: replaceDoubleQuotes(errorMessage)});
+            } else {
+                trasnformedRuns.push(run);
+            }
+        }
+        return trasnformedRuns;
+    }
+
+    if evalRuns is EvaluationRunWithDataSet[] {
+        EvaluationRunWithDataSet[] trasnformedRuns = [];
+        foreach var run in evalRuns {
+            EvaluationOutcome[] transformedOutcomes = [];
+            foreach EvaluationOutcome outcome in run.outcomes {
+                string? errorMessage = outcome.errorMessage;
+                if errorMessage is string {
+                    transformedOutcomes.push({id: outcome.id, errorMessage: replaceDoubleQuotes(errorMessage)});
+                } else {
+                    transformedOutcomes.push(outcome);
+                }
+                trasnformedRuns.push({outcomes: transformedOutcomes.cloneReadOnly(), id: run.id, passRate: run.passRate});
+            }
+
+        }
+        return trasnformedRuns;
+    }
+    return;
 }
 
 function escapeSpecialCharactersJson(string name) returns string {

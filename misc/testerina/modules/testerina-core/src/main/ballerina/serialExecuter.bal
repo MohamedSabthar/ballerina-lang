@@ -298,7 +298,7 @@ function executeFunction(TestFunction|function testFunction) returns ExecutionEr
 }
 
 isolated function getErrorMessageFromResult(any|error result) returns string? {
-    if result is TestError {
+    if result is TestError|ExecutionError|InvalidArgumentError {
         return result.message();
     }
     return result is error ? result.toString() : ();
