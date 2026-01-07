@@ -151,7 +151,7 @@ function restructureTest(TestFunction testFunction, string[] descendants) return
 
 isolated function printExecutionError(ExecutionError err, string functionSuffix) {
     println("\t[fail] " + err.detail().functionName + "[" + functionSuffix + "]" + ":\n\t    " +
-            formatFailedError(err.message(), 2));
+            formatMessage(err.message(), 2));
 }
 
 isolated function getErrorMessage(error err) returns string {

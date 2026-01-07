@@ -1,0 +1,27 @@
+Compiling source
+	eval_tests/eval_config_confidence:0.1.0
+
+Running Tests with Coverage
+
+	eval_config_confidence
+
+	evalWithInvalidConfidenceConfig has failed.
+
+
+		[fail] evalWithInvalidConfidenceConfig:
+
+		    invalid evaluation config: 'confidence' must be between 0.0 and 1.0, found: 2.0
+			
+
+
+		0 passing
+		1 failing
+		0 skipped
+
+		Test execution time : 0.014s
+
+Generating Test Report
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-12337754379154913940/project-based-tests/evaluation/target/report/test_results.json
+
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1767764609163/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
+error: there are test failures

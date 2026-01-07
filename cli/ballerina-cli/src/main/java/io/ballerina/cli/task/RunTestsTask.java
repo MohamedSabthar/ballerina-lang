@@ -409,6 +409,7 @@ public class RunTestsTask implements Task {
                 pkgTestResult.addModuleStatus(moduleStatus);
             }
             try {
+                // HERE
                 generateCoverage(project, pkgTestResult, jBallerinaBackend, this.includesInCoverage,
                         this.coverageReportFormat, this.coverageModules, exclusionClassList);
                 generateTesterinaReports(project, pkgTestResult);

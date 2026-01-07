@@ -179,13 +179,17 @@ isolated function consoleReport(ReportData data) {
         data.passedCases().forEach(isolated function(ResultData entrydata) {
             Result entry = new (entrydata);
             println("\t\t[pass] " + entry.fullName());
+            if entry.testType() == EVAL_TEST {
+                println("\n\t\t    " + formatMessage(entry.message(), 3));
+                // printEvaluationReportInConsole(entry); // TODO: this will always will be passed do we need this?
+            }
         });
     }
 
     data.failedCases().forEach(isolated function(ResultData entrydata) {
         Result entry = new (entrydata);
         println("\n\t\t[fail] " + entry.fullName() + ":");
-        println("\n\t\t    " + formatFailedError(entry.message(), 3));
+        println("\n\t\t    " + formatMessage(entry.message(), 3));
         if entry.testType() is EVAL_TEST {
             printEvaluationReportInConsole(entry);
         }
@@ -213,18 +217,16 @@ isolated function printEvaluationReportInConsole(Result entry) {
         foreach EvaluationRunWithDataSet run in evalRuns {
             println("\n\t\t\t\t" + string `    iteration: ${run.id}`);
             foreach EvaluationOutcome outcome in run.outcomes {
-                string indent = "\n\t\t\t\t\t";
-                println(string `${indent}    entry: ${outcome.id}` +
-                        string `${indent}    message: ${getConsoleMessage(outcome.errorMessage, indent + "\t")}`);
+                println(string `${"\n\t\t\t\t\t"}    entry: ${outcome.id}` +
+                        string `${"\n\t\t\t\t\t"}    message: ${getConsoleMessage(outcome.errorMessage, "\n\t\t\t\t\t\t\t")}`);
             }
         }
         return;
     }
     if evalRuns is EvaluationRunWithoutDataSet[] {
         foreach EvaluationRunWithoutDataSet run in evalRuns {
-            string indent = "\n\t\t\t\t";
-            println(string `${indent}    iteration: ${run.id}` +
-                    string `${indent}    message: ${getConsoleMessage(run.errorMessage, indent + "\t")}`);
+            println(string `${"\n\t\t\t\t"}    iteration: ${run.id}` +
+                    string `${"\n\t\t\t\t\t"}    message: ${getConsoleMessage(run.errorMessage, "\n\t\t\t\t\t\t\t")}`);
         }
         return;
     }
@@ -237,7 +239,7 @@ isolated function getConsoleMessage(string? message, string indent = "\n\t") ret
     return re `\n`.replaceAll(message, indent);
 }
 
-isolated function formatFailedError(string message, int tabCount) returns string {
+isolated function formatMessage(string message, int tabCount) returns string {
     string[] lines = split(message, "\n");
     lines.push("");
     string tabs = "";
