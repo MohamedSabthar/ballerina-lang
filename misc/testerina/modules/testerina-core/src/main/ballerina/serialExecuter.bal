@@ -100,7 +100,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
 
             if readonlyArgs.length() != value.length() {
                 reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
-                message = string `[fail data provider for the function ${testFunction.name}]\n` +
+                message = string `[fail data provider for the function ${testFunction.name}]$"\n"}` +
                     "Data provider returned non-readonly values"
                 );
                 enableExit();
@@ -111,7 +111,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
             error? cause = result is error ? result.cause() : ();
             if result is InvalidArgumentError && cause is error {
                 dataProviderFailed = true;
-                string errMsg = string `[fail data provider for the function ${testFunction.name}]\n`
+                string errMsg = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
                     + getErrorMessage(cause);
                 reportData.onFailed(name = testFunction.name, message = errMsg, testType = EVAL_TEST);
                 enableExit();
@@ -127,7 +127,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
 
         if totalEntries == 0 {
             reportData.onFailed(name = testFunction.name,
-                    message = string `[fail data provider for the function ${testFunction.name}]\n`
+                    message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
                     + "The data provider returned no data.", testType = EVAL_TEST);
             enableExit();
             return;

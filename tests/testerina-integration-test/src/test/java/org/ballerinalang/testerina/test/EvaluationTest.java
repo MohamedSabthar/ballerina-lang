@@ -121,7 +121,32 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider.txt", output);
     }
 
-    // data provider test isolate and non isolate
-    // failure case: without data provider isolated and non isolated
-    // console report output validation
+
+    @Test
+    public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryType() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryType", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+    }
+
+    @Test
+    public void testIsolatedEvaluationFailsForInvalidInputDataEntryType() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryType", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+    }
+
+
+
+
+// failure case: without data provider isolated and non isolated
+    // test failing for invalid input (isolated and non isolate)
+    // test returns error for each entry
+    // test before/after function execution for each iteration
+    // skip eval if before/after fails
+
 }

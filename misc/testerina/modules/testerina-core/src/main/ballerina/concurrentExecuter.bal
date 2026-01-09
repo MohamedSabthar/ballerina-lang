@@ -121,7 +121,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
 
             if readonlyValues.length() != valueSet.length() {
                 reportData.onFailed(name = testFunction.name, suffix = key,
-                message = string `[fail data provider for the function ${testFunction.name}]\n` +
+                message = string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
                     "data provider returned non-readonly values", testType = EVAL_TEST
                 );
                 enableExit();
@@ -138,7 +138,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
             if result is InvalidArgumentError && result.cause() is error {
                 dataProviderFailed = true;
                 reportData.onFailed(name = testFunction.name,
-                    message = string `[fail data provider for the function ${testFunction.name}]\n`
+                    message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
                     + getErrorMessage(<error>result.cause()), testType = EVAL_TEST
                 );
                 enableExit();
@@ -152,7 +152,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
 
         if totalEntries == 0 {
             reportData.onFailed(name = testFunction.name,
-                    message = string `[fail data provider for the function ${testFunction.name}]\n`
+                    message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
                     + "the data provider returned no data.", testType = EVAL_TEST);
             enableExit();
             return;
