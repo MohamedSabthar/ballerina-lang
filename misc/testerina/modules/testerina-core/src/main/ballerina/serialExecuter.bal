@@ -192,6 +192,7 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
             passedIterations += 1;
         }
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});
+        _ = executeAfterFunction(testFunction);
     }
 
     float passRate = <float>passedIterations / iterations;

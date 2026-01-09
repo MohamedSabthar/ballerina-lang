@@ -194,9 +194,30 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
     }
 
+    @Test
+    public void testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider.txt", output);
+    }
+
+
+
+
+
 
 // failure case: without data provider isolated and non isolated
-    // test returns error for each entry
     // test before/after function execution for each iteration
     // skip eval if before/after fails
 

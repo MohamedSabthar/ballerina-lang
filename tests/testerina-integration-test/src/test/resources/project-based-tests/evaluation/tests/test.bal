@@ -167,3 +167,43 @@ isolated function testIsolatedEvalWithDataProviderReturningErrorForEntry(string 
 isolated function testIsolatedEvalWithoutDataProviderReturningErrorForIteration() returns error? {
     return error("inavalid response returned from the model");
 }
+
+int beforeCount = 0;
+int iterCount1 = 0;
+
+
+function increamentBefore() {
+    beforeCount += 1;
+}
+
+function increamentAfter() {
+    afterCount += 1;
+}
+
+@test:Config {
+    before:  increamentBefore
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider() returns error? {
+    iterCount1 += 1;
+    test:assertEquals(beforeCount, iterCount1);
+}
+
+
+int iterCount2 = 0;
+int afterCount = 0;
+
+@test:Config {
+    after:  increamentAfter
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider() returns error? {
+    test:assertEquals(afterCount, iterCount2);
+    iterCount2+=1;
+}

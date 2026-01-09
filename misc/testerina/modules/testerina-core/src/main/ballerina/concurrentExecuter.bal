@@ -220,6 +220,7 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
             passedIterations += 1;
         }
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});
+        _ = executeAfterFunctionIsolated(testFunction);
     }
 
     float passRate = <float>passedIterations / iterations;
