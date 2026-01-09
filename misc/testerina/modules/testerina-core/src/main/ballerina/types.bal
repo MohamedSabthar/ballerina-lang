@@ -24,7 +24,7 @@ public type TestError distinct error;
 
 type ExecutionError distinct error<record {|string functionName;|}>;
 
-type InvalidArgumentError distinct error;
+type InvalidArgumentError distinct ExecutionError;
 
 type ModuleRerunJson record {|
     string[] testNames;

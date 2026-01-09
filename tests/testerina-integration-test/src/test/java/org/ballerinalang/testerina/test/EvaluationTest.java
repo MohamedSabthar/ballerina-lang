@@ -123,16 +123,43 @@ public class EvaluationTest extends BaseTestCase {
 
 
     @Test
-    public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryType() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryType", "evaluation"});
+    public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
-        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
     }
 
     @Test
-    public void testIsolatedEvaluationFailsForInvalidInputDataEntryType() throws BallerinaTestException, IOException {
+    public void testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
+    }
+
+    @Test
+    public void testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
+    }
+
+    @Test
+    public void testIsolatedFunctionReturningError() throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryType", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
@@ -144,7 +171,6 @@ public class EvaluationTest extends BaseTestCase {
 
 
 // failure case: without data provider isolated and non isolated
-    // test failing for invalid input (isolated and non isolate)
     // test returns error for each entry
     // test before/after function execution for each iteration
     // skip eval if before/after fails

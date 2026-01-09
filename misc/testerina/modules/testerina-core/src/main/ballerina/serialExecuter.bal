@@ -107,7 +107,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
                 return;
             }
 
-            InvalidArgumentError|ExecutionError|TestError? result = executeEvaluation(testFunction, readonlyArgs);
+            ExecutionError|TestError? result = executeEvaluation(testFunction, readonlyArgs);
             error? cause = result is error ? result.cause() : ();
             if result is InvalidArgumentError && cause is error {
                 dataProviderFailed = true;
@@ -187,7 +187,7 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
             }
             continue;
         }
-        InvalidArgumentError|ExecutionError|TestError? result = executeEvaluation(testFunction);
+        ExecutionError|TestError? result = executeEvaluation(testFunction);
         if result is () {
             passedIterations += 1;
         }
@@ -256,10 +256,10 @@ function executeBeforeFunction(TestFunction testFunction) returns boolean {
     return failed;
 }
 
-function executeEvaluation(TestFunction testFunction, AnyOrError[]? params = ()) returns InvalidArgumentError|ExecutionError|TestError? {
+function executeEvaluation(TestFunction testFunction, AnyOrError[]? params = ()) returns ExecutionError|TestError? {
     record {any|error result;}|error output = trap callEvaluationFunction(testFunction.executableFunction, params);
     if output is error && output !is TestError {
-        return error InvalidArgumentError(output.message(), output);
+        return error InvalidArgumentError(output.message(),output, functionName = testFunction.name);
     }
     any|error result = output is TestError ? output : output.result;
     return getEvaluationOutput(result, testFunction);

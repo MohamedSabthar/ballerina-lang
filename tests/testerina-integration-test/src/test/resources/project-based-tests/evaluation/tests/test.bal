@@ -85,17 +85,27 @@ isolated function goldenDataSet() returns map<[string]> {
     return dataSet;
 }
 
-
 @test:Config {
     dataProvider: goldenDataSet
 }
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
-} function testNonIsolatedEvaluationFailsForInvalidInputDataEntryType(int query) returns error? {
+}
+function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider(int query) returns error? {
     value += 1;
 }
 
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider(int query) returns error? {
+}
+
 
 @test:Config {
     dataProvider: goldenDataSet
@@ -103,5 +113,26 @@ isolated function goldenDataSet() returns map<[string]> {
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
-} isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryType(int query) returns error? {
+}
+isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider(int query) returns error? {
+}
+
+@test:Config 
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider(int query) returns error? {
+    value += 1;
+}
+
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedFunctionReturningError() returns error? {
+
 }

@@ -215,7 +215,7 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
             }
             continue;
         }
-        InvalidArgumentError|ExecutionError|TestError? result = executeEvaluationIsolated(testFunction);
+        ExecutionError|TestError? result = executeEvaluationIsolated(testFunction);
         if result is () {
             passedIterations += 1;
         }
@@ -298,11 +298,11 @@ isolated function executeBeforeFunctionIsolated(TestFunction testFunction) retur
 }
 
 isolated function executeEvaluationIsolated(TestFunction testFunction, AnyOrError[]? params = (),
-        boolean isEval = false) returns InvalidArgumentError|ExecutionError|TestError? {
+        boolean isEval = false) returns ExecutionError|TestError? {
     isolated function isolatedTestFunction = <isolated function>testFunction.executableFunction;
     record {any|error result;}|error output = trap callEvaluationFunctionIsolated(isolatedTestFunction, params);
     if output is error && output !is TestError {
-        return error InvalidArgumentError(output.message(), output);
+        return error InvalidArgumentError(output.message(), output, functionName = testFunction.name);
     }
     any|error result = output is TestError ? output : output.result;
     return getEvaluationOutput(result, testFunction);

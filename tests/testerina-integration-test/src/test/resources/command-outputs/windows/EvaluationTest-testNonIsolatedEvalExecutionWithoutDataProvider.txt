@@ -4,7 +4,7 @@ Compiling source
 Running Tests with Coverage
 
 	eval_tests
-		[pass] testNonIsolatedEvalExecutionWithDataProvider
+		[pass] testNonIsolatedEvalExecutionWithoutDataProvider
 
 		    evaluation passed with an average confidence of 1.0
 			
@@ -14,7 +14,7 @@ Running Tests with Coverage
 		0 failing
 		0 skipped
 
-		Test execution time : 0.054s
+		Test execution time : 0.029s
 
 Generating Test Report
 	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-5585530277589997704/project-based-tests/evaluation/target/report/test_results.json
