@@ -159,15 +159,40 @@ public class EvaluationTest extends BaseTestCase {
     }
 
     @Test
-    public void testIsolatedFunctionReturningError() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryType", "evaluation"});
+    public void testIsolatedEvalWithDataProviderReturningErrorForEntry() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
-        writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
-        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryType.txt", output);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
     }
 
+    @Test
+    public void testNonIsolatedEvalWithDataProviderReturningErrorForEntry() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
+    }
 
+    @Test
+    public void testIsolatedEvalWithoutDataProviderReturningErrorForIteration() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
+    }
 
 
 // failure case: without data provider isolated and non isolated

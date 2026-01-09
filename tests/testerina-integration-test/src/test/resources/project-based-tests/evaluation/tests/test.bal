@@ -133,6 +133,37 @@ function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataPr
     confidence: 1,
     iterations: 3
 }
-isolated function testIsolatedFunctionReturningError() returns error? {
+isolated function testIsolatedEvalWithDataProviderReturningErrorForEntry(string query) returns error? {
+    return error("inavalid response returned from the model");
+}
 
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+} function testNonIsolatedEvalWithDataProviderReturningErrorForEntry(string query) returns error? {
+    value+=1;
+    return error("inavalid response returned from the model");
+}
+
+@test:Config 
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+ function testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration() returns error? {
+    value+=1;
+    return error("inavalid response returned from the model");
+}
+
+
+@test:Config 
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalWithoutDataProviderReturningErrorForIteration() returns error? {
+    return error("inavalid response returned from the model");
 }

@@ -1,0 +1,70 @@
+Compiling source
+	eval_tests/eval_tests:0.1.0
+
+Running Tests with Coverage
+
+	eval_tests
+
+		[fail] testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration:
+
+		    evaluation failed with an average confidence of 0.0
+			
+			    evaluation runs:
+
+				    iteration: 1
+					    message: error("inavalid response returned from the model")
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration moduleName: eval_tests.eval_tests$test.0.tests.test fileName: tests/test.bal lineNumber: 158
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration$lambda14$ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 18
+								callableName: call moduleName: ballerina.lang.function.0 fileName: function.bal lineNumber: 37
+								callableName: callEvaluationFunction moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 270
+								callableName: executeEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 260
+								callableName: executeNonDataDrivenEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 190
+								callableName: executeNonDataDrivenTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 161
+								callableName: executeTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 30
+								callableName: executeTests moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 82
+								callableName: startSuite moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 54
+								callableName: __execute__ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 23
+							
+
+				    iteration: 2
+					    message: error("inavalid response returned from the model")
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration moduleName: eval_tests.eval_tests$test.0.tests.test fileName: tests/test.bal lineNumber: 158
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration$lambda14$ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 18
+								callableName: call moduleName: ballerina.lang.function.0 fileName: function.bal lineNumber: 37
+								callableName: callEvaluationFunction moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 270
+								callableName: executeEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 260
+								callableName: executeNonDataDrivenEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 190
+								callableName: executeNonDataDrivenTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 161
+								callableName: executeTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 30
+								callableName: executeTests moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 82
+								callableName: startSuite moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 54
+								callableName: __execute__ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 23
+							
+
+				    iteration: 3
+					    message: error("inavalid response returned from the model")
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration moduleName: eval_tests.eval_tests$test.0.tests.test fileName: tests/test.bal lineNumber: 158
+								callableName: testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration$lambda14$ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 18
+								callableName: call moduleName: ballerina.lang.function.0 fileName: function.bal lineNumber: 37
+								callableName: callEvaluationFunction moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 270
+								callableName: executeEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 260
+								callableName: executeNonDataDrivenEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 190
+								callableName: executeNonDataDrivenTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 161
+								callableName: executeTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 30
+								callableName: executeTests moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 82
+								callableName: startSuite moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 54
+								callableName: __execute__ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 23
+							
+
+
+		0 passing
+		1 failing
+		0 skipped
+
+		Test execution time : 0.06s
+
+Generating Test Report
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-7437404347512815509/project-based-tests/evaluation/target/report/test_results.json
+
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1767939139118/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
+error: there are test failures
