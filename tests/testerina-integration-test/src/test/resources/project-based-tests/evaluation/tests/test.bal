@@ -1,4 +1,27 @@
+import ballerina/jballerina.java;
 import ballerina/test;
+
+final handle outStreamObj = outStream();
+
+isolated function print(handle printStream, any|error obj) = @java:Method {
+    name: "print",
+    'class: "java.io.PrintStream",
+    paramTypes: ["java.lang.Object"]
+} external;
+
+isolated function println(anydata|error... objs) {
+    lock {
+        foreach var obj in objs.clone() {
+            print(outStreamObj, obj);
+        }
+        print(outStreamObj, "\n");
+    }
+}
+
+isolated function outStream() returns handle = @java:FieldGet {
+    name: "out",
+    'class: "java.lang.System"
+} external;
 
 @test:Config
 @test:EvalConfig {
@@ -106,7 +129,6 @@ function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvi
 isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider(int query) returns error? {
 }
 
-
 @test:Config {
     dataProvider: goldenDataSet
 }
@@ -117,7 +139,7 @@ isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDat
 isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider(int query) returns error? {
 }
 
-@test:Config 
+@test:Config
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
@@ -143,23 +165,23 @@ isolated function testIsolatedEvalWithDataProviderReturningErrorForEntry(string 
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
-} function testNonIsolatedEvalWithDataProviderReturningErrorForEntry(string query) returns error? {
-    value+=1;
+}
+function testNonIsolatedEvalWithDataProviderReturningErrorForEntry(string query) returns error? {
+    value += 1;
     return error("inavalid response returned from the model");
 }
 
-@test:Config 
+@test:Config
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
 }
- function testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration() returns error? {
-    value+=1;
+function testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration() returns error? {
+    value += 1;
     return error("inavalid response returned from the model");
 }
 
-
-@test:Config 
+@test:Config
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
@@ -168,42 +190,127 @@ isolated function testIsolatedEvalWithoutDataProviderReturningErrorForIteration(
     return error("inavalid response returned from the model");
 }
 
-int beforeCount = 0;
-int iterCount1 = 0;
-
-
-function increamentBefore() {
-    beforeCount += 1;
-}
-
-function increamentAfter() {
-    afterCount += 1;
-}
-
 @test:Config {
-    before:  increamentBefore
+    before: beforeFunction
 }
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
 }
-function testNonIsolatedBeforeFunctionExecutionBeforeEachIteraionWithoutDataProvider() returns error? {
-    iterCount1 += 1;
-    test:assertEquals(beforeCount, iterCount1);
+function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
+    value += 1;
+    println("run");
 }
 
-
-int iterCount2 = 0;
-int afterCount = 0;
-
 @test:Config {
-    after:  increamentAfter
+    after: afterFunction
 }
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
 }
-function testNonIsolatedAfterFunctionExecutionBeforeEachIteraionWithoutDataProvider() returns error? {
-    test:assertEquals(afterCount, iterCount2);
-    iterCount2+=1;
+function testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
+    value += 1;
+    println("run");
+}
+
+@test:Config {
+    before: beforeFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
+    println("run");
+}
+
+@test:Config {
+    before: afterFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
+    println("run");
+}
+
+isolated function afterFunction() {
+    println("after function executed");
+}
+
+isolated function beforeFunction() {
+    println("before function executed");
+}
+
+@test:Config {
+    dataProvider: goldenDataSet,
+    before: beforeFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
+    println("run: ", query);
+}
+
+@test:Config {
+    dataProvider: goldenDataSet,
+    after: afterFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
+    println("run: ", query);
+}
+
+@test:Config {
+    dataProvider: goldenDataSet,
+    before: beforeFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
+    value += 1;
+    println("run: ", query);
+}
+
+@test:Config {
+    dataProvider: goldenDataSet,
+    after: afterFunction
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
+    value += 1;
+    println("run: ", query);
+}
+
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testFailureOfInvalidArgumentInNonIsolatedEvalWithDataProvider(int a) returns error? {
+    value+=1;
+}
+
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider(int a) returns error? {
 }

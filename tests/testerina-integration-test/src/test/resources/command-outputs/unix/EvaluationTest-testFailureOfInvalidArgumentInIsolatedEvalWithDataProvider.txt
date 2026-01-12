@@ -1,0 +1,34 @@
+Compiling source
+	eval_tests/eval_tests:0.1.0
+
+Running Tests with Coverage
+
+	eval_tests
+
+		[fail] testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider:
+
+		    [fail data provider for the function testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider]
+			error("{ballerina/lang.function}IncompatibleArguments",message="arguments of incompatible types: argument list '(string)' cannot be passed to function expecting parameter list '(int)'")
+				callableName: call moduleName: ballerina.lang.function.0 fileName: function.bal lineNumber: 37
+				callableName: callEvaluationFunction moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 272
+				callableName: executeEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 261
+				callableName: executeDataDrivenEvaluation moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 110
+				callableName: executeDataDrivenTestSet moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 56
+				callableName: executeTest moduleName: ballerina.test.0 fileName: serialExecuter.bal lineNumber: 28
+				callableName: executeTests moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 82
+				callableName: startSuite moduleName: ballerina.test.0 fileName: execute.bal lineNumber: 54
+				callableName: __execute__ moduleName: eval_tests.eval_tests$test.0.tests.test_execute-generated_1 fileName: tests/test_execute-generated_1.bal lineNumber: 33
+			
+
+
+		0 passing
+		1 failing
+		0 skipped
+
+		Test execution time : 0.071s
+
+Generating Test Report
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-1730227024335360924/project-based-tests/evaluation/target/report/test_results.json
+
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1768221129057/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
+error: there are test failures

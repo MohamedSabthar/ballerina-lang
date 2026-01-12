@@ -1,0 +1,34 @@
+Compiling source
+	eval_tests/eval_tests:0.1.0
+
+Running Tests with Coverage
+
+	eval_tests
+run: input query one
+run: input query two
+run: input query three
+after function executed
+run: input query one
+run: input query two
+run: input query three
+after function executed
+run: input query one
+run: input query two
+run: input query three
+after function executed
+		[pass] testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider
+
+		    evaluation passed with an average confidence of 1.0
+			
+
+
+		1 passing
+		0 failing
+		0 skipped
+
+		Test execution time : 0.053s
+
+Generating Test Report
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-4722513667996440579/project-based-tests/evaluation/target/report/test_results.json
+
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1768218468340/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
