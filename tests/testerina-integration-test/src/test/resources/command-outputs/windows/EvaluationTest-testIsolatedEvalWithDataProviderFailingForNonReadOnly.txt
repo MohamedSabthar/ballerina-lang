@@ -1,0 +1,25 @@
+Compiling source
+	eval_tests/eval_tests:0.1.0
+
+Running Tests with Coverage
+
+	eval_tests
+
+		[fail] testIsolatedEvalWithDataProviderFailingForNonReadOnly:
+
+		    [fail data provider for the function testIsolatedEvalWithDataProviderFailingForNonReadOnly]
+			Data provider returned non-readonly values
+			
+
+
+		0 passing
+		1 failing
+		0 skipped
+
+		Test execution time : 0.062s
+
+Generating Test Report
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-3927165287853521585/project-based-tests/evaluation/target/report/test_results.json
+
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1768281328794/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
+error: there are test failures

@@ -100,7 +100,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
 
             if readonlyArgs.length() != value.length() {
                 reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
-                message = string `[fail data provider for the function ${testFunction.name}]$"\n"}` +
+                message = string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
                     "Data provider returned non-readonly values"
                 );
                 enableExit();

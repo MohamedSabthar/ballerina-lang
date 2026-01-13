@@ -283,6 +283,41 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider.txt", output);
     }
 
+    @Test
+    public void testNonIsolatedEvalWithDataProviderFailingForNonReadOnly() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
+    }
+
+    @Test
+    public void testIsolatedEvalWithDataProviderFailingForNonReadOnly() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedEvalWithDataProviderWithNoData() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderWithNoData", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderWithNoData.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalWithDataProviderWithNoData.txt", output);
+    }
+
+    @Test
+    public void testIsolatedEvalWithDataProviderWithNoData() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderWithNoData", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
+    }
 
 
     // failure case: without data provider isolated and non isolated
