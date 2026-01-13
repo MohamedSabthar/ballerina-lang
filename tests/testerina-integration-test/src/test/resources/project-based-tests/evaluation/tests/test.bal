@@ -253,7 +253,7 @@ isolated function beforeFunction() {
     iterations: 3
 }
 isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
-    println("run: ", query);
+    println("run");
 }
 
 @test:Config {
@@ -265,7 +265,7 @@ isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithData
     iterations: 3
 }
 isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
-    println("run: ", query);
+    println("run");
 }
 
 @test:Config {
@@ -278,7 +278,7 @@ isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataP
 }
 function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
     value += 1;
-    println("run: ", query);
+    println("run");
 }
 
 @test:Config {
@@ -291,7 +291,7 @@ function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvid
 }
 function testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
     value += 1;
-    println("run: ", query);
+    println("run");
 }
 
 @test:Config {
@@ -364,7 +364,6 @@ function testNonIsolatedEvalWithDataProviderWithNoData(string query) returns err
     value += 1;
 }
 
-
 @test:Config {
     dataProvider: isolated function() returns map<[string]> => {}
 }
@@ -376,10 +375,8 @@ isolated function testIsolatedEvalWithDataProviderWithNoData(string query) retur
 
 }
 
-
-
 @test:Config {
-    before:  function() returns error? => error("before function failed")
+    before: function() returns error? => error("before function failed")
 }
 @test:EvalConfig {
     confidence: 1,
@@ -390,20 +387,18 @@ isolated function testIsolatedEvalFailIfBeforeFunctionFails() returns error? {
 }
 
 @test:Config {
-    before:  function() returns error? => error("before function failed")
+    before: function() returns error? => error("before function failed")
 }
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
 }
 function testNonIsolatedEvalFailIfBeforeFunctionFails() returns error? {
-    value+=1;
+    value += 1;
 }
 
-
-
 @test:Config {
-    after:  function() returns error? => error("after function failed")
+    after: function() returns error? => error("after function failed")
 }
 @test:EvalConfig {
     confidence: 1,
@@ -414,12 +409,62 @@ isolated function testIsolatedEvalAfterFunctionFails() returns error? {
 }
 
 @test:Config {
-    after:  function() returns error? => error("after function failed")
+    after: function() returns error? => error("after function failed")
 }
 @test:EvalConfig {
     confidence: 1,
     iterations: 3
 }
 function testNonIsolatedEvalAfterFunctionFails() returns error? {
-    value+=1;
+    value += 1;
+}
+
+// -----
+
+@test:Config {
+    before: function() returns error? => error("before function failed"),
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalFailIfBeforeFunctionFailsWithDataProvider(string query) returns error? {
+
+}
+
+@test:Config {
+    before: function() returns error? => error("before function failed"),
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalFailIfBeforeFunctionFailsWithDataProvider(string query) returns error? {
+    value += 1;
+}
+
+@test:Config {
+    after: function() returns error? => error("after function failed"),
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalAfterFunctionFailsWithDataProvider(string query) returns error? {
+
+}
+
+@test:Config {
+    after: function() returns error? => error("after function failed"),
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalAfterFunctionFailsWithDataProvider(string query) returns error? {
+    value += 1;
 }

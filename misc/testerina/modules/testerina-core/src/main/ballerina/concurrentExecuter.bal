@@ -201,6 +201,7 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
     float requiredConfidence = evalConfig.confidence;
     int passedIterations = 0;
     EvaluationRunWithoutDataSet[] entries = [];
+    boolean[] afterFunctionResults = [];
 
     foreach int i in 1 ... iterations {
         if executeBeforeFunctionIsolated(testFunction) {
@@ -213,14 +214,15 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
             passedIterations += 1;
         }
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});
-        _ = executeAfterFunctionIsolated(testFunction);
+        boolean afterFunctionResult = executeAfterFunctionIsolated(testFunction);
+        afterFunctionResults.push(afterFunctionResult);
     }
 
     float passRate = <float>passedIterations / iterations;
     if passRate >= requiredConfidence {
         reportData.onPassed(name = testFunction.name, message = string `evaluation passed with an average confidence of ${passRate}`,
             evaluationRuns = entries.cloneReadOnly(), testType = EVAL_TEST);
-        return false;
+        return false || afterFunctionResults.some(res => res == true);
     }
 
     reportData.onFailed(name = testFunction.name, message = string `evaluation failed with an average confidence of ${passRate}`,
