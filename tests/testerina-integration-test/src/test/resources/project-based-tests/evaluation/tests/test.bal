@@ -375,3 +375,27 @@ function testNonIsolatedEvalWithDataProviderWithNoData(string query) returns err
 isolated function testIsolatedEvalWithDataProviderWithNoData(string query) returns error? {
 
 }
+
+
+
+@test:Config {
+    before:  function() returns error? => error("before function failed")
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalFailIfBeforeFunctionFails() returns error? {
+
+}
+
+@test:Config {
+    before:  function() returns error? => error("before function failed")
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalFailIfBeforeFunctionFails() returns error? {
+    value+=1;
+}

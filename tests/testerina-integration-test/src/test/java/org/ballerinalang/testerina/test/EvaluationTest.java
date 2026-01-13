@@ -319,7 +319,24 @@ public class EvaluationTest extends BaseTestCase {
         writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
         AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
     }
-    
-    // skip eval if before/after fails
 
+    @Test
+    public void testIsolatedEvalFailIfBeforeFunctionFails() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalFailIfBeforeFunctionFails", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalFailIfBeforeFunctionFails.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalFailIfBeforeFunctionFails.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedEvalFailIfBeforeFunctionFails() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalFailIfBeforeFunctionFails", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalFailIfBeforeFunctionFails.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalFailIfBeforeFunctionFails.txt", output);
+    }
+
+    // skip eval if before/after fails
 }

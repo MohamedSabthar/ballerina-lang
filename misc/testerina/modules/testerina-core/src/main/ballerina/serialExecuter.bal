@@ -73,7 +73,6 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
     EvaluationConfig evalConfig = getEvalConfig(testFunction);
     int iterations = evalConfig.iterations;
     boolean dataProviderFailed = false;
-    boolean skipAlreadyReported = false;
     EvaluationRunWithDataSet[] entries = [];
 
     foreach int i in 1 ... iterations {
@@ -83,11 +82,9 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
         _ = prepareDataSet(params, keys, values);
 
         if executeBeforeFunction(testFunction) {
-            if !skipAlreadyReported {
-                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
-                skipAlreadyReported = true;
-            }
-            continue;
+            executionManager.setSkip(testFunction.name);
+            reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+            return;
         }
         int totalEntries = 0;
         int passedEntries = 0;
@@ -101,7 +98,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
             if readonlyArgs.length() != value.length() {
                 reportData.onFailed(name = testFunction.name, testType = EVAL_TEST,
                 message = string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
-                    "Data provider returned non-readonly values"
+                    "data provider returned non-readonly values"
                 );
                 enableExit();
                 return;
@@ -128,7 +125,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
         if totalEntries == 0 {
             reportData.onFailed(name = testFunction.name,
                     message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
-                    + "The data provider returned no data.", testType = EVAL_TEST);
+                    + "the data provider returned no data.", testType = EVAL_TEST);
             enableExit();
             return;
         }
@@ -176,16 +173,13 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
     int iterations = evalConfig.iterations;
     float requiredConfidence = evalConfig.confidence;
     int passedIterations = 0;
-    boolean skipAlreadyReported = false;
     EvaluationRunWithoutDataSet[] entries = [];
 
     foreach int i in 1 ... iterations {
         if executeBeforeFunction(testFunction) {
-            if !skipAlreadyReported {
-                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
-                skipAlreadyReported = true;
-            }
-            continue;
+            executionManager.setSkip(testFunction.name);
+            reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+            return true;
         }
         ExecutionError|TestError? result = executeEvaluation(testFunction);
         if result is () {

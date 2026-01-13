@@ -94,7 +94,6 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) {
     EvaluationConfig evalConfig = getEvalConfig(testFunction);
     boolean dataProviderFailed = false;
-    boolean skipAlreadyReported = false;
     EvaluationRunWithDataSet[] entries = [];
 
     foreach int i in 1 ... evalConfig.iterations {
@@ -103,13 +102,10 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         _ = prepareDataSet(testFunctionArgs, keys, values);
 
         if executeBeforeFunctionIsolated(testFunction) {
-            if !skipAlreadyReported {
-                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
-                skipAlreadyReported = true;
-            }
-            continue;
+            executionManager.setSkip(testFunction.name);
+            reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+            return;
         }
-
         map<future> futures = {};
         while keys.length() > 0 {
             string key = keys.remove(0);
@@ -120,7 +116,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
                 select item;
 
             if readonlyValues.length() != valueSet.length() {
-                reportData.onFailed(name = testFunction.name, suffix = key,
+                reportData.onFailed(name = testFunction.name,
                 message = string `[fail data provider for the function ${testFunction.name}]${"\n"}` +
                     "data provider returned non-readonly values", testType = EVAL_TEST
                 );
@@ -204,16 +200,13 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
     int iterations = evalConfig.iterations;
     float requiredConfidence = evalConfig.confidence;
     int passedIterations = 0;
-    boolean skipAlreadyReported = false;
     EvaluationRunWithoutDataSet[] entries = [];
 
     foreach int i in 1 ... iterations {
         if executeBeforeFunctionIsolated(testFunction) {
-            if !skipAlreadyReported {
-                reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
-                skipAlreadyReported = true;
-            }
-            continue;
+            executionManager.setSkip(testFunction.name);
+            reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
+            return true;
         }
         ExecutionError|TestError? result = executeEvaluationIsolated(testFunction);
         if result is () {
