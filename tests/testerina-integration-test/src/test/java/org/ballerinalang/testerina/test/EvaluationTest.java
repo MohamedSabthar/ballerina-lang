@@ -35,6 +35,7 @@ public class EvaluationTest extends BaseTestCase {
 
     private BMainInstance balClient;
     private String projectPath;
+    public static final String PARALLEL_FLAG = "--parallel";
 
     @BeforeClass()
     public void setup() {
@@ -51,7 +52,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testEvalFailureForInvalidConfidence() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "evalWithInvalidConfidenceConfig", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "evalWithInvalidConfidenceConfig", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testEvalFailureForInvalidConfidence.txt", output);
@@ -60,7 +61,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testEvalFailureForInvalidIteration() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "evalWithInvalidIterationConfig", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "evalWithInvalidIterationConfig", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testEvalFailureForInvalidIteration.txt", output);
@@ -69,7 +70,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalExecutionWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalExecutionWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalExecutionWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalExecutionWithoutDataProvider.txt", output);
@@ -78,7 +79,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalExecutionWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalExecutionWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalExecutionWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalExecutionWithoutDataProvider.txt", output);
@@ -87,7 +88,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalExecutionWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalExecutionWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalExecutionWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalExecutionWithDataProvider.txt", output);
@@ -96,7 +97,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalExecutionWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalExecutionWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalExecutionWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalExecutionWithDataProvider.txt", output);
@@ -105,7 +106,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvaluationFailsWhenConfidenceIsLowWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsWhenConfidenceIsLowWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvaluationFailsWhenConfidenceIsLowWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsWhenConfidenceIsLowWithoutDataProvider.txt", output);
@@ -114,7 +115,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider.txt", output);
@@ -123,7 +124,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
@@ -132,7 +133,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider.txt", output);
@@ -141,7 +142,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
@@ -150,7 +151,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider.txt", output);
@@ -159,7 +160,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalWithDataProviderReturningErrorForEntry() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
@@ -168,7 +169,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalWithDataProviderReturningErrorForEntry() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalWithDataProviderReturningErrorForEntry", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderReturningErrorForEntry.txt", output);
@@ -177,7 +178,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalWithoutDataProviderReturningErrorForIteration() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
@@ -186,7 +187,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithoutDataProviderReturningErrorForIteration.txt", output);
@@ -195,7 +196,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider.txt", output);
@@ -204,7 +205,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider.txt", output);
@@ -213,7 +214,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider.txt", output);
@@ -222,7 +223,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider.txt", output);
@@ -231,7 +232,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider.txt", output);
@@ -240,7 +241,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider.txt", output);
@@ -249,7 +250,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvider.txt", output);
@@ -258,7 +259,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider.txt", output);
@@ -267,7 +268,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testFailureOfInvalidArgumentInNonIsolatedEvalWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testFailureOfInvalidArgumentInNonIsolatedEvalWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testFailureOfInvalidArgumentInNonIsolatedEvalWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testFailureOfInvalidArgumentInNonIsolatedEvalWithDataProvider.txt", output);
@@ -276,7 +277,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testFailureOfInvalidArgumentInIsolatedEvalWithDataProvider.txt", output);
@@ -285,7 +286,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalWithDataProviderFailingForNonReadOnly() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
@@ -294,7 +295,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalWithDataProviderFailingForNonReadOnly() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalWithDataProviderFailingForNonReadOnly", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderFailingForNonReadOnly.txt", output);
@@ -303,7 +304,7 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testNonIsolatedEvalWithDataProviderWithNoData() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testNonIsolatedEvalWithDataProviderWithNoData", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalWithDataProviderWithNoData", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testNonIsolatedEvalWithDataProviderWithNoData.txt", output);
@@ -312,15 +313,13 @@ public class EvaluationTest extends BaseTestCase {
 
     @Test
     public void testIsolatedEvalWithDataProviderWithNoData() throws BallerinaTestException, IOException {
-        String[] args = mergeCoverageArgs(new String[]{"--tests", "testIsolatedEvalWithDataProviderWithNoData", "evaluation"});
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalWithDataProviderWithNoData", "evaluation"});
         String output = balClient.runMainAndReadStdOut("test", args,
                 new HashMap<>(), projectPath, false);
         writeTestOutToFile("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
         AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalWithDataProviderWithNoData.txt", output);
     }
-
-
-    // failure case: without data provider isolated and non isolated
+    
     // skip eval if before/after fails
 
 }

@@ -7,14 +7,14 @@ version = "0.8.0"
 graalvmCompatible = true
 
 [[platform.java21.dependency]]
-path = "../../../build/libs/testerina-core-2201.14.0-SNAPSHOT.jar"
+path = "/Users/admin/Desktop/AI/revamp-repos/ballerina-lang/misc/testerina/modules/testerina-core/build/libs/testerina-core-2201.14.0-SNAPSHOT.jar"
 groupId = "ballerina"
 artifactId = "mock"
 version = "0.0.0"
 
 
 [[platform.java21.dependency]]
-path = "../../../build/libs/java-diff-utils-4.5.jar"
+path = "/Users/admin/Desktop/AI/revamp-repos/ballerina-lang/misc/testerina/modules/testerina-core/build/libs/java-diff-utils-4.5.jar"
 groupId = "io.github.java-diff-utils"
 artifactId = "java-diff-utils"
 version = "4.5.0"
