@@ -399,3 +399,27 @@ isolated function testIsolatedEvalFailIfBeforeFunctionFails() returns error? {
 function testNonIsolatedEvalFailIfBeforeFunctionFails() returns error? {
     value+=1;
 }
+
+
+
+@test:Config {
+    after:  function() returns error? => error("after function failed")
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalAfterFunctionFails() returns error? {
+
+}
+
+@test:Config {
+    after:  function() returns error? => error("after function failed")
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalAfterFunctionFails() returns error? {
+    value+=1;
+}

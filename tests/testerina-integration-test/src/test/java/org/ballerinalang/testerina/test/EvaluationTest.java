@@ -338,5 +338,23 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalFailIfBeforeFunctionFails.txt", output);
     }
 
+    @Test
+    public void testIsolatedEvalAfterFunctionFails() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testIsolatedEvalAfterFunctionFails", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testIsolatedEvalAfterFunctionFails.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testIsolatedEvalAfterFunctionFails.txt", output);
+    }
+
+    @Test
+    public void testNonIsolatedEvalAfterFunctionFails() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", "testNonIsolatedEvalAfterFunctionFails", "evaluation"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testNonIsolatedEvalAfterFunctionFails.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalAfterFunctionFails.txt", output);
+    }
+
     // skip eval if before/after fails
 }
