@@ -19,13 +19,10 @@
 package org.ballerinalang.testerina.test.evaluation;
 
 import org.ballerinalang.test.context.BallerinaTestException;
-import org.testng.Assert;
-import org.testng.Reporter;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.io.PrintStream;
 
 /**
  * Test class for basic evaluation execution.
@@ -42,22 +39,17 @@ public class BasicExecutionTest extends BaseEvaluationTest {
     @DataProvider(name = "basicExecutionTests")
     public Object[][] basicExecutionTestsDataProvider() {
         return new Object[][]{
-                {"testIsolatedEvalWithoutDataProvider",
-                        "Isolated evaluation without data provider executes successfully"},
-                {"testNonIsolatedEvalWithoutDataProvider",
-                        "Non-isolated evaluation without data provider executes successfully"},
-                {"testIsolatedEvalWithDataProvider",
-                        "Isolated evaluation with data provider executes successfully"},
-                {"testNonIsolatedEvalWithDataProvider",
-                        "Non-isolated evaluation with data provider executes successfully"}
+                {"testIsolatedEvalWithoutDataProvider"},
+                {"testNonIsolatedEvalWithoutDataProvider"},
+                {"testIsolatedEvalWithDataProvider"},
+                {"testNonIsolatedEvalWithDataProvider"}
         };
     }
 
     @Test(dataProvider = "basicExecutionTests",
             description = "Test basic execution for isolated and non-isolated evaluations")
-    public void testBasicExecution(String testName, String description)
+    public void testBasicExecution(String testName)
             throws BallerinaTestException, IOException {
-        Reporter.log(description);
         runTestAndVerify(testName, PACKAGE_NAME);
     }
 }

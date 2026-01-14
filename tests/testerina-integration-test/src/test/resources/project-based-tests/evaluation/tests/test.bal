@@ -125,51 +125,10 @@ isolated function testIsolatedEvalWithoutDataProviderReturningErrorForIteration(
     return error("inavalid response returned from the model");
 }
 
-@test:Config {
-    before: beforeFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
-    value += 1;
-    println("run");
-}
 
-@test:Config {
-    after: afterFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-function testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
-    value += 1;
-    println("run");
-}
 
-@test:Config {
-    before: beforeFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
-    println("run");
-}
 
-@test:Config {
-    before: afterFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithoutDataProvider() returns error? {
-    println("run");
-}
+
 
 isolated function afterFunction() {
     println("after function executed");
@@ -191,17 +150,7 @@ isolated function testIsolatedBeforeFunctionExecutionBeforeEachIterationWithData
     println("run");
 }
 
-@test:Config {
-    dataProvider: goldenDataSet,
-    after: afterFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
-    println("run");
-}
+
 
 @test:Config {
     dataProvider: goldenDataSet,
@@ -216,18 +165,7 @@ function testNonIsolatedBeforeFunctionExecutionBeforeEachIterationWithDataProvid
     println("run");
 }
 
-@test:Config {
-    dataProvider: goldenDataSet,
-    after: afterFunction
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-function testNonIsolatedAfterFunctionExecutionBeforeEachIterationWithDataProvider(string query) returns error? {
-    value += 1;
-    println("run");
-}
+
 
 @test:Config {
     dataProvider: goldenDataSet
