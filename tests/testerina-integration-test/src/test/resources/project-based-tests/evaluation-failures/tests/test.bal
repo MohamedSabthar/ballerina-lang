@@ -97,3 +97,45 @@ isolated function testIsolatedEvalFailureForInvalidInputWithDataProvider(int que
 function testNonIsolatedEvalFailureForInvalidInputWithDataProvider(int query) returns error? {
     value += 1;
 }
+
+@test:Config {
+    dataProvider: emptyDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalFailureForEmptyDataProvider(string query) returns error? {
+}
+
+@test:Config {
+    dataProvider: emptyDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalFailureForEmptyDataProvider(string query) returns error? {
+    value += 1;
+}
+
+@test:Config {
+    dataProvider: nonReadonlyDataset
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalFailureForNonReadOnlyDataEntry() returns error? {
+}
+
+@test:Config {
+    dataProvider: nonReadonlyDataset
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalFailureForNonReadOnlyDataEntry() returns error? {
+    value += 1;
+}

@@ -9,6 +9,8 @@ WARNING: Test function 'testNonIsolatedEvalFailureWithLowConfidence' cannot be p
 WARNING: Test function 'testNonIsolatedEvalFailureWithLowConfidenceWithDataProvider' cannot be parallelized, reason: non-isolated test function
 WARNING: Test function 'testNonIsolatedEvalFailureForInvalidInput' cannot be parallelized, reason: non-isolated test function
 WARNING: Test function 'testNonIsolatedEvalFailureForInvalidInputWithDataProvider' cannot be parallelized, reason: non-isolated test function
+WARNING: Test function 'testNonIsolatedEvalFailureForEmptyDataProvider' cannot be parallelized, reason: non-isolated test function
+WARNING: Test function 'testNonIsolatedEvalFailureForNonReadOnlyDataEntry' cannot be parallelized, reason: non-isolated test function
 
 		[fail] testIsolatedEvalFailureForInvalidInput:
 
@@ -28,10 +30,10 @@ WARNING: Test function 'testNonIsolatedEvalFailureForInvalidInputWithDataProvide
 		1 failing
 		0 skipped
 
-		Test execution time : 0.079s
+		Test execution time : 0.092s
 
 Generating Test Report
-	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-5517774397525216724/project-based-tests/evaluation-failures/target/report/test_results.json
+	/private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-11998262412958786075/project-based-tests/evaluation-failures/target/report/test_results.json
 
-warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1768392472460/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
+warning: Could not find the required HTML report tools for code coverage at /Users/admin/Desktop/AI/revamp-repos/ballerina-lang/tests/testerina-integration-test/build/ballerinatmp1768393930559/jballerina-tools-2201.14.0-SNAPSHOT/lib/tools/coverage/report.zip
 error: there are test failures

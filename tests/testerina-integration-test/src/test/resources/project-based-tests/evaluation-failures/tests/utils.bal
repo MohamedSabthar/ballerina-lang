@@ -30,3 +30,19 @@ function goldenDataSet() returns map<[string]> {
     };
     return dataSet;
 }
+
+function emptyDataSet() returns map<[string]> => {};
+
+class Entry {
+    private int value = 0;
+
+    function setValue(int value) {
+        self.value = value;
+    }
+
+    function getValue(int data) returns int => self.value;
+}
+
+isolated function nonReadonlyDataset() returns map<[Entry]> {
+    return {"first": [new]};
+}

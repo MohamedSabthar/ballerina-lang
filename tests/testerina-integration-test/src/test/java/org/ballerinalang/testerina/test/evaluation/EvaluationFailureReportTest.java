@@ -59,7 +59,11 @@ public class EvaluationFailureReportTest extends BaseEvaluationTest {
                 {"testIsolatedEvalFailureForInvalidInput"},
                 {"testNonIsolatedEvalFailureForInvalidInput"},
                 {"testIsolatedEvalFailureForInvalidInputWithDataProvider"},
-                {"testNonIsolatedEvalFailureForInvalidInputWithDataProvider"}
+                {"testNonIsolatedEvalFailureForInvalidInputWithDataProvider"},
+                {"testIsolatedEvalFailureForEmptyDataProvider"},
+                {"testNonIsolatedEvalFailureForEmptyDataProvider"},
+                {"testIsolatedEvalFailureForNonReadOnlyDataEntry"},
+                {"testNonIsolatedEvalFailureForNonReadOnlyDataEntry"},
         };
     }
 
