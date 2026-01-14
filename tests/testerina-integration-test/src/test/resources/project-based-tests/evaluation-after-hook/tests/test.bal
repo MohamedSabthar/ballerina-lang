@@ -18,6 +18,8 @@ import ballerina/test;
 
 isolated function afterHook() => println("after function executed");
 
+isolated function afterHookFail() returns error => error("after hook method failed");
+
 int value = 0;
 
 @test:Config {
@@ -66,4 +68,50 @@ isolated function testIsolatedEvalAfterFunctionWithDataProvider(string query) re
 function testNonIsolatedEvalAfterFunctionWithDataProvider(string query) returns error? {
     value += 1;
     println("run");
+}
+
+@test:Config {
+    after: afterHookFail
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalAfterFunctionFailure() returns error? {
+
+}
+
+@test:Config {
+    after: afterHookFail
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalAfterFunctionFailure() returns error? {
+    value += 1;
+}
+
+@test:Config {
+    after: afterHookFail,
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalAfterFunctionFailureWithDataProvider(string query) returns error? {
+
+}
+
+@test:Config {
+    after: afterHookFail,
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalAfterFunctionFailureWithDataProvider(string query) returns error? {
+    value += 1;
 }

@@ -18,6 +18,8 @@ import ballerina/test;
 
 isolated function beforeHook() => println("before function executed");
 
+isolated function beforeHookFail() returns error => error("before hook method failed");
+
 int value = 0;
 
 @test:Config {
@@ -66,4 +68,50 @@ isolated function testIsolatedEvalBeforeFunctionWithDataProvider(string query) r
 }
 isolated function testNonIsolatedEvalBeforeFunctionWithDataProvider(string query) returns error? {
     println("run");
+}
+
+@test:Config {
+    before: beforeHookFail
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalBeforeFunctionFailure() returns error? {
+
+}
+
+@test:Config {
+    before: beforeHookFail
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalBeforeFunctionFailure() returns error? {
+    value += 1;
+}
+
+@test:Config {
+    before: beforeHookFail,
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalBeforeFunctionFailureWithDataProvider(string query) returns error? {
+
+}
+
+@test:Config {
+    before: beforeHookFail,
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalBeforeFunctionFailureWithDataProvider(string query) returns error? {
+    value += 1;
 }
