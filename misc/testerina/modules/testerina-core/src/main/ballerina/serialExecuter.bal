@@ -190,7 +190,14 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
             return true;
         }
         ExecutionError|TestError? result = executeEvaluation(testFunction);
-        if result is () {
+        if result is InvalidArgumentError && result.cause() is error {
+            reportData.onFailed(name = testFunction.name,
+                message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
+                + getErrorMessage(<error>result.cause()), testType = EVAL_TEST
+            );
+            enableExit();
+            return true;
+        } else if result is () {
             passedIterations += 1;
         }
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});

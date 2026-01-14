@@ -97,7 +97,6 @@ isolated function executeDataDrivenTestSetIsolated(TestFunction testFunction,
 isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         DataProviderReturnType? testFunctionArgs) {
     EvaluationConfig evalConfig = getEvalConfig(testFunction);
-    boolean dataProviderFailed = false;
     EvaluationRunWithDataSet[] entries = [];
 
     foreach int i in 1 ... evalConfig.iterations {
@@ -137,7 +136,6 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         foreach [string, future<any|error>] entry in futures.entries() {
             any|error result = wait entry[1];
             if result is InvalidArgumentError && result.cause() is error {
-                dataProviderFailed = true;
                 reportData.onFailed(name = testFunction.name,
                     message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
                     + getErrorMessage(<error>result.cause()), testType = EVAL_TEST
@@ -174,12 +172,10 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         evaluationRuns = entries.cloneReadOnly(), testType = EVAL_TEST);
         return;
     }
-    if !dataProviderFailed {
-        reportData.onFailed(name = testFunction.name, message = string `evaluation failed with an average confidence of ${averagePassRate}`,
-        evaluationRuns = entries.cloneReadOnly(),
-        testType = EVAL_TEST);
-        enableExit();
-    }
+    reportData.onFailed(name = testFunction.name, message = string `evaluation failed with an average confidence of ${averagePassRate}`,
+    evaluationRuns = entries.cloneReadOnly(),
+    testType = EVAL_TEST);
+    enableExit();
 }
 
 isolated function executeNonDataDrivenTestIsolated(TestFunction testFunction,
@@ -217,7 +213,14 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
             return true;
         }
         ExecutionError|TestError? result = executeEvaluationIsolated(testFunction);
-        if result is () {
+        if result is InvalidArgumentError && result.cause() is error {
+            reportData.onFailed(name = testFunction.name,
+                message = string `[fail data provider for the function ${testFunction.name}]${"\n"}`
+                + getErrorMessage(<error>result.cause()), testType = EVAL_TEST
+            );
+            enableExit();
+            return true;
+        } else if result is () {
             passedIterations += 1;
         }
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});

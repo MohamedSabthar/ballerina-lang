@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2020, WSO2 Inc. (http://www.wso2.org) All Rights Reserved.
+ *
+ * WSO2 Inc. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.ballerinalang.testerina.test.evaluation;
+
+import org.ballerinalang.test.context.BallerinaTestException;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
+
+import java.io.IOException;
+
+/**
+ * Test class for evaluation failure scenarios.
+ * Verifies correct failure detection and reporting during evaluation.
+ */
+public class EvaluationFailureReportTest extends BaseEvaluationTest {
+
+    private static final String PACKAGE_NAME = "evaluation-failures";
+
+    /**
+     * Provides test data for low confidence failure scenarios.
+     */
+    @DataProvider(name = "lowConfidenceFailureTests")
+    public Object[][] lowConfidenceFailureTestsDataProvider() {
+        return new Object[][]{
+                {"testIsolatedEvalFailureWithLowConfidence"},
+                {"testNonIsolatedEvalFailureWithLowConfidence"},
+                {"testIsolatedEvalFailureWithLowConfidenceWithDataProvider"},
+                {"testNonIsolatedEvalFailureWithLowConfidenceWithDataProvider"}
+        };
+    }
+
+    @Test(dataProvider = "lowConfidenceFailureTests",
+            description = "Test evaluation fails when confidence threshold is not met")
+    public void testEvalFailsOnLowConfidence(String testName) throws BallerinaTestException, IOException {
+        runTestAndVerify(testName, PACKAGE_NAME);
+    }
+
+    /**
+     * Provides test data invalid test input failure scenarios.
+     */
+    @DataProvider(name = "invalidInputFailureTests")
+    public Object[][] invalidInputFailureTestsDataProvider() {
+        return new Object[][]{
+                {"testIsolatedEvalFailureForInvalidInput"},
+                {"testNonIsolatedEvalFailureForInvalidInput"},
+                {"testIsolatedEvalFailureForInvalidInputWithDataProvider"},
+                {"testNonIsolatedEvalFailureForInvalidInputWithDataProvider"}
+        };
+    }
+
+    @Test(dataProvider = "invalidInputFailureTests",
+            description = "Test evaluation fails invalid input is provided")
+    public void testInvalidInputFailure(String testName) throws BallerinaTestException, IOException {
+        runTestAndVerify(testName, PACKAGE_NAME);
+    }
+
+//    // ==================== Iteration Error Tests ====================
+//
+//    @Test(description = "Test that isolated evaluation handles iteration error without data provider")
+//    public void testIsolatedEvalIterationError() throws BallerinaTestException, IOException {
+//        runTestAndVerify("testIsolatedEvalIterationError", PACKAGE_NAME);
+//    }
+//
+//    @Test(description = "Test that non-isolated evaluation handles iteration error without data provider")
+//    public void testNonIsolatedEvalIterationError() throws BallerinaTestException, IOException {
+//        runTestAndVerify("testNonIsolatedEvalIterationError", PACKAGE_NAME);
+//    }
+}
+

@@ -23,65 +23,6 @@ isolated function outStream() returns handle = @java:FieldGet {
     'class: "java.lang.System"
 } external;
 
-@test:Config
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedEvaluationFailsWhenConfidenceIsLowWithoutDataProvider() returns error? {
-    test:assertEquals(1, 2);
-}
-
-@test:Config {
-    dataProvider: goldenDataSet
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedEvaluationFailsWhenConfidenceIsLowWithDataProvider(string query) returns error? {
-    test:assertEquals(1, 2);
-}
-
-@test:Config {
-    dataProvider: goldenDataSet
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider(int query) returns error? {
-    value += 1;
-}
-
-@test:Config {
-    dataProvider: goldenDataSet
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithDataProvider(int query) returns error? {
-}
-
-@test:Config {
-    dataProvider: goldenDataSet
-}
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-isolated function testIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider(int query) returns error? {
-}
-
-@test:Config
-@test:EvalConfig {
-    confidence: 1,
-    iterations: 3
-}
-function testNonIsolatedEvaluationFailsForInvalidInputDataEntryTypeWithoutDataProvider(int query) returns error? {
-    value += 1;
-}
 
 @test:Config {
     dataProvider: goldenDataSet
