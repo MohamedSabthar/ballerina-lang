@@ -411,5 +411,12 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testEvalWithAfterForEach.txt", output);
     }
 
-    // check dependent skips for non data provider
+    @Test
+    public void testSkippingDependentEval() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "skip-dependent-evaluations"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testSkippingDependentEval.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testSkippingDependentEval.txt", output);
+    }
 }
