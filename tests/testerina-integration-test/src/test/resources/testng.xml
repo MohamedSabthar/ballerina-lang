@@ -47,7 +47,6 @@ under the License.
             <class name="org.ballerinalang.testerina.test.CodeCoverageReportTest" />
             <class name="org.ballerinalang.testerina.test.SourcelessTestExecutionTests"/>
             <class name="org.ballerinalang.testerina.test.DataProviderTest"/>
-            <class name="org.ballerinalang.testerina.test.evaluation.EvaluationTest"/>
             <class name="org.ballerinalang.testerina.test.CodegenCodeCoverageTest"/>
             <class name="org.ballerinalang.testerina.test.ExcludeFromCodeCoverageTest"/>
             <class name="org.ballerinalang.testerina.test.ConfigurableCliArgsTest"/>
@@ -57,5 +56,8 @@ under the License.
             <class name="org.ballerinalang.testerina.test.TestExecutionWithInitFailuresTest"/>
             <class name="org.ballerinalang.testerina.test.EscapedIdentifiersValidationTest"/>
         </classes>
+        <packages>
+            <package name="org.ballerinalang.testerina.test.evaluation"/>
+        </packages>
     </test>
 </suite>

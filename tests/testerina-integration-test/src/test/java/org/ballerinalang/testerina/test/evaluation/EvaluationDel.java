@@ -32,7 +32,7 @@ import java.util.HashMap;
 /**
  * Test class to test evaluation related implementation.
  */
-public class EvaluationTest extends BaseTestCase {
+public class EvaluationDel extends BaseTestCase {
 
     private BMainInstance balClient;
     private String projectPath;
