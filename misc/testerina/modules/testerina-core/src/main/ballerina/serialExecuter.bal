@@ -20,7 +20,9 @@ function executeTest(TestFunction testFunction) {
     }
 
     executeBeforeGroupFunctions(testFunction);
-    executeBeforeEachFunctions();
+    if !isEvaluationTest(testFunction) {
+        executeBeforeEachFunctions();
+    }
 
     boolean shouldSkipDependents = false;
     if !isSkipFunction(testFunction) {
@@ -34,7 +36,9 @@ function executeTest(TestFunction testFunction) {
         shouldSkipDependents = true;
     }
     testFunction.groups.forEach('group => groupStatusRegistry.incrementExecutedTest('group));
-    executeAfterEachFunctions();
+    if !isEvaluationTest(testFunction) {
+        executeAfterEachFunctions();
+    }
     executeAfterGroupFunctions(testFunction);
     finishTestExecution(testFunction, shouldSkipDependents);
 }
@@ -76,6 +80,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
     EvaluationRunWithDataSet[] entries = [];
 
     foreach int i in 1 ... iterations {
+        executeBeforeEachFunctions();
         string[] keys = [];
         AnyOrError[][] values = [];
         DataProviderReturnType? params = dataDrivenTestParams[testFunction.name];
@@ -133,6 +138,7 @@ function executeDataDrivenEvaluation(TestFunction testFunction) {
         float passRate = <float>passedEntries / totalEntries;
         entries.push({id: i, outcomes: outcomes.cloneReadOnly(), passRate});
         _ = executeAfterFunctionIsolated(testFunction);
+        executeAfterEachFunctions();
     }
 
     float cumulativePassRateSum = entries.'map(entry => entry.passRate)
@@ -177,6 +183,7 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
     boolean[] afterFunctionResults = [];
 
     foreach int i in 1 ... iterations {
+        executeBeforeEachFunctions();
         if executeBeforeFunction(testFunction) {
             executionManager.setSkip(testFunction.name);
             reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
@@ -189,6 +196,7 @@ function executeNonDataDrivenEvaluation(TestFunction testFunction) returns boole
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});
         boolean afterFunctionResult = executeAfterFunction(testFunction);
         afterFunctionResults.push(afterFunctionResult);
+        executeAfterEachFunctions();
     }
 
     float passRate = <float>passedIterations / iterations;

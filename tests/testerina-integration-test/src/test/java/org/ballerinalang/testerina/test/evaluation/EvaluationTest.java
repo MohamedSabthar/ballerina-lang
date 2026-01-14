@@ -15,10 +15,11 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.ballerinalang.testerina.test;
+package org.ballerinalang.testerina.test.evaluation;
 
 import org.ballerinalang.test.context.BMainInstance;
 import org.ballerinalang.test.context.BallerinaTestException;
+import org.ballerinalang.testerina.test.BaseTestCase;
 import org.ballerinalang.testerina.test.utils.AssertionUtils;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -392,5 +393,23 @@ public class EvaluationTest extends BaseTestCase {
         AssertionUtils.assertOutput("EvaluationTest-testNonIsolatedEvalAfterFunctionFailsWithDataProvider.txt", output);
     }
 
-    // skip eval if before/after fails
+    @Test
+    public void testEvalWithBeforeForEach() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "evaluation-before-each"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testEvalWithBeforeForEach.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testEvalWithBeforeForEach.txt", output);
+    }
+
+    @Test
+    public void testEvalWithAfterForEach() throws BallerinaTestException, IOException {
+        String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "evaluation-after-each"});
+        String output = balClient.runMainAndReadStdOut("test", args,
+                new HashMap<>(), projectPath, false);
+        writeTestOutToFile("EvaluationTest-testEvalWithAfterForEach.txt", output);
+        AssertionUtils.assertOutput("EvaluationTest-testEvalWithAfterForEach.txt", output);
+    }
+
+    // check dependent skips for non data provider
 }

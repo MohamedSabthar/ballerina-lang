@@ -19,7 +19,9 @@ isolated function executeTestIsolated(TestFunction testFunction, DataProviderRet
         return;
     }
     executeBeforeGroupFunctionsIsolated(testFunction);
-    executeBeforeEachFunctionsIsolated();
+    if !isEvaluationTest(testFunction) {
+        executeBeforeEachFunctionsIsolated();
+    }
     boolean shouldSkipDependents = false;
     if !isSkipFunction(testFunction) {
         if isDataDrivenTest(testFunctionArgs) {
@@ -32,7 +34,9 @@ isolated function executeTestIsolated(TestFunction testFunction, DataProviderRet
         shouldSkipDependents = true;
     }
     testFunction.groups.forEach('group => groupStatusRegistry.incrementExecutedTest('group));
-    executeAfterEachFunctionsIsolated();
+    if !isEvaluationTest(testFunction) {
+        executeAfterEachFunctionsIsolated();
+    }
     executeAfterGroupFunctionsIsolated(testFunction);
     finishTestExecution(testFunction, shouldSkipDependents);
 }
@@ -97,6 +101,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
     EvaluationRunWithDataSet[] entries = [];
 
     foreach int i in 1 ... evalConfig.iterations {
+        executeBeforeEachFunctionsIsolated();
         string[] keys = [];
         AnyOrError[][] values = [];
         _ = prepareDataSet(testFunctionArgs, keys, values);
@@ -157,6 +162,7 @@ isolated function executeDataDrivenEvaluationIsolated(TestFunction testFunction,
         float passRate = <float>passedEntries / totalEntries;
         entries.push({id: i, outcomes: outcomes.cloneReadOnly(), passRate});
         _ = executeAfterFunctionIsolated(testFunction);
+        executeAfterEachFunctionsIsolated();
     }
 
     float passRateSum = entries.'map(entry => entry.passRate)
@@ -204,6 +210,7 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
     boolean[] afterFunctionResults = [];
 
     foreach int i in 1 ... iterations {
+        executeBeforeEachFunctionsIsolated();
         if executeBeforeFunctionIsolated(testFunction) {
             executionManager.setSkip(testFunction.name);
             reportData.onSkipped(name = testFunction.name, testType = EVAL_TEST);
@@ -216,6 +223,7 @@ isolated function executeNonDataDrivenEvaluationIsolated(TestFunction testFuncti
         entries.push({id: i, errorMessage: getErrorMessageFromResult(result)});
         boolean afterFunctionResult = executeAfterFunctionIsolated(testFunction);
         afterFunctionResults.push(afterFunctionResult);
+        executeAfterEachFunctionsIsolated();
     }
 
     float passRate = <float>passedIterations / iterations;
