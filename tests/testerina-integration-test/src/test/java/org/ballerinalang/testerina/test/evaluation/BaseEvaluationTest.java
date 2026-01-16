@@ -21,7 +21,7 @@ package org.ballerinalang.testerina.test.evaluation;
 import org.ballerinalang.test.context.BMainInstance;
 import org.ballerinalang.test.context.BallerinaTestException;
 import org.ballerinalang.testerina.test.BaseTestCase;
-import org.ballerinalang.testerina.test.utils.AssertionUtils;
+import org.ballerinalang.testerina.test.utils.FileUtils;
 import org.testng.annotations.BeforeClass;
 
 import java.io.IOException;
@@ -36,14 +36,18 @@ import java.util.HashMap;
 public abstract class BaseEvaluationTest extends BaseTestCase {
 
     protected BMainInstance balClient;
-    protected String projectPath;
+    protected String evaluationProjectPath;
     protected static final String PARALLEL_FLAG = "--parallel";
-    protected static final Path COMMAND_OUTPUTS_DIR = Path.of("src", "test", "resources", "evaluation-test-outputs");
+    protected static final Path COMMAND_OUTPUTS_DIR = Path.of("src", "test", "resources", "evaluation-outputs");
 
     @BeforeClass()
-    public void setup() {
+    public void setup() throws IOException {
         balClient = new BMainInstance(balServer);
-        projectPath = projectBasedTestsPath.toString();
+        Path originalProjTestsDir = Path.of("src/test/resources/evaluation-tests").toAbsolutePath();
+        Path temporaryProjectTestDir = Files.createTempDirectory("bal-test-integration-testerina-project-")
+                .resolve("project-based-tests");
+        FileUtils.copyFolder(originalProjTestsDir, temporaryProjectTestDir);
+        evaluationProjectPath = temporaryProjectTestDir.toString();
     }
 
     /**
@@ -68,10 +72,10 @@ public abstract class BaseEvaluationTest extends BaseTestCase {
      */
     protected void runTestAndVerify(String testName, String packageName) throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", testName, packageName});
-        String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), projectPath, false);
+        String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), evaluationProjectPath, false);
         String fileName = getOutputFileName(testName);
         writeTestOutToFile(fileName, output);
-        AssertionUtils.assertOutput(fileName, output);
+        EvaluationUtils.assertOutput(fileName, output);
     }
 
     /**
@@ -83,10 +87,10 @@ public abstract class BaseEvaluationTest extends BaseTestCase {
      */
     protected void runPackageTestAndVerify(String packageName) throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, packageName});
-        String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), projectPath, false);
+        String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), evaluationProjectPath, false);
         String fileName = getOutputFileName(packageName);
         writeTestOutToFile(fileName, output);
-        AssertionUtils.assertOutput(fileName, output);
+        EvaluationUtils.assertOutput(fileName, output);
     }
 
     /**
