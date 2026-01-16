@@ -36,8 +36,8 @@ public class HooksTest extends BaseEvaluationTest {
     @DataProvider(name = "beforeHookTests")
     public Object[][] beforeHookTestsDataProvider() {
         return new Object[][]{
-                {"testNonIsolatedEvalBeforeFunctionWithoutDataProvider"},
-                {"testIsolatedEvalBeforeFunctionWithoutDataProvider"},
+                {"testNonIsolatedEvalBeforeFunction"},
+                {"testIsolatedEvalBeforeFunction"},
                 {"testIsolatedEvalBeforeFunctionWithDataProvider"},
                 {"testNonIsolatedEvalBeforeFunctionWithDataProvider"}
         };
@@ -56,8 +56,8 @@ public class HooksTest extends BaseEvaluationTest {
     @DataProvider(name = "afterHookTests")
     public Object[][] afterHookTestsDataProvider() {
         return new Object[][]{
-                {"testNonIsolatedEvalAfterFunctionWithoutDataProvider"},
-                {"testIsolatedEvalAfterFunctionWithoutDataProvider"},
+                {"testNonIsolatedEvalAfterFunction"},
+                {"testIsolatedEvalAfterFunction"},
                 {"testIsolatedEvalAfterEvalFunctionWithDataProvider"},
                 {"testNonIsolatedEvalAfterFunctionWithDataProvider"}
         };

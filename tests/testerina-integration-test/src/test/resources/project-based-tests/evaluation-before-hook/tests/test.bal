@@ -29,7 +29,7 @@ int value = 0;
     confidence: 1,
     iterations: 3
 }
-function testNonIsolatedEvalBeforeFunctionWithoutDataProvider() returns error? {
+function testNonIsolatedEvalBeforeFunction() returns error? {
     value += 1;
     println("run");
 }
@@ -41,7 +41,7 @@ function testNonIsolatedEvalBeforeFunctionWithoutDataProvider() returns error? {
     confidence: 1,
     iterations: 3
 }
-function testIsolatedEvalBeforeFunctionWithoutDataProvider() returns error? {
+function testIsolatedEvalBeforeFunction() returns error? {
     value += 1;
     println("run");
 }

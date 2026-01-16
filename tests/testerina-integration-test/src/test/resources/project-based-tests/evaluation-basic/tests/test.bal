@@ -30,7 +30,7 @@ isolated function goldenDataSet() returns map<[string]> {
     confidence: 1,
     iterations: 3
 }
-isolated function testIsolatedEvalWithoutDataProvider() returns error? {
+isolated function testIsolatedEval() returns error? {
 }
 
 int value = 0;
@@ -40,7 +40,7 @@ int value = 0;
     confidence: 1,
     iterations: 3
 }
-function testNonIsolatedEvalWithoutDataProvider() returns error? {
+function testNonIsolatedEval() returns error? {
     value += 1;
 }
 

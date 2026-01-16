@@ -29,7 +29,7 @@ int value = 0;
     confidence: 1,
     iterations: 3
 }
-isolated function testIsolatedEvalAfterFunctionWithoutDataProvider() returns error? {
+isolated function testIsolatedEvalAfterFunction() returns error? {
     println("run");
 }
 
@@ -40,7 +40,7 @@ isolated function testIsolatedEvalAfterFunctionWithoutDataProvider() returns err
     confidence: 1,
     iterations: 3
 }
-function testNonIsolatedEvalAfterFunctionWithoutDataProvider() returns error? {
+function testNonIsolatedEvalAfterFunction() returns error? {
     value += 1;
     println("run");
 }

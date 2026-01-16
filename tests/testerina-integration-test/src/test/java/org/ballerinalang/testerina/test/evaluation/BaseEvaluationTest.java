@@ -35,10 +35,10 @@ import java.util.HashMap;
  */
 public abstract class BaseEvaluationTest extends BaseTestCase {
 
-    private BMainInstance balClient;
-    private String projectPath;
-    private static final String PARALLEL_FLAG = "--parallel";
-    private static final Path COMMAND_OUTPUTS_DIR = Path.of("src", "test", "resources", "command-outputs");
+    protected BMainInstance balClient;
+    protected String projectPath;
+    protected static final String PARALLEL_FLAG = "--parallel";
+    protected static final Path COMMAND_OUTPUTS_DIR = Path.of("src", "test", "resources", "evaluation-test-outputs");
 
     @BeforeClass()
     public void setup() {
@@ -66,7 +66,7 @@ public abstract class BaseEvaluationTest extends BaseTestCase {
      * @throws BallerinaTestException If test execution fails
      * @throws IOException            If output verification fails
      */
-    public void runTestAndVerify(String testName, String packageName) throws BallerinaTestException, IOException {
+    protected void runTestAndVerify(String testName, String packageName) throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, "--tests", testName, packageName});
         String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), projectPath, false);
         String fileName = getOutputFileName(testName);
@@ -81,7 +81,7 @@ public abstract class BaseEvaluationTest extends BaseTestCase {
      * @throws BallerinaTestException If test execution fails
      * @throws IOException            If output verification fails
      */
-    public void runPackageTestAndVerify(String packageName) throws BallerinaTestException, IOException {
+    protected void runPackageTestAndVerify(String packageName) throws BallerinaTestException, IOException {
         String[] args = mergeCoverageArgs(new String[]{PARALLEL_FLAG, packageName});
         String output = balClient.runMainAndReadStdOut("test", args, new HashMap<>(), projectPath, false);
         String fileName = getOutputFileName(packageName);
@@ -95,7 +95,7 @@ public abstract class BaseEvaluationTest extends BaseTestCase {
      * @param testName The name of the test
      * @return The output file name
      */
-    public String getOutputFileName(String testName) {
+    protected String getOutputFileName(String testName) {
         return getClass().getSimpleName() + "-" + testName + ".txt";
     }
 }

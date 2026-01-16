@@ -39,8 +39,8 @@ public class BasicExecutionTest extends BaseEvaluationTest {
     @DataProvider(name = "basicExecutionTests")
     public Object[][] basicExecutionTestsDataProvider() {
         return new Object[][]{
-                {"testIsolatedEvalWithoutDataProvider"},
-                {"testNonIsolatedEvalWithoutDataProvider"},
+                {"testIsolatedEval"},
+                {"testNonIsolatedEval"},
                 {"testIsolatedEvalWithDataProvider"},
                 {"testNonIsolatedEvalWithDataProvider"}
         };
