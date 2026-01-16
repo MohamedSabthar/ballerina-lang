@@ -1,0 +1,6 @@
+WARNING: Running tests in parallel is an experimental feature
+ballerina: invalid package path: /private/var/folders/9p/xrlw0rq962lf9p702c0lgz980000gn/T/bal-test-integration-testerina-project-14729313709952265609/project-based-tests/evaluation-before-each. Please provide a valid Ballerina package, workspace or a standalone file.
+
+USAGE:
+    bal test [--OPTIONS]
+                   [<ballerina-file> | <package-path>] [(-Ckey=value)...]
