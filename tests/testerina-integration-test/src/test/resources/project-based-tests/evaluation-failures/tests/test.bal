@@ -139,3 +139,46 @@ isolated function testIsolatedEvalFailureForNonReadOnlyDataEntry() returns error
 function testNonIsolatedEvalFailureForNonReadOnlyDataEntry() returns error? {
     value += 1;
 }
+
+@test:Config
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalReturningError(string query) returns error? {
+    return error("inavalid response returned from the model");
+}
+
+@test:Config
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalReturningError(string query) returns error? {
+    value += 1;
+    return error("inavalid response returned from the model");
+}
+
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+isolated function testIsolatedEvalReturningErrorWithDataProvider() returns error? {
+    return error("inavalid response returned from the model");
+}
+
+@test:Config {
+    dataProvider: goldenDataSet
+}
+@test:EvalConfig {
+    confidence: 1,
+    iterations: 3
+}
+function testNonIsolatedEvalReturningErrorWithDataProvider() returns error? {
+    value += 1;
+    return error("inavalid response returned from the model");
+}
+

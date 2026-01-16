@@ -51,7 +51,7 @@ public class EvaluationFailureReportTest extends BaseEvaluationTest {
     }
 
     /**
-     * Provides test data invalid test input failure scenarios.
+     * Provides test data for invalid test input failure scenarios.
      */
     @DataProvider(name = "invalidInputFailureTests")
     public Object[][] invalidInputFailureTestsDataProvider() {
@@ -68,21 +68,28 @@ public class EvaluationFailureReportTest extends BaseEvaluationTest {
     }
 
     @Test(dataProvider = "invalidInputFailureTests",
-            description = "Test evaluation fails invalid input is provided")
+            description = "Evaluation fails when invalid input is provided")
     public void testInvalidInputFailure(String testName) throws BallerinaTestException, IOException {
         runTestAndVerify(testName, PACKAGE_NAME);
     }
 
-//    // ==================== Iteration Error Tests ====================
-//
-//    @Test(description = "Test that isolated evaluation handles iteration error without data provider")
-//    public void testIsolatedEvalIterationError() throws BallerinaTestException, IOException {
-//        runTestAndVerify("testIsolatedEvalIterationError", PACKAGE_NAME);
-//    }
-//
-//    @Test(description = "Test that non-isolated evaluation handles iteration error without data provider")
-//    public void testNonIsolatedEvalIterationError() throws BallerinaTestException, IOException {
-//        runTestAndVerify("testNonIsolatedEvalIterationError", PACKAGE_NAME);
-//    }
+    /**
+     * Provides test data for scenarios where the evaluation logic returns an error.
+     */
+    @DataProvider(name = "evaluationReturningErrorTests")
+    public Object[][] evaluationReturningErrorTestsDataProvider() {
+        return new Object[][]{
+                {"testIsolatedEvalReturningError"},
+                {"testNonIsolatedEvalReturningError"},
+                {"testIsolatedEvalReturningErrorWithDataProvider"},
+                {"testNonIsolatedEvalReturningErrorWithDataProvider"}
+        };
+    }
+
+    @Test(dataProvider = "evaluationReturningErrorTests",
+            description = "Tests scenarios where the evaluation logic returns an error")
+    public void valuationReturningErrorTests(String testName) throws BallerinaTestException, IOException {
+        runTestAndVerify(testName, PACKAGE_NAME);
+    }
 }
 
